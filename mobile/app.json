@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Build One Timesheets",
+    "slug": "buildone-timesheets",
+    "version": "0.1.0",
+    "scheme": "buildone",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0ABFA3",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.buildone.timesheets",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to sign in to your timesheet."
+      }
+    },
+    "android": {
+      "package": "com.buildone.timesheets"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-local-authentication",
+      [
+        "expo-notifications",
+        {
+          "color": "#0ABFA3"
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

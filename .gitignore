@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# expo
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# scratch
+.tmp-sqlcheck/
+
+# supabase
+.branches/
+.temp/
+supabase/.branches/
+supabase/.temp/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+xero-credentials.json
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

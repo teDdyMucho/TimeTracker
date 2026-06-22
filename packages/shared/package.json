@@ -1,0 +1,19 @@
+{
+  "name": "@buildone/shared",
+  "version": "0.1.0",
+  "description": "Shared domain model and labour-cost / overtime engine for the Build One timesheet platform",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/labourEngine.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
