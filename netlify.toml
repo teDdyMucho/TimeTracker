@@ -1,0 +1,10 @@
+[build]
+  base    = "admin"
+  command = "npm run build"
+  publish = "admin/.next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
