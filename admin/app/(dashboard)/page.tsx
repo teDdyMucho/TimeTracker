@@ -1,7 +1,8 @@
-import { createClient } from '@/lib/server'
+﻿import { createClient } from '@/lib/server'
 import { StatsCard, Card, Badge, PageHeader } from '@/components/ui'
 import { Users, Clock, Timer, Banknote } from 'lucide-react'
 import Link from 'next/link'
+import { formatHours } from '@/lib/format'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -53,7 +54,7 @@ export default async function DashboardPage() {
         subtitle={`Week of ${weekStart}`}
       />
 
-      {/* ── Stats ──────────────────────────────────────────────── */}
+      {/* â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <StatsCard
           title="Active Employees"
@@ -64,7 +65,7 @@ export default async function DashboardPage() {
         />
         <StatsCard
           title="Hours This Week"
-          value={`${weekHours} h`}
+          value={formatHours(weekHours)}
           icon={<Clock size={20} className="text-indigo-500" />}
           iconBg="bg-indigo-50"
           href="/timesheets"
@@ -82,11 +83,11 @@ export default async function DashboardPage() {
           value={
             lastPayroll
               ? `$${Number(lastPayroll.total_gross).toLocaleString('en-AU', { maximumFractionDigits: 0 })}`
-              : '—'
+              : 'â€”'
           }
           subtitle={
             lastPayroll
-              ? `${lastPayroll.period_start} – ${lastPayroll.period_end}`
+              ? `${lastPayroll.period_start} â€“ ${lastPayroll.period_end}`
               : 'No runs yet'
           }
           icon={<Banknote size={20} className="text-emerald-600" />}
@@ -95,7 +96,7 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* ── Recent Timesheets ──────────────────────────────────── */}
+      {/* â”€â”€ Recent Timesheets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Card>
         <div className="flex justify-between items-center mb-5">
           <h2 className="font-bold text-ink text-base tracking-tight">Recent Timesheets</h2>
@@ -103,7 +104,7 @@ export default async function DashboardPage() {
             href="/timesheets"
             className="text-brand text-xs font-semibold hover:underline underline-offset-2 transition-opacity hover:opacity-80"
           >
-            View all →
+            View all â†’
           </Link>
         </div>
 
@@ -123,16 +124,16 @@ export default async function DashboardPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200">
               {(recentRes.data ?? []).map((t: any) => (
                 <tr key={t.id} className="hover:bg-slate-50/60 transition-colors group">
                   <td className="py-3 pr-4 font-semibold text-ink">
-                    {t.profiles?.name ?? '—'}
+                    {t.profiles?.name ?? 'â€”'}
                   </td>
                   <td className="py-3 pr-4 text-muted text-xs font-medium">{t.work_date}</td>
-                  <td className="py-3 pr-4 text-muted">{t.projects?.name ?? '—'}</td>
+                  <td className="py-3 pr-4 text-muted">{t.projects?.name ?? 'â€”'}</td>
                   <td className="py-3 pr-4 capitalize text-muted text-xs">{t.work_location}</td>
-                  <td className="py-3 pr-4 font-bold text-ink">{Number(t.hours)} h</td>
+                  <td className="py-3 pr-4 font-bold text-ink">{formatHours(t.hours)}</td>
                   <td className="py-3">
                     <Badge
                       status={t.overtime_status !== 'none' ? t.overtime_status : t.status}

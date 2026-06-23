@@ -1,8 +1,9 @@
-'use client'
+﻿'use client'
 import { useState, useTransition } from 'react'
 import { CheckCircle, XCircle } from 'lucide-react'
 import { Card, Badge } from '@/components/ui'
 import { approveOvertimeAction, rejectOvertimeAction } from './actions'
+import { formatHours } from '@/lib/format'
 
 interface OvertimeRequest {
   id: string
@@ -79,7 +80,7 @@ export default function OvertimeClient({
                     <span className="text-muted text-sm">{req.profiles?.email}</span>
                   </div>
                   <div className="text-sm text-muted mb-2">
-                    {ts?.work_date} · {Number(ts?.hours)} h · {ts?.work_location} · {ts?.projects?.name}
+                    {ts?.work_date} &middot; {formatHours(ts?.hours)} &middot; {ts?.work_location} &middot; {ts?.projects?.name}
                   </div>
                   <div className="text-sm text-ink bg-slate-50 rounded-lg px-3 py-2">
                     &ldquo;{req.reason}&rdquo;
@@ -138,12 +139,12 @@ export default function OvertimeClient({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200">
                 {recent.map((req: any) => (
                   <tr key={req.id} className="hover:bg-slate-50">
                     <td className="py-3 pr-4 font-medium">{req.profiles?.name}</td>
                     <td className="py-3 pr-4 text-muted">{req.timesheets?.work_date}</td>
-                    <td className="py-3 pr-4">{Number(req.timesheets?.hours)} h</td>
+                    <td className="py-3 pr-4">{formatHours(req.timesheets?.hours)}</td>
                     <td className="py-3 pr-4"><Badge status={req.status} /></td>
                     <td className="py-3 text-muted">
                       {req.reviewed_at

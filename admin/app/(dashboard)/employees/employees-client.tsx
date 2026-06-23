@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import { Button, Badge, Card, PageHeader } from '@/components/ui'
 import InviteEmployeeForm from './invite-form'
@@ -63,7 +63,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200">
               {profiles.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 pr-4 font-medium">{p.name}</td>
@@ -75,7 +75,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                     {p.employment_type?.replace('_', ' ')}
                   </td>
                   <td className="py-3 pr-4 text-muted text-xs">
-                    {p.business_access.map((id) => entityMap[id] ?? id).join(', ') || '—'}
+                    {p.business_access.map((id) => entityMap[id] ?? id).join(', ') || 'â€”'}
                   </td>
                   <td className="py-3 pr-4">
                     <Badge status={p.status} />

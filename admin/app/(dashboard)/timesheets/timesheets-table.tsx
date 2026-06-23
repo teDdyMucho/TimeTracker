@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 import { useState, useTransition } from 'react'
 import { CheckCircle, XCircle, X } from 'lucide-react'
 import { Badge } from '@/components/ui'
+import { formatHours } from '@/lib/format'
 import { approveTimesheetAction, rejectTimesheetAction } from './actions'
 
 interface Timesheet {
@@ -68,16 +69,16 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200">
             {rows.map((t) => {
               const isActing = actingOn?.id === t.id
               return (
                 <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 pr-4 font-semibold text-ink">{t.profiles?.name ?? '—'}</td>
+                  <td className="py-3 pr-4 font-semibold text-ink">{t.profiles?.name ?? 'â€”'}</td>
                   <td className="py-3 pr-4 text-muted text-xs font-medium">{t.work_date}</td>
-                  <td className="py-3 pr-4 text-muted max-w-[160px] truncate">{t.projects?.name ?? '—'}</td>
+                  <td className="py-3 pr-4 text-muted max-w-[160px] truncate">{t.projects?.name ?? 'â€”'}</td>
                   <td className="py-3 pr-4 capitalize text-muted text-xs">{t.work_location}</td>
-                  <td className="py-3 pr-4 font-bold text-ink">{Number(t.hours)} h</td>
+                  <td className="py-3 pr-4 font-bold text-ink">{formatHours(t.hours)}</td>
                   <td className="py-3 pr-4">
                     <Badge status={t.overtime_status !== 'none' ? t.overtime_status : t.status} />
                   </td>

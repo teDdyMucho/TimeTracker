@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/server'
+﻿import { createAdminClient } from '@/lib/server'
 import { Card, PageHeader } from '@/components/ui'
 import AutoRefresh from './auto-refresh'
 import PhotoPreview from './photo-preview'
@@ -93,7 +93,7 @@ export default async function AttendancePage() {
       <AutoRefresh intervalSeconds={30} />
       <PageHeader
         title="Attendance"
-        subtitle={`${active.length} currently on the clock · auto-refreshes every 30 s`}
+        subtitle={`${active.length} currently on the clock Â· auto-refreshes every 30 s`}
       />
 
       <Card>
@@ -116,7 +116,7 @@ export default async function AttendancePage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200">
                 {sorted.map((s) => {
                   const isActive = !s.clocked_out_at
                   return (
@@ -130,20 +130,20 @@ export default async function AttendancePage() {
                           <PhotoPreview src={s.selfie_url} name={s.profiles?.name ?? 'Employee'} />
                         ) : (
                           <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-base">
-                            👤
+                            ðŸ‘¤
                           </div>
                         )}
                       </td>
 
                       {/* Employee */}
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-ink">{s.profiles?.name ?? '—'}</p>
+                        <p className="font-semibold text-ink">{s.profiles?.name ?? 'â€”'}</p>
                         <p className="text-muted text-xs">{s.profiles?.email ?? ''}</p>
                       </td>
 
                       {/* Company */}
                       <td className="py-3 pr-4 text-xs text-muted whitespace-nowrap">
-                        {s.business_entities?.name ?? '—'}
+                        {s.business_entities?.name ?? 'â€”'}
                       </td>
 
                       {/* Date */}
@@ -153,12 +153,12 @@ export default async function AttendancePage() {
 
                       {/* Project */}
                       <td className="py-3 pr-4 font-medium text-ink">
-                        {s.projects?.name ?? '—'}
+                        {s.projects?.name ?? 'â€”'}
                       </td>
 
                       {/* Work type */}
                       <td className="py-3 pr-4 whitespace-nowrap text-xs text-muted">
-                        {s.work_location === 'site' ? '🏗 Site' : '🏭 Factory'}
+                        {s.work_location === 'site' ? 'ðŸ— Site' : 'ðŸ­ Factory'}
                       </td>
 
                       {/* Status */}
@@ -184,7 +184,7 @@ export default async function AttendancePage() {
                       {/* Clock Out */}
                       <td className="py-3 pr-4 text-muted whitespace-nowrap text-xs">
                         {s.clocked_out_at ? formatTime(s.clocked_out_at) : (
-                          <span className="text-slate-300">—</span>
+                          <span className="text-slate-300">â€”</span>
                         )}
                       </td>
 
@@ -192,7 +192,7 @@ export default async function AttendancePage() {
                       <td className="py-3 pr-4 font-semibold text-ink whitespace-nowrap text-xs">
                         {s.clocked_out_at
                           ? formatDuration(s.clocked_in_at, s.clocked_out_at)
-                          : <span className="text-slate-300">—</span>}
+                          : <span className="text-slate-300">â€”</span>}
                       </td>
 
                       {/* Address */}
@@ -209,7 +209,7 @@ export default async function AttendancePage() {
                                   rel="noreferrer"
                                   className="text-brand hover:underline"
                                 >
-                                  Map ↗
+                                  Map â†—
                                 </a>
                               </>
                             )}
@@ -221,10 +221,10 @@ export default async function AttendancePage() {
                             rel="noreferrer"
                             className="text-brand text-xs hover:underline whitespace-nowrap"
                           >
-                            📍 Map
+                            ðŸ“ Map
                           </a>
                         ) : (
-                          <span className="text-slate-300 text-xs">—</span>
+                          <span className="text-slate-300 text-xs">â€”</span>
                         )}
                       </td>
                     </tr>
