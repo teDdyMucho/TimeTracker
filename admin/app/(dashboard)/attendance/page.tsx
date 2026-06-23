@@ -116,7 +116,7 @@ export default async function AttendancePage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {sorted.map((s) => {
                   const isActive = !s.clocked_out_at
                   return (

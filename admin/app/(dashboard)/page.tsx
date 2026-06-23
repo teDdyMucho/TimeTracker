@@ -123,7 +123,7 @@ export default async function DashboardPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {(recentRes.data ?? []).map((t: any) => (
                 <tr key={t.id} className="hover:bg-slate-50/60 transition-colors group">
                   <td className="py-3 pr-4 font-semibold text-ink">

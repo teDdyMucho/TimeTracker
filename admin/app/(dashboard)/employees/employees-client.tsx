@@ -63,7 +63,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {profiles.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 pr-4 font-medium">{p.name}</td>
@@ -82,10 +82,10 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                   </td>
                   <td className="py-3">
                     {p.role !== 'admin' && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setEditing(p)}
-                          className="text-xs px-2.5 py-1 rounded-lg font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                          className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all shadow-sm"
                         >
                           Edit
                         </button>
@@ -94,10 +94,10 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                           <input type="hidden" name="current_status" value={p.status} />
                           <button
                             type="submit"
-                            className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm ${
                               p.status === 'active'
-                                ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                : 'bg-emerald-500 text-white hover:bg-emerald-600'
                             }`}
                           >
                             {p.status === 'active' ? 'Deactivate' : 'Activate'}

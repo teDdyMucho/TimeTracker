@@ -90,10 +90,12 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'approve')}
-                    className="px-4 py-2 bg-green-50 text-green-700 hover:bg-green-100 font-semibold text-sm rounded-xl transition-colors whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
-                    {isActing && actingOn?.action === 'approve' && (
-                      <span className="w-3.5 h-3.5 border-2 border-green-700 border-t-transparent rounded-full animate-spin" />
+                    {isActing && actingOn?.action === 'approve' ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <CheckCircle size={14} />
                     )}
                     Approve
                   </button>
@@ -101,10 +103,12 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'reject')}
-                    className="px-4 py-2 bg-red-50 text-red-700 hover:bg-red-100 font-semibold text-sm rounded-xl transition-colors whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
-                    {isActing && actingOn?.action === 'reject' && (
-                      <span className="w-3.5 h-3.5 border-2 border-red-700 border-t-transparent rounded-full animate-spin" />
+                    {isActing && actingOn?.action === 'reject' ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <XCircle size={14} />
                     )}
                     Reject
                   </button>
@@ -134,7 +138,7 @@ export default function OvertimeClient({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {recent.map((req: any) => (
                   <tr key={req.id} className="hover:bg-slate-50">
                     <td className="py-3 pr-4 font-medium">{req.profiles?.name}</td>

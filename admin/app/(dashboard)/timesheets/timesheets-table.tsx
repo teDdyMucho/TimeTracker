@@ -68,7 +68,7 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-100">
             {rows.map((t) => {
               const isActing = actingOn?.id === t.id
               return (
@@ -83,36 +83,44 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
                   </td>
                   <td className="py-3">
                     {t.status === 'submitted' && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <button
                           type="button"
                           disabled={isPending}
                           onClick={() => handleAction(t.id, 'approve')}
-                          className="text-xs px-2.5 py-1 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-1"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition-all shadow-sm disabled:opacity-50"
                         >
                           {isActing && actingOn?.action === 'approve' ? (
-                            <span className="w-3 h-3 border-2 border-green-700 border-t-transparent rounded-full animate-spin inline-block" />
-                          ) : null}
+                            <span className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <CheckCircle size={12} />
+                          )}
                           Approve
                         </button>
                         <button
                           type="button"
                           disabled={isPending}
                           onClick={() => handleAction(t.id, 'reject')}
-                          className="text-xs px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-1"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all shadow-sm disabled:opacity-50"
                         >
                           {isActing && actingOn?.action === 'reject' ? (
-                            <span className="w-3 h-3 border-2 border-red-700 border-t-transparent rounded-full animate-spin inline-block" />
-                          ) : null}
+                            <span className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <XCircle size={12} />
+                          )}
                           Reject
                         </button>
                       </div>
                     )}
                     {t.status === 'approved' && (
-                      <span className="text-xs text-green-600 font-medium">✓ Approved</span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        <CheckCircle size={12} /> Approved
+                      </span>
                     )}
                     {t.status === 'rejected' && (
-                      <span className="text-xs text-red-500 font-medium">✗ Rejected</span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-600 border border-red-100">
+                        <XCircle size={12} /> Rejected
+                      </span>
                     )}
                   </td>
                 </tr>

@@ -38,31 +38,34 @@ export default async function TimesheetsPage({
       <PageHeader title="Timesheets" subtitle="Review and approve submitted timesheets" />
 
       {/* Filters */}
-      <form method="GET" className="flex flex-wrap gap-3 mb-6">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted">From</label>
+      <form
+        method="GET"
+        className="flex flex-wrap items-end gap-4 mb-6 bg-white rounded-2xl border border-slate-100 px-5 py-4 shadow-card"
+      >
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-semibold text-muted uppercase tracking-widest">From</label>
           <input
             type="date"
             name="from"
             defaultValue={from}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted">To</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-semibold text-muted uppercase tracking-widest">To</label>
           <input
             type="date"
             name="to"
             defaultValue={to}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted">Status</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-semibold text-muted uppercase tracking-widest">Status</label>
           <select
             name="status"
             defaultValue={statusFilter}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all"
           >
             <option value="submitted">Submitted</option>
             <option value="approved">Approved</option>
@@ -73,9 +76,10 @@ export default async function TimesheetsPage({
         </div>
         <button
           type="submit"
-          className="bg-brand text-white font-semibold rounded-xl px-4 py-2 text-sm hover:bg-teal-500 transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white shadow-sm active:scale-95 transition-all hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #0ABFA3, #089E87)' }}
         >
-          Filter
+          Apply Filter
         </button>
       </form>
 

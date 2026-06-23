@@ -20,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             backgroundSize: '22px 22px',
           }}
         >
-          <div className="p-8 animate-fade-in-up">{children}</div>
+          <div className="p-8 animate-fade-in">{children}</div>
         </div>
       </main>
     </div>
