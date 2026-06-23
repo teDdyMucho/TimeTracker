@@ -2,23 +2,23 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import clsx from 'clsx'
 
-// ─── Card ────────────────────────────────────────────────────────────────────
+// ─── Card ─────────────────────────────────────────────────────────────────────
 
-export function Card({
-  children,
-  className,
-}: {
-  children: ReactNode
-  className?: string
-}) {
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={clsx('bg-white rounded-2xl border border-slate-100 p-5 shadow-sm', className)}>
+    <div
+      className={clsx(
+        'bg-white rounded-2xl border border-slate-100 p-6',
+        'shadow-[0_1px_3px_rgba(0,0,0,0.04),_0_1px_2px_rgba(0,0,0,0.03)]',
+        className,
+      )}
+    >
       {children}
     </div>
   )
 }
 
-// ─── Stats Card ──────────────────────────────────────────────────────────────
+// ─── Stats Card ───────────────────────────────────────────────────────────────
 
 export function StatsCard({
   title,
@@ -27,6 +27,7 @@ export function StatsCard({
   icon,
   href,
   alert,
+  iconBg,
 }: {
   title: string
   value: string | number
@@ -34,20 +35,41 @@ export function StatsCard({
   icon: ReactNode
   href?: string
   alert?: boolean
+  iconBg?: string
 }) {
   const inner = (
-    <div className={clsx('bg-white rounded-2xl border p-5 shadow-sm', alert ? 'border-amber-200' : 'border-slate-100')}>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-muted uppercase tracking-wide">{title}</span>
-        {icon}
+    <div
+      className={clsx(
+        'bg-white rounded-2xl border p-6 transition-all duration-300',
+        'shadow-[0_1px_3px_rgba(0,0,0,0.04)]',
+        'hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.08)]',
+        alert ? 'border-amber-100' : 'border-slate-100',
+      )}
+    >
+      <div className="flex items-start justify-between mb-5">
+        <div
+          className={clsx(
+            'w-11 h-11 rounded-xl flex items-center justify-center',
+            iconBg ?? (alert ? 'bg-amber-50' : 'bg-brand/10'),
+          )}
+        >
+          {icon}
+        </div>
       </div>
-      <div className="text-3xl font-bold text-ink">{value}</div>
-      {subtitle && <div className="text-xs text-muted mt-1">{subtitle}</div>}
+      <div className="text-[2rem] font-bold text-ink tracking-tight leading-none mb-2">
+        {value}
+      </div>
+      <div className="text-[11px] font-semibold text-muted uppercase tracking-widest">
+        {title}
+      </div>
+      {subtitle && (
+        <div className="text-xs text-muted mt-1.5 truncate">{subtitle}</div>
+      )}
     </div>
   )
 
   return href ? (
-    <Link href={href} className="block hover:opacity-90 transition-opacity">
+    <Link href={href} className="block">
       {inner}
     </Link>
   ) : (
@@ -55,7 +77,7 @@ export function StatsCard({
   )
 }
 
-// ─── Page Header ─────────────────────────────────────────────────────────────
+// ─── Page Header ──────────────────────────────────────────────────────────────
 
 export function PageHeader({
   title,
@@ -67,47 +89,56 @@ export function PageHeader({
   action?: ReactNode
 }) {
   return (
-    <div className="flex items-start justify-between mb-6">
+    <div className="flex items-start justify-between mb-7">
       <div>
-        <h1 className="text-2xl font-bold text-ink">{title}</h1>
-        {subtitle && <p className="text-muted text-sm mt-0.5">{subtitle}</p>}
+        <h1 className="text-2xl font-bold text-ink tracking-tight">{title}</h1>
+        {subtitle && (
+          <p className="text-muted text-sm mt-1 font-medium">{subtitle}</p>
+        )}
       </div>
       {action}
     </div>
   )
 }
 
-// ─── Badge ───────────────────────────────────────────────────────────────────
+// ─── Badge ────────────────────────────────────────────────────────────────────
 
 const BADGE_STYLES: Record<string, string> = {
-  submitted: 'bg-blue-50 text-blue-700',
-  approved: 'bg-green-50 text-green-700',
-  rejected: 'bg-red-50 text-red-700',
-  locked: 'bg-slate-100 text-slate-600',
-  pending: 'bg-amber-50 text-amber-700',
-  draft: 'bg-slate-100 text-slate-600',
-  finalised: 'bg-green-50 text-green-700',
-  paid: 'bg-brand/10 text-brand',
-  failed: 'bg-red-50 text-red-700',
-  active: 'bg-green-50 text-green-700',
-  inactive: 'bg-slate-100 text-slate-500',
-  none: 'bg-slate-50 text-slate-400',
+  submitted:  'bg-blue-50   text-blue-700',
+  approved:   'bg-emerald-50 text-emerald-700',
+  rejected:   'bg-red-50    text-red-700',
+  locked:     'bg-slate-100 text-slate-600',
+  pending:    'bg-amber-50  text-amber-700',
+  draft:      'bg-slate-100 text-slate-500',
+  finalised:  'bg-emerald-50 text-emerald-700',
+  paid:       'bg-brand/10  text-brand',
+  failed:     'bg-red-50    text-red-700',
+  active:     'bg-emerald-50 text-emerald-700',
+  inactive:   'bg-slate-100 text-slate-500',
+  none:       'bg-slate-50  text-slate-400',
+  admin:      'bg-violet-50 text-violet-700',
+  employee:   'bg-sky-50    text-sky-700',
+  full_time:  'bg-brand/8   text-brand',
+  part_time:  'bg-indigo-50 text-indigo-600',
+  contractor: 'bg-orange-50 text-orange-700',
 }
 
 export function Badge({ status }: { status: string }) {
+  const display = status.replace(/_/g, ' ')
   return (
     <span
       className={clsx(
-        'inline-block px-2 py-0.5 rounded-md text-xs font-medium capitalize',
+        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize',
         BADGE_STYLES[status] ?? 'bg-slate-100 text-slate-600',
       )}
     >
-      {status}
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60 shrink-0" />
+      {display}
     </span>
   )
 }
 
-// ─── Button ──────────────────────────────────────────────────────────────────
+// ─── Button ───────────────────────────────────────────────────────────────────
 
 export function Button({
   label,
@@ -117,6 +148,7 @@ export function Button({
   disabled,
   className,
   onClick,
+  loading,
 }: {
   label: string
   type?: 'button' | 'submit' | 'reset'
@@ -125,27 +157,35 @@ export function Button({
   disabled?: boolean
   className?: string
   onClick?: () => void
+  loading?: boolean
 }) {
-  const base = 'inline-flex items-center justify-center font-semibold rounded-xl transition-colors disabled:opacity-50'
-  const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2.5 text-sm' }
+  const base =
+    'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 active:scale-[0.97]'
+  const sizes = {
+    sm: 'px-3.5 py-1.5 text-xs',
+    md: 'px-5 py-2.5 text-sm',
+  }
   const variants = {
-    primary: 'bg-brand text-white hover:bg-teal-500',
-    ghost: 'bg-slate-100 text-ink hover:bg-slate-200',
-    danger: 'bg-red-50 text-red-700 hover:bg-red-100',
+    primary: 'bg-brand text-white hover:bg-brand-dark shadow-sm hover:shadow-glow-brand',
+    ghost:   'bg-slate-100 text-ink hover:bg-slate-200',
+    danger:  'bg-red-50 text-red-700 hover:bg-red-100',
   }
   return (
     <button
       type={type}
-      disabled={disabled}
+      disabled={disabled || loading}
       onClick={onClick}
       className={clsx(base, sizes[size], variants[variant], className)}
     >
+      {loading && (
+        <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      )}
       {label}
     </button>
   )
 }
 
-// ─── Table ───────────────────────────────────────────────────────────────────
+// ─── Table ────────────────────────────────────────────────────────────────────
 
 export function Table({
   headers,
@@ -160,17 +200,18 @@ export function Table({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left border-b border-slate-100">
+          <tr className="border-b border-slate-100">
             {headers.map((h) => (
-              <th key={h} className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">
+              <th
+                key={h}
+                className="pb-3 pr-4 text-left text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap"
+              >
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
-          {children}
-        </tbody>
+        <tbody className="divide-y divide-slate-50">{children}</tbody>
       </table>
       {empty && (
         <div className="py-12 text-center text-muted text-sm">{empty}</div>
@@ -179,16 +220,23 @@ export function Table({
   )
 }
 
-// ─── Input ───────────────────────────────────────────────────────────────────
+// ─── Input ────────────────────────────────────────────────────────────────────
 
-export function Input(props: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+export function Input(
+  props: React.InputHTMLAttributes<HTMLInputElement> & { label?: string },
+) {
   const { label, className, ...rest } = props
   return (
     <label className="block">
-      {label && <span className="block text-sm font-medium text-ink mb-1">{label}</span>}
+      {label && (
+        <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">
+          {label}
+        </span>
+      )}
       <input
         className={clsx(
-          'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-ink text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent',
+          'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-ink text-sm placeholder-slate-300',
+          'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all duration-200',
           className,
         )}
         {...rest}
@@ -197,16 +245,26 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement> & { lab
   )
 }
 
+// ─── Select ───────────────────────────────────────────────────────────────────
+
 export function Select(
-  props: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; children: ReactNode },
+  props: React.SelectHTMLAttributes<HTMLSelectElement> & {
+    label?: string
+    children: ReactNode
+  },
 ) {
   const { label, className, children, ...rest } = props
   return (
     <label className="block">
-      {label && <span className="block text-sm font-medium text-ink mb-1">{label}</span>}
+      {label && (
+        <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">
+          {label}
+        </span>
+      )}
       <select
         className={clsx(
-          'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-ink text-sm focus:outline-none focus:ring-2 focus:ring-brand',
+          'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-ink text-sm',
+          'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all duration-200',
           className,
         )}
         {...rest}
@@ -214,5 +272,40 @@ export function Select(
         {children}
       </select>
     </label>
+  )
+}
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+
+export function SectionHeader({ title }: { title: string }) {
+  return (
+    <h2 className="text-[10px] font-semibold text-muted uppercase tracking-widest mb-3">
+      {title}
+    </h2>
+  )
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+
+export function Modal({
+  children,
+  onClose,
+}: {
+  children: ReactNode
+  onClose?: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: 'rgba(2,6,23,0.55)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-modal animate-scale-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
   )
 }

@@ -130,7 +130,7 @@ export default function OvertimeClient({
               <thead>
                 <tr className="text-left border-b border-slate-100">
                   {['Employee', 'Date', 'Hours', 'Decision', 'Reviewed'].map((h) => (
-                    <th key={h} className="pb-3 pr-4 font-medium text-muted">{h}</th>
+                    <th key={h} className="pb-3 pr-4 text-left text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -156,12 +156,24 @@ export default function OvertimeClient({
 
       {/* Success / Error Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+          style={{ background: 'rgba(2,6,23,0.55)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setModal(null)}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 w-full max-w-sm text-center animate-scale-in"
+            style={{ boxShadow: '0 24px 64px -12px rgba(0,0,0,0.25)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             {modal.type === 'success' ? (
-              <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-4" />
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-8 h-8 text-emerald-500" />
+              </div>
             ) : (
-              <XCircle className="w-14 h-14 text-red-500 mx-auto mb-4" />
+              <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
+                <XCircle className="w-8 h-8 text-red-500" />
+              </div>
             )}
             <h3 className="text-lg font-bold text-ink mb-2">
               {modal.type === 'success' ? 'Done!' : 'Something went wrong'}
@@ -169,7 +181,8 @@ export default function OvertimeClient({
             <p className="text-muted text-sm mb-6">{modal.message}</p>
             <button
               onClick={() => setModal(null)}
-              className="w-full bg-brand text-white font-semibold rounded-xl py-2.5 hover:bg-teal-500 transition-colors"
+              className="w-full text-white font-semibold rounded-xl py-2.5 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #0ABFA3, #089E87)' }}
             >
               OK
             </button>

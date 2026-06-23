@@ -10,6 +10,7 @@ export default async function EmployeesPage() {
     adminClient
       .from('profiles')
       .select('id, name, email, role, employment_type, business_access, status, created_at')
+      .neq('role', 'admin')
       .order('name'),
     adminClient
       .from('business_entities')
