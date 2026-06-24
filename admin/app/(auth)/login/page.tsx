@@ -1,8 +1,16 @@
 import LoginForm from './login-form'
+import { Clock, TrendingUp, Banknote } from 'lucide-react'
+import buildoneLogo from '../../../lib/buildone-logo.png'
 
 const ERROR_MESSAGES: Record<string, string> = {
   not_admin: 'This portal is for admin accounts only. Please sign in with an admin account.',
 }
+
+const FEATURES = [
+  { icon: Clock,      title: 'Time Tracking', sub: 'Per project' },
+  { icon: TrendingUp, title: 'Labour Cost',   sub: 'Real-time' },
+  { icon: Banknote,   title: 'Xero Payroll',  sub: 'Automated' },
+]
 
 export default async function LoginPage({
   searchParams,
@@ -14,24 +22,112 @@ export default async function LoginPage({
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center relative overflow-hidden p-4"
-      style={{ background: 'linear-gradient(135deg, #040B14 0%, #071020 50%, #060E1C 100%)' }}
+      className="min-h-screen relative overflow-hidden flex items-center"
+      style={{ background: 'linear-gradient(150deg, #15130F 0%, #221C14 55%, #15130F 100%)' }}
     >
-      {/* Glow orbs */}
+      {/* dot grid */}
       <div
-        className="absolute -top-48 -right-48 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(10,191,163,0.12) 0%, transparent 70%)' }}
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(154,122,78,0.13) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+      {/* animated warm glows */}
+      <div
+        className="absolute -top-32 left-[18%] w-[640px] h-[640px] rounded-full pointer-events-none animate-glow-pulse"
+        style={{ background: 'radial-gradient(circle, rgba(154,122,78,0.18) 0%, transparent 65%)' }}
       />
       <div
-        className="absolute -bottom-48 -left-48 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse, rgba(10,191,163,0.04) 0%, transparent 60%)' }}
+        className="absolute -bottom-40 right-[8%] w-[520px] h-[520px] rounded-full pointer-events-none animate-glow-pulse delay-300"
+        style={{ background: 'radial-gradient(circle, rgba(199,171,130,0.10) 0%, transparent 70%)' }}
       />
 
-      <LoginForm initialError={initialError} />
+      <div className="relative z-10 w-full max-w-[1500px] mx-auto px-6 sm:px-12 lg:px-20 flex items-center justify-center lg:justify-between gap-12">
+
+        {/* ── Left branding (centered content, pinned far-left) ── */}
+        <div className="hidden lg:flex flex-col items-center text-center max-w-xl">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <div className="animate-fade-in-up">
+            <img
+              src={buildoneLogo.src}
+              alt="BuildOne"
+              className="h-20 w-auto object-contain mb-7 animate-float-slow"
+              style={{ filter: 'brightness(0) invert(1)' }}
+            />
+          </div>
+
+          <span
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] mb-5 animate-fade-in-up delay-75"
+            style={{ background: 'rgba(154,122,78,0.14)', border: '1px solid rgba(154,122,78,0.28)', color: '#C7AB82' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#C7AB82' }} />
+            Workforce Management · Admin
+          </span>
+
+          <h1 className="text-6xl xl:text-7xl font-black leading-[1.02] text-white animate-fade-in-up delay-100">
+            Welcome<br />back.
+          </h1>
+
+          <p className="mt-6 text-lg leading-relaxed max-w-md text-white/90 animate-fade-in-up delay-150">
+            Your command center for managing the crew across Build One &amp; ARKO Joinery.
+          </p>
+          <p className="mt-3 text-[15px] leading-relaxed max-w-md mx-auto animate-fade-in-up delay-200" style={{ color: '#9A938A' }}>
+            Track site and workshop hours in real time, monitor labour cost per project, approve
+            overtime, and run fortnightly payroll straight into Xero — all from one dashboard.
+          </p>
+          <p className="mt-4 text-sm font-medium max-w-md mx-auto animate-fade-in-up delay-300" style={{ color: '#C7AB82' }}>
+            Built for the office — invisible to the crew. Every hour costed, allocated, and pay-ready.
+          </p>
+
+          <div className="mt-12 flex items-start justify-center gap-12 animate-fade-in-up delay-400">
+            {FEATURES.map(({ icon: Icon, title, sub }) => (
+              <div key={title} className="flex flex-col items-center gap-2.5">
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-300 hover:scale-110 hover:-translate-y-1"
+                  style={{ background: 'rgba(154,122,78,0.14)', border: '1px solid rgba(154,122,78,0.24)' }}
+                >
+                  <Icon size={22} style={{ color: '#C7AB82' }} strokeWidth={2} />
+                </div>
+                <div className="text-sm font-semibold text-white">{title}</div>
+                <div className="text-[11px]" style={{ color: '#6F6A62' }}>{sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Floating glass form card ── */}
+        <div className="w-full max-w-md shrink-0 animate-scale-in">
+          <div
+            className="rounded-3xl p-8 sm:p-10"
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              boxShadow: '0 30px 70px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+            }}
+          >
+            {/* Logo on the card — shown on mobile (left branding hidden) */}
+            <div className="lg:hidden flex justify-center mb-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={buildoneLogo.src}
+                alt="BuildOne"
+                className="h-9 w-auto object-contain"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+            </div>
+
+            <h2 className="text-2xl font-bold text-center text-white">Welcome Back</h2>
+            <p className="text-sm text-center mt-1.5 mb-7" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              Sign in to continue to BuildOne
+            </p>
+
+            <LoginForm initialError={initialError} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

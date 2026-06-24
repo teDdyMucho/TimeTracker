@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Timevera Admin',
-  description: 'Build One & ARKO Joinery — workforce management admin portal',
+  title: 'BuildOne Admin',
+  description: 'BuildOne — workforce management admin portal',
+  icons: { icon: '/favcon.png' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

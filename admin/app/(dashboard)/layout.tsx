@@ -1,28 +1,27 @@
 import { createClient } from '@/lib/server'
-import Sidebar from '@/components/sidebar'
+import AppShell from '@/components/app-shell'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const { count } = await supabase
-    .from('overtime_requests')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'pending')
+
+  const [{ count }, { data: { user } }] = await Promise.all([
+    supabase.from('overtime_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.auth.getUser(),
+  ])
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', user?.id ?? '')
+    .maybeSingle()
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#F0F4F8' }}>
-      <Sidebar pendingOvertimeCount={count ?? 0} />
-      <main className="flex-1 overflow-auto">
-        {/* Subtle dot-grid background */}
-        <div
-          className="min-h-full"
-          style={{
-            backgroundImage: 'radial-gradient(circle, #D1D9E4 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
-          }}
-        >
-          <div className="p-8 animate-fade-in">{children}</div>
-        </div>
-      </main>
-    </div>
+    <AppShell
+      pendingOvertimeCount={count ?? 0}
+      userName={profile?.name ?? 'Admin'}
+      userEmail={user?.email ?? ''}
+    >
+      {children}
+    </AppShell>
   )
 }

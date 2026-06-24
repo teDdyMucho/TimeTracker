@@ -1,12 +1,13 @@
 'use client'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   BarChart3,
   Banknote,
   Briefcase,
+  ChevronDown,
   ClipboardList,
-  Clock,
   Landmark,
   LayoutGrid,
   LogOut,
@@ -28,41 +29,92 @@ const NAV = [
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
 ]
 
-export default function Sidebar({ pendingOvertimeCount }: { pendingOvertimeCount: number }) {
-  const pathname = usePathname()
+// Dark warm sidebar palette
+const BG          = '#1C1A16'
+const ACTIVE_BG   = '#2C2822'
+const HOVER_BG    = '#24201B'
+const CARD_BG     = '#26221C'
+const TEXT_OFF    = '#9A938A'
+const TEXT_FAINT  = '#6F6A62'
+const GREEN       = '#9A7A4E'
+const DIVIDER     = 'rgba(255,255,255,0.07)'
+
+function SessionClock() {
+  const [time, setTime] = useState('--:--:--')
+  const [date, setDate] = useState('')
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      setTime(now.toLocaleTimeString('en-GB', { timeZone: 'Australia/Brisbane', hour12: false }))
+      setDate(now.toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', weekday: 'short', day: 'numeric', month: 'short' }))
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [])
 
   return (
-    <aside
-      className="w-64 flex flex-col h-full shrink-0"
-      style={{ background: 'linear-gradient(180deg, #070D1A 0%, #0B1525 100%)' }}
-    >
-      {/* ── Brand ──────────────────────────────────────────────── */}
-      <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-glow-brand"
-            style={{ background: 'linear-gradient(135deg, #0ABFA3 0%, #07906F 100%)' }}
-          >
-            <Clock size={17} className="text-white" />
-          </div>
-          <div>
-            <div className="text-white font-bold text-[15px] tracking-tight leading-tight">
-              Timevera
-            </div>
-            <div
-              className="text-[10px] font-semibold tracking-[0.18em] uppercase mt-px"
-              style={{ color: 'rgba(255,255,255,0.28)' }}
-            >
-              Admin Portal
-            </div>
-          </div>
-        </div>
+    <div className="mx-3 mb-3 rounded-2xl p-4" style={{ background: CARD_BG }}>
+      <div className="text-[9px] font-bold tracking-[0.16em] uppercase mb-2.5" style={{ color: TEXT_FAINT }}>
+        Current Session
+      </div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="relative flex w-2 h-2">
+          <span className="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping" style={{ background: GREEN }} />
+          <span className="relative inline-flex rounded-full w-2 h-2" style={{ background: GREEN }} />
+        </span>
+        <span className="text-xs font-medium" style={{ color: TEXT_OFF }}>Signed in · {date}</span>
+      </div>
+      <div className="text-[28px] font-bold tabular-nums tracking-tight leading-none text-white">
+        {time}
+      </div>
+    </div>
+  )
+}
+
+interface Props {
+  pendingOvertimeCount: number
+  userName: string
+  userEmail: string
+}
+
+export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: Props) {
+  const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setMenuOpen(false) }, [pathname])
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    function onEsc(e: KeyboardEvent) { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [])
+
+  return (
+    <aside className="w-60 flex flex-col h-full shrink-0" style={{ background: BG }}>
+
+      {/* ── Brand ─────────────────────────────────────────── */}
+      <div className="px-4 pt-5 pb-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/buildone.png?v=2"
+          alt="BuildOne"
+          className="w-full h-auto object-contain"
+          style={{ filter: 'brightness(0) invert(1)' }}
+        />
       </div>
 
-      <div className="mx-5 mb-3" style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
-
-      {/* ── Navigation ─────────────────────────────────────────── */}
-      <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">
+      {/* ── Navigation ─────────────────────────────────────── */}
+      <nav className="flex-1 px-3 py-1 space-y-1.5 overflow-y-auto">
         {NAV.map(({ href, label, icon: Icon, badge }) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
           const badgeCount = badge ? pendingOvertimeCount : 0
@@ -71,43 +123,22 @@ export default function Sidebar({ pendingOvertimeCount }: { pendingOvertimeCount
             <Link
               key={href}
               href={href}
-              className="relative flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group"
-              style={active
-                ? { background: 'rgba(10,191,163,0.13)', color: '#0ABFA3' }
-                : { color: 'rgba(255,255,255,0.38)' }
-              }
+              className="relative flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-all duration-150"
+              style={active ? { background: ACTIVE_BG, color: '#FFFFFF' } : { color: TEXT_OFF }}
+              onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = HOVER_BG }}
+              onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}
             >
-              {/* Active left-bar accent */}
               {active && (
-                <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
-                  style={{ background: '#0ABFA3' }}
-                />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full" style={{ width: 3, height: 20, background: GREEN }} />
               )}
-
               <span className="flex items-center gap-3">
-                <Icon
-                  size={15}
-                  className={`shrink-0 transition-colors duration-200 ${
-                    active
-                      ? 'text-brand'
-                      : 'text-slate-600 group-hover:text-slate-300'
-                  }`}
-                />
-                <span
-                  className={`transition-colors duration-200 ${
-                    active ? 'text-brand' : 'group-hover:text-white'
-                  }`}
-                >
-                  {label}
-                </span>
+                <Icon size={17} className="shrink-0" strokeWidth={2} style={{ color: active ? GREEN : TEXT_FAINT }} />
+                <span>{label}</span>
               </span>
-
               {badgeCount > 0 && (
                 <span
-                  className={`text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${
-                    active ? 'bg-brand text-white' : 'bg-amber-500/20 text-amber-400'
-                  }`}
+                  className="text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center"
+                  style={active ? { background: GREEN, color: '#FFFFFF' } : { background: 'rgba(245,179,62,0.18)', color: '#F5B33E' }}
                 >
                   {badgeCount}
                 </span>
@@ -117,20 +148,50 @@ export default function Sidebar({ pendingOvertimeCount }: { pendingOvertimeCount
         })}
       </nav>
 
-      <div className="mx-5 mt-3 mb-3" style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
+      {/* ── Current session card ───────────────────────────── */}
+      <SessionClock />
 
-      {/* ── Sign out ───────────────────────────────────────────── */}
-      <div className="px-3 pb-6">
-        <form action={signOutAction}>
-          <button
-            type="submit"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all duration-200 hover:bg-red-500/10 hover:text-red-400"
-            style={{ color: 'rgba(255,255,255,0.28)' }}
+      {/* ── User footer ────────────────────────────────────── */}
+      <div className="px-3 pb-5 pt-3 relative" style={{ borderTop: `1px solid ${DIVIDER}` }} ref={menuRef}>
+
+        {/* Dropdown (opens upward) */}
+        {menuOpen && (
+          <div
+            className="absolute left-3 right-3 bottom-full mb-2 rounded-xl overflow-hidden z-50 animate-fade-in"
+            style={{ background: '#2C2822', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 14px 36px -10px rgba(0,0,0,0.7)' }}
           >
-            <LogOut size={15} />
-            Sign out
-          </button>
-        </form>
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold transition-colors"
+                style={{ color: '#F87171' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+              >
+                <LogOut size={16} />
+                Log out
+              </button>
+            </form>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="w-full flex items-center gap-3 px-2 py-1.5 rounded-xl transition-colors"
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/favcon.png" alt="BuildOne" className="w-full h-full object-contain scale-[1.9]" style={{ filter: 'brightness(0) invert(1)' }} />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-sm font-semibold truncate text-white">{userName}</div>
+            <div className="text-[11px] truncate" style={{ color: TEXT_FAINT }}>{userEmail || 'Administrator'}</div>
+          </div>
+          <ChevronDown size={15} className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`} style={{ color: TEXT_FAINT }} />
+        </button>
       </div>
     </aside>
   )

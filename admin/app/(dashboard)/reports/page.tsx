@@ -1,21 +1,25 @@
 import { createClient, createAdminClient } from '@/lib/server'
 import { Card, PageHeader } from '@/components/ui'
+import ReportsFilter from './reports-filter'
+import { formatHours } from '@/lib/format'
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; entity?: string }>
+  searchParams: Promise<{ from?: string; to?: string; entity?: string; employee?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
   const from = params.from ?? thirtyDaysAgo
   const to = params.to ?? today
 
-  const [entitiesRes, timesheetsRes, payRatesRes] = await Promise.all([
+  const [entitiesRes, employeesRes, timesheetsRes, payRatesRes] = await Promise.all([
     supabase.from('business_entities').select('id, name').eq('status', 'active').order('name'),
+    adminClient.from('profiles').select('id, name').neq('role', 'admin').eq('status', 'active').order('name'),
     supabase
       .from('timesheets')
       .select(
@@ -25,18 +29,19 @@ export default async function ReportsPage({
       .lte('work_date', to)
       .in('status', ['submitted', 'approved', 'locked'])
       .then((res) => {
-        if (params.entity) {
-          return { ...res, data: res.data?.filter((t: any) => t.business_entity_id === params.entity) ?? [] }
-        }
-        return res
+        let data = res.data ?? []
+        if (params.entity) data = data.filter((t: any) => t.business_entity_id === params.entity)
+        if (params.employee) data = data.filter((t: any) => t.profile_id === params.employee)
+        return { ...res, data }
       }),
-    createAdminClient()
+    adminClient
       .from('pay_rates')
       .select('profile_id, hourly_rate, effective_from, effective_to')
       .lte('effective_from', to),
   ])
 
   const entities = entitiesRes.data ?? []
+  const employees = employeesRes.data ?? []
   const timesheets = timesheetsRes.data ?? []
   const payRates = payRatesRes.data ?? []
 
@@ -89,52 +94,20 @@ export default async function ReportsPage({
         subtitle="Labour hours summary — exact costs are computed during payroll runs"
       />
 
-      {/* Filters */}
-      <form method="GET" className="flex flex-wrap gap-3 mb-6">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted">From</label>
-          <input
-            type="date"
-            name="from"
-            defaultValue={from}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted">To</label>
-          <input
-            type="date"
-            name="to"
-            defaultValue={to}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted">Entity</label>
-          <select
-            name="entity"
-            defaultValue={params.entity ?? ''}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-          >
-            <option value="">All entities</option>
-            {entities.map((e: any) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="bg-brand text-white font-semibold rounded-xl px-4 py-2 text-sm hover:bg-teal-500 transition-colors"
-        >
-          Apply
-        </button>
-      </form>
+      <ReportsFilter
+        from={from}
+        to={to}
+        entity={params.entity ?? ''}
+        employee={params.employee ?? ''}
+        entities={entities as any}
+        employees={employees as any}
+      />
 
       {/* Summary row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <SummaryCard label="Total Hours" value={`${totalHours} h`} />
-        <SummaryCard label="On-site Hours" value={`${locationHours.site} h`} sub={pct(locationHours.site, totalHours)} />
-        <SummaryCard label="Workshop Hours" value={`${locationHours.workshop} h`} sub={pct(locationHours.workshop, totalHours)} />
+        <SummaryCard label="Total Hours" value={formatHours(totalHours)} />
+        <SummaryCard label="On-site Hours" value={formatHours(locationHours.site)} sub={pct(locationHours.site, totalHours)} />
+        <SummaryCard label="Workshop Hours" value={formatHours(locationHours.workshop)} sub={pct(locationHours.workshop, totalHours)} />
         <SummaryCard
           label="Est. Labour Cost"
           value={
@@ -165,13 +138,13 @@ export default async function ReportsPage({
                 {projectRows.map((p) => (
                   <tr key={p.name}>
                     <td className="py-2.5 pr-4 font-medium">{p.name}</td>
-                    <td className="py-2.5 text-right font-semibold">{p.hours} h</td>
+                    <td className="py-2.5 text-right font-semibold">{formatHours(p.hours)}</td>
                     <td className="py-2.5 text-right text-muted">{pct(p.hours, totalHours)}</td>
                   </tr>
                 ))}
                 <tr className="border-t border-slate-200">
                   <td className="pt-3 font-bold text-ink">Total</td>
-                  <td className="pt-3 text-right font-bold">{totalHours} h</td>
+                  <td className="pt-3 text-right font-bold">{formatHours(totalHours)}</td>
                   <td />
                 </tr>
               </tbody>
@@ -204,12 +177,12 @@ export default async function ReportsPage({
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-brand inline-block" />
                   <span className="text-ink font-medium">On-site</span>
-                  <span className="text-muted">{locationHours.site} h · {pct(locationHours.site, totalHours)}</span>
+                  <span className="text-muted">{formatHours(locationHours.site)} &middot; {pct(locationHours.site, totalHours)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" />
                   <span className="text-ink font-medium">Workshop</span>
-                  <span className="text-muted">{locationHours.workshop} h · {pct(locationHours.workshop, totalHours)}</span>
+                  <span className="text-muted">{formatHours(locationHours.workshop)} &middot; {pct(locationHours.workshop, totalHours)}</span>
                 </div>
               </div>
             </>

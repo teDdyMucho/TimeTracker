@@ -15,6 +15,26 @@ export async function createEntityAction(_prevState: string | null, formData: Fo
   return null
 }
 
+export async function updateEntityAction(_prevState: string | null, formData: FormData) {
+  const id = formData.get('id') as string
+  const name = (formData.get('name') as string).trim()
+  const xeroTenantId = (formData.get('xero_tenant_id') as string).trim() || null
+
+  if (!name) return 'Entity name is required.'
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('business_entities')
+    .update({ name, xero_tenant_id: xeroTenantId })
+    .eq('id', id)
+
+  if (error) return error.message
+
+  revalidatePath('/entities')
+  revalidatePath('/projects')
+  return null
+}
+
 export async function toggleEntityStatusAction(formData: FormData) {
   const id = formData.get('id') as string
   const current = formData.get('current_status') as string

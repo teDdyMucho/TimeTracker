@@ -14,6 +14,15 @@ import {
 import { friendlyDate } from '@/lib/date';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
+// Build One palette constants
+const BRONZE   = '#9A7A4E';
+const BRONZE_DK = '#836439';
+const INK      = '#1F1D1A';
+const MUTED    = '#76716A';
+const STONE    = '#EFEAE1';
+const LINE     = '#E7E2D8';
+const PAPER    = '#F6F4EF';
+
 function elapsedLabel(since: string): string {
   const ms = Date.now() - new Date(since).getTime();
   const h = Math.floor(ms / 3_600_000);
@@ -32,9 +41,7 @@ export default function Home() {
   const [elapsed, setElapsed] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Clock out state
   const [clockingOut, setClockingOut] = useState(false);
-  const [showOtPanel, setShowOtPanel] = useState(false);
   const [overtime, setOvertime] = useState(false);
   const [otReason, setOtReason] = useState('');
 
@@ -59,7 +66,6 @@ export default function Home() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Live elapsed timer
   useEffect(() => {
     if (activeSession) {
       timerRef.current = setInterval(() => {
@@ -91,7 +97,6 @@ export default function Home() {
         overtimeReason: overtime ? otReason.trim() : null,
       });
       setActiveSession(null);
-      setShowOtPanel(false);
       setOvertime(false);
       setOtReason('');
       await load();
@@ -105,16 +110,16 @@ export default function Home() {
   const firstName = profile?.name?.split(' ')[0] ?? 'there';
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-paper" edges={['top']}>
       <ScrollView
         className="flex-1"
         contentContainerClassName="p-5 pb-32"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0ABFA3" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRONZE} />}
       >
         {/* Header */}
         <View className="flex-row justify-between items-start mb-6">
           <View>
-            <Text className="text-muted">Kia ora,</Text>
+            <Text className="text-muted">Welcome back,</Text>
             <Text className="text-2xl font-bold text-ink">{firstName}</Text>
           </View>
           <Pressable onPress={signOut} className="px-3 py-2">
@@ -140,8 +145,8 @@ export default function Home() {
 
         {/* Overtime pending badge */}
         {summary.pendingOvertime > 0 ? (
-          <Card className="mb-4 bg-amber-50 border border-amber-200">
-            <Text className="text-amber-800 font-medium">
+          <Card className="mb-4" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>
+            <Text style={{ color: '#92400E', fontWeight: '500' }}>
               {summary.pendingOvertime} overtime request{summary.pendingOvertime > 1 ? 's' : ''} awaiting approval
             </Text>
           </Card>
@@ -149,24 +154,25 @@ export default function Home() {
 
         {/* ── CLOCKED IN STATE ─────────────────────────────────────── */}
         {activeSession ? (
-          <Card className="mb-4 bg-teal-50 border border-teal-200">
+          <Card className="mb-4" style={{ backgroundColor: 'rgba(154,122,78,0.06)', borderColor: LINE }}>
             <View className="flex-row items-center gap-3 mb-3">
-              <View className="w-3 h-3 rounded-full bg-teal-500" />
-              <Text className="font-bold text-teal-800 text-base">On the clock</Text>
-              <Text className="ml-auto text-teal-600 font-semibold text-lg">{elapsed}</Text>
+              <View className="w-3 h-3 rounded-full" style={{ backgroundColor: BRONZE }} />
+              <Text className="font-bold text-ink text-base">On the clock</Text>
+              <Text className="ml-auto font-semibold text-lg" style={{ color: BRONZE }}>{elapsed}</Text>
             </View>
-            <Text className="text-teal-700 text-sm mb-4">
-              {activeSession.work_location === 'site' ? '🏗  On Site' : '🏭  Factory / Workshop'}
+            <Text className="text-muted text-sm mb-4">
+              {activeSession.work_location === 'site' ? 'On Site' : 'Factory / Workshop'}
             </Text>
 
             {/* Overtime toggle */}
-            <View className="bg-white rounded-xl px-4 py-3 mb-3">
+            <View className="bg-white rounded-xl px-4 py-3 mb-3" style={{ borderWidth: 1, borderColor: LINE }}>
               <View className="flex-row justify-between items-center">
                 <Text className="font-medium text-ink">Overtime worked?</Text>
                 <Switch
                   value={overtime}
-                  onValueChange={(v) => { setOvertime(v); setShowOtPanel(v); }}
-                  trackColor={{ true: '#0ABFA3', false: '#d1d5db' }}
+                  onValueChange={(v) => setOvertime(v)}
+                  trackColor={{ true: BRONZE, false: '#D9D3C8' }}
+                  thumbColor="#ffffff"
                 />
               </View>
               {overtime ? (
@@ -174,8 +180,10 @@ export default function Home() {
                   value={otReason}
                   onChangeText={setOtReason}
                   placeholder="Reason for overtime (required)"
+                  placeholderTextColor={MUTED}
                   multiline
-                  className="border border-gray-200 rounded-xl px-3 py-2 mt-3 text-ink"
+                  className="rounded-xl px-3 py-2 mt-3 text-ink"
+                  style={{ borderWidth: 1, borderColor: LINE }}
                 />
               ) : null}
             </View>
@@ -191,7 +199,7 @@ export default function Home() {
           /* ── NOT CLOCKED IN ─────────────────────────────────────── */
           <View className="mb-4">
             <Button
-              label="🕐  Clock In"
+              label="Clock In"
               onPress={() => router.push('/clock-in')}
             />
           </View>
@@ -201,7 +209,7 @@ export default function Home() {
         <View className="flex-row justify-between items-center mt-2 mb-2">
           <Text className="text-lg font-bold text-ink">Recent</Text>
           <Pressable onPress={() => router.push('/history')}>
-            <Text className="text-brand font-semibold">View all</Text>
+            <Text className="font-semibold" style={{ color: BRONZE }}>View all</Text>
           </Pressable>
         </View>
 
@@ -219,7 +227,7 @@ export default function Home() {
                       {friendlyDate(t.work_date)}
                     </Text>
                     <Text className="text-muted text-sm capitalize">
-                      {t.work_location === 'site' ? 'On Site' : 'Factory'} ·{' '}
+                      {t.work_location === 'site' ? 'On Site' : 'Factory'} &middot;{' '}
                       {t.overtime_status !== 'none' ? `OT ${t.overtime_status}` : t.status}
                     </Text>
                   </View>

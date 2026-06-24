@@ -8,7 +8,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
   return (
     <div
       className={clsx(
-        'bg-white rounded-2xl border border-slate-100 p-6',
+        'bg-white rounded-2xl border border-line p-6',
         'shadow-[0_1px_3px_rgba(0,0,0,0.04),_0_1px_2px_rgba(0,0,0,0.03)]',
         className,
       )}
@@ -43,7 +43,7 @@ export function StatsCard({
         'bg-white rounded-2xl border p-6 transition-all duration-300',
         'shadow-[0_1px_3px_rgba(0,0,0,0.04)]',
         'hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.08)]',
-        alert ? 'border-amber-100' : 'border-slate-100',
+        alert ? 'border-amber-100' : 'border-line',
       )}
     >
       <div className="flex items-start justify-between mb-5">
@@ -104,23 +104,23 @@ export function PageHeader({
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 const BADGE_STYLES: Record<string, string> = {
-  submitted:  'bg-blue-50   text-blue-700',
-  approved:   'bg-emerald-50 text-emerald-700',
-  rejected:   'bg-red-50    text-red-700',
-  locked:     'bg-slate-100 text-slate-600',
-  pending:    'bg-amber-50  text-amber-700',
-  draft:      'bg-slate-100 text-slate-500',
-  finalised:  'bg-emerald-50 text-emerald-700',
-  paid:       'bg-brand/10  text-brand',
-  failed:     'bg-red-50    text-red-700',
-  active:     'bg-emerald-50 text-emerald-700',
-  inactive:   'bg-slate-100 text-slate-500',
-  none:       'bg-slate-50  text-slate-400',
-  admin:      'bg-violet-50 text-violet-700',
-  employee:   'bg-sky-50    text-sky-700',
-  full_time:  'bg-brand/8   text-brand',
-  part_time:  'bg-indigo-50 text-indigo-600',
-  contractor: 'bg-orange-50 text-orange-700',
+  submitted:  'bg-blue-50    text-blue-700',
+  approved:   'bg-brand/10   text-brand',
+  rejected:   'bg-red-50     text-red-700',
+  locked:     'bg-stone      text-muted',
+  pending:    'bg-amber-50   text-amber-700',
+  draft:      'bg-stone      text-muted',
+  finalised:  'bg-brand/10   text-brand',
+  paid:       'bg-brand/10   text-brand',
+  failed:     'bg-red-50     text-red-700',
+  active:     'bg-brand/10   text-brand',
+  inactive:   'bg-stone      text-muted',
+  none:       'bg-stone      text-faint',
+  admin:      'bg-violet-50  text-violet-700',
+  employee:   'bg-sky-50     text-sky-700',
+  full_time:  'bg-brand/10   text-brand',
+  part_time:  'bg-indigo-50  text-indigo-600',
+  contractor: 'bg-orange-50  text-orange-700',
 }
 
 export function Badge({ status }: { status: string }) {
@@ -129,7 +129,7 @@ export function Badge({ status }: { status: string }) {
     <span
       className={clsx(
         'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize',
-        BADGE_STYLES[status] ?? 'bg-slate-100 text-slate-600',
+        BADGE_STYLES[status] ?? 'bg-stone text-muted',
       )}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60 shrink-0" />
@@ -167,7 +167,7 @@ export function Button({
   }
   const variants = {
     primary: 'bg-brand text-white hover:bg-brand-dark shadow-sm hover:shadow-glow-brand',
-    ghost:   'bg-slate-100 text-ink hover:bg-slate-200',
+    ghost:   'bg-stone text-ink hover:bg-line',
     danger:  'bg-red-50 text-red-700 hover:bg-red-100',
   }
   return (
@@ -200,7 +200,7 @@ export function Table({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-100">
+          <tr className="border-b border-line">
             {headers.map((h) => (
               <th
                 key={h}
@@ -211,7 +211,7 @@ export function Table({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">{children}</tbody>
+        <tbody className="divide-y divide-stone">{children}</tbody>
       </table>
       {empty && (
         <div className="py-12 text-center text-muted text-sm">{empty}</div>
@@ -235,8 +235,8 @@ export function Input(
       )}
       <input
         className={clsx(
-          'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-ink text-sm placeholder-slate-300',
-          'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all duration-200',
+          'w-full border border-line rounded-xl px-4 py-2.5 text-ink text-sm placeholder-faint bg-white',
+          'focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all duration-200',
           className,
         )}
         {...rest}
@@ -263,8 +263,8 @@ export function Select(
       )}
       <select
         className={clsx(
-          'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-ink text-sm',
-          'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all duration-200',
+          'w-full border border-line rounded-xl px-4 py-2.5 text-ink text-sm bg-white',
+          'focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all duration-200',
           className,
         )}
         {...rest}
@@ -297,7 +297,7 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
-      style={{ background: 'rgba(2,6,23,0.55)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(31,29,26,0.50)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div

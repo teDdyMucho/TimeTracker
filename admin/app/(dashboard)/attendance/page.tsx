@@ -1,7 +1,8 @@
-﻿import { createAdminClient } from '@/lib/server'
+import { createAdminClient } from '@/lib/server'
 import { Card, PageHeader } from '@/components/ui'
 import AutoRefresh from './auto-refresh'
 import PhotoPreview from './photo-preview'
+import AttendanceFilter from './attendance-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +38,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-      { headers: { 'User-Agent': 'Timevera-Admin/1.0' }, next: { revalidate: 86400 } },
+      { headers: { 'User-Agent': 'BuildOne-Admin/1.0' }, next: { revalidate: 86400 } },
     )
     if (!res.ok) return null
     const data = await res.json()
@@ -54,10 +55,17 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   }
 }
 
-export default async function AttendancePage() {
+export default async function AttendancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>
+}) {
   const admin = createAdminClient()
+  const params = await searchParams
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  const date = params.date ?? ''
 
-  const { data: sessions } = await admin
+  let query = admin
     .from('clock_sessions')
     .select(`
       id, work_date, work_location, clocked_in_at, clocked_out_at,
@@ -68,6 +76,10 @@ export default async function AttendancePage() {
     `)
     .order('clocked_in_at', { ascending: false })
     .limit(200)
+
+  if (date) query = query.eq('work_date', date)
+
+  const { data: sessions } = await query
 
   const raw = (sessions ?? []) as any[]
 
@@ -93,24 +105,32 @@ export default async function AttendancePage() {
       <AutoRefresh intervalSeconds={30} />
       <PageHeader
         title="Attendance"
-        subtitle={`${active.length} currently on the clock Â· auto-refreshes every 30 s`}
+        subtitle={
+          date
+            ? `${sorted.length} session${sorted.length !== 1 ? 's' : ''} on ${formatDate(date)}`
+            : `${active.length} currently on the clock · auto-refreshes every 30s`
+        }
       />
+
+      <AttendanceFilter date={date} today={today} />
 
       <Card>
         {sorted.length === 0 ? (
-          <p className="text-muted text-sm py-8 text-center">No attendance records yet.</p>
+          <p className="text-muted text-sm py-8 text-center">
+            {date ? `No attendance on ${formatDate(date)}.` : 'No attendance records yet.'}
+          </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[900px]">
               <thead>
-                <tr className="text-left border-b border-slate-100">
+                <tr className="text-left border-b border-slate-200">
                   {[
                     'Photo', 'Employee', 'Company', 'Date',
                     'Project', 'Type', 'Status',
                     'Clock In', 'Clock Out', 'Duration',
                     'Clock-in Address',
                   ].map((h) => (
-                    <th key={h} className="pb-3 pr-4 font-medium text-muted whitespace-nowrap text-xs uppercase tracking-wide">
+                    <th key={h} className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -122,28 +142,28 @@ export default async function AttendancePage() {
                   return (
                     <tr
                       key={s.id}
-                      className={`transition-colors ${isActive ? 'bg-green-50/40 hover:bg-green-50' : 'hover:bg-slate-50'}`}
+                      className={`transition-colors ${isActive ? 'bg-brand/5 hover:bg-brand/10' : 'hover:bg-slate-50/60'}`}
                     >
                       {/* Photo */}
                       <td className="py-3 pr-3">
                         {s.selfie_url ? (
                           <PhotoPreview src={s.selfie_url} name={s.profiles?.name ?? 'Employee'} />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-base">
-                            ðŸ‘¤
+                          <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-bold">
+                            {(s.profiles?.name ?? 'E')[0].toUpperCase()}
                           </div>
                         )}
                       </td>
 
                       {/* Employee */}
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-ink">{s.profiles?.name ?? 'â€”'}</p>
+                        <p className="font-semibold text-ink">{s.profiles?.name ?? '—'}</p>
                         <p className="text-muted text-xs">{s.profiles?.email ?? ''}</p>
                       </td>
 
                       {/* Company */}
                       <td className="py-3 pr-4 text-xs text-muted whitespace-nowrap">
-                        {s.business_entities?.name ?? 'â€”'}
+                        {s.business_entities?.name ?? '—'}
                       </td>
 
                       {/* Date */}
@@ -153,19 +173,19 @@ export default async function AttendancePage() {
 
                       {/* Project */}
                       <td className="py-3 pr-4 font-medium text-ink">
-                        {s.projects?.name ?? 'â€”'}
+                        {s.projects?.name ?? '—'}
                       </td>
 
                       {/* Work type */}
                       <td className="py-3 pr-4 whitespace-nowrap text-xs text-muted">
-                        {s.work_location === 'site' ? 'ðŸ— Site' : 'ðŸ­ Factory'}
+                        {s.work_location === 'site' ? 'Site' : 'Factory'}
                       </td>
 
                       {/* Status */}
                       <td className="py-3 pr-4 whitespace-nowrap">
                         {isActive ? (
-                          <span className="inline-flex items-center gap-1.5 text-green-700 text-xs font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          <span className="inline-flex items-center gap-1.5 text-brand text-xs font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
                             {elapsed(s.clocked_in_at)}
                           </span>
                         ) : (
@@ -184,7 +204,7 @@ export default async function AttendancePage() {
                       {/* Clock Out */}
                       <td className="py-3 pr-4 text-muted whitespace-nowrap text-xs">
                         {s.clocked_out_at ? formatTime(s.clocked_out_at) : (
-                          <span className="text-slate-300">â€”</span>
+                          <span className="text-slate-300">&mdash;</span>
                         )}
                       </td>
 
@@ -192,39 +212,24 @@ export default async function AttendancePage() {
                       <td className="py-3 pr-4 font-semibold text-ink whitespace-nowrap text-xs">
                         {s.clocked_out_at
                           ? formatDuration(s.clocked_in_at, s.clocked_out_at)
-                          : <span className="text-slate-300">â€”</span>}
+                          : <span className="text-slate-300">&mdash;</span>}
                       </td>
 
-                      {/* Address */}
-                      <td className="py-3 max-w-[180px]">
-                        {s.clock_in_address ? (
-                          <span className="text-xs text-muted leading-tight block">
-                            {s.clock_in_address}
-                            {s.clock_in_lat && s.clock_in_lng && (
-                              <>
-                                {' '}
-                                <a
-                                  href={`https://maps.google.com/?q=${s.clock_in_lat},${s.clock_in_lng}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-brand hover:underline"
-                                >
-                                  Map â†—
-                                </a>
-                              </>
-                            )}
-                          </span>
-                        ) : s.clock_in_lat && s.clock_in_lng ? (
+                      {/* Address — clicking opens Google Maps */}
+                      <td className="py-3 max-w-[200px]">
+                        {s.clock_in_lat && s.clock_in_lng ? (
                           <a
                             href={`https://maps.google.com/?q=${s.clock_in_lat},${s.clock_in_lng}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-brand text-xs hover:underline whitespace-nowrap"
+                            className="text-xs text-brand hover:underline underline-offset-2 leading-tight block"
                           >
-                            ðŸ“ Map
+                            {s.clock_in_address ?? `${s.clock_in_lat}, ${s.clock_in_lng}`}
                           </a>
+                        ) : s.clock_in_address ? (
+                          <span className="text-xs text-muted leading-tight block">{s.clock_in_address}</span>
                         ) : (
-                          <span className="text-slate-300 text-xs">â€”</span>
+                          <span className="text-slate-300 text-xs">&mdash;</span>
                         )}
                       </td>
                     </tr>

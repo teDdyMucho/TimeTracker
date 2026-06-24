@@ -1,107 +1,99 @@
 'use client'
-import { useActionState } from 'react'
-import { Clock } from 'lucide-react'
+import { useActionState, useState } from 'react'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { signInAction } from './actions'
+
+const fieldClass =
+  'w-full rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-white/40 border focus:outline-none focus:ring-2 transition-all duration-200'
+
+const fieldStyle: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  borderColor: 'rgba(255,255,255,0.16)',
+  ['--tw-ring-color' as string]: 'rgba(154,122,78,0.55)',
+}
 
 export default function LoginForm({ initialError }: { initialError: string | null }) {
   const [error, formAction, pending] = useActionState(signInAction, initialError)
+  const [showPw, setShowPw] = useState(false)
 
   return (
-    <div className="relative w-full max-w-sm animate-scale-in">
-      {/* Glass card */}
-      <div
-        className="rounded-3xl p-8 border"
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          backdropFilter: 'blur(32px)',
-          borderColor: 'rgba(255,255,255,0.08)',
-          boxShadow: '0 32px 64px -16px rgba(0,0,0,0.5)',
-        }}
-      >
-        {/* Brand */}
-        <div className="text-center mb-8">
-          <div
-            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 shadow-glow-brand"
-            style={{ background: 'linear-gradient(135deg, #0ABFA3 0%, #07906F 100%)' }}
-          >
-            <Clock size={26} className="text-white" />
-          </div>
-          <div className="text-2xl font-bold text-white tracking-tight">Timevera</div>
-          <div className="text-sm text-slate-500 mt-1 font-medium">
-            Build One &amp; ARKO Joinery
-          </div>
+    <form action={formAction} className="space-y-4 glass-form">
+      {error && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(239,68,68,0.12)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.30)' }}
+        >
+          {error}
         </div>
+      )}
 
-        <form action={formAction} className="space-y-4">
-          {error && (
-            <div
-              className="rounded-xl px-4 py-3 text-sm text-red-300"
-              style={{
-                background: 'rgba(239,68,68,0.1)',
-                border: '1px solid rgba(239,68,68,0.2)',
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              autoComplete="email"
-              placeholder="admin@company.com"
-              className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 transition-all duration-200"
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                // @ts-ignore
-                '--tw-ring-color': 'rgba(10,191,163,0.4)',
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 transition-all duration-200"
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full text-white font-semibold rounded-xl py-3 text-sm disabled:opacity-50 transition-all duration-200 mt-2 hover:opacity-90 active:scale-[0.98] shadow-glow-brand"
-            style={{
-              background: 'linear-gradient(135deg, #0ABFA3 0%, #089E87 100%)',
-            }}
-          >
-            {pending ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-                Signing in…
-              </span>
-            ) : (
-              'Sign in'
-            )}
-          </button>
-        </form>
+      {/* Email */}
+      <div>
+        <label className="block text-sm font-semibold mb-1.5 text-white/85">Email</label>
+        <div className="relative">
+          <Mail size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.45)' }} />
+          <input
+            type="email"
+            name="email"
+            required
+            autoComplete="email"
+            placeholder="Enter your email"
+            className={fieldClass}
+            style={fieldStyle}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* Password */}
+      <div>
+        <label className="block text-sm font-semibold mb-1.5 text-white/85">Password</label>
+        <div className="relative">
+          <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.45)' }} />
+          <input
+            type={showPw ? 'text' : 'password'}
+            name="password"
+            required
+            autoComplete="current-password"
+            placeholder="Enter your password"
+            className={`${fieldClass} !pr-11`}
+            style={fieldStyle}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw((v) => !v)}
+            aria-label={showPw ? 'Hide password' : 'Show password'}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors"
+            style={{ color: 'rgba(255,255,255,0.55)' }}
+          >
+            {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full text-white font-semibold rounded-xl py-3 text-sm mt-1 transition-all duration-200 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
+        style={{ background: 'linear-gradient(135deg, #9A7A4E, #836439)', boxShadow: '0 8px 24px -8px rgba(154,122,78,0.6)' }}
+      >
+        {pending ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+            Signing in…
+          </span>
+        ) : (
+          'Sign in'
+        )}
+      </button>
+
+      {/* Help note */}
+      <div
+        className="rounded-xl px-4 py-3 text-xs text-center leading-relaxed"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)' }}
+      >
+        <span className="font-semibold text-white">Need access?</span>{' '}
+        Contact your administrator to set up an account.
+      </div>
+    </form>
   )
 }

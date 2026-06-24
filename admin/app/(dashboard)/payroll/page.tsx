@@ -44,7 +44,7 @@ export default async function PayrollPage() {
         </Card>
       ) : (
         <Card>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="text-left border-b border-slate-100">
                 {[
@@ -103,7 +103,7 @@ export default async function PayrollPage() {
                           <input type="hidden" name="status" value="paid" />
                           <button
                             type="submit"
-                            className="text-xs px-2.5 py-1 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg font-medium transition-colors"
+                            className="text-xs px-2.5 py-1 bg-brand/10 text-brand hover:bg-brand/20 rounded-lg font-medium transition-colors"
                           >
                             Mark paid
                           </button>
@@ -114,7 +114,7 @@ export default async function PayrollPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
     </div>

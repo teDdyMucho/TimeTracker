@@ -53,7 +53,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
             No employees yet. Use "Invite employee" to add one.
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[760px]">
             <thead>
               <tr className="text-left border-b border-slate-100">
                 {['Name', 'Email', 'Role', 'Type', 'Entities', 'Status', ''].map((h) => (
@@ -97,7 +97,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm ${
                               p.status === 'active'
                                 ? 'bg-red-500 text-white hover:bg-red-600'
-                                : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                : 'bg-brand text-white hover:bg-brand-dark'
                             }`}
                           >
                             {p.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -109,7 +109,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
     </div>

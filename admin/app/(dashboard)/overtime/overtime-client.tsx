@@ -91,7 +91,7 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'approve')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-brand hover:bg-brand-dark active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
                     {isActing && actingOn?.action === 'approve' ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -131,7 +131,7 @@ export default function OvertimeClient({
             Recently reviewed
           </h2>
           <Card>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="text-left border-b border-slate-100">
                   {['Employee', 'Date', 'Hours', 'Decision', 'Reviewed'].map((h) => (
@@ -154,7 +154,7 @@ export default function OvertimeClient({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </Card>
         </div>
       )}
@@ -172,8 +172,8 @@ export default function OvertimeClient({
             onClick={(e) => e.stopPropagation()}
           >
             {modal.type === 'success' ? (
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
-                <CheckCircle className="w-8 h-8 text-emerald-500" />
+              <div className="w-16 h-16 rounded-2xl bg-brand/10 flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-8 h-8 text-brand" />
               </div>
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
@@ -187,7 +187,7 @@ export default function OvertimeClient({
             <button
               onClick={() => setModal(null)}
               className="w-full text-white font-semibold rounded-xl py-2.5 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #0ABFA3, #089E87)' }}
+              style={{ background: 'linear-gradient(135deg, #9A7A4E, #836439)' }}
             >
               OK
             </button>

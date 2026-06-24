@@ -59,7 +59,7 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
       {rows.length === 0 ? (
         <p className="text-muted text-sm py-8 text-center">No timesheets found for this filter.</p>
       ) : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="border-b border-slate-100">
               {['Employee', 'Date', 'Project', 'Location', 'Hours', 'Status', 'Actions'].map((h) => (
@@ -89,7 +89,7 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
                           type="button"
                           disabled={isPending}
                           onClick={() => handleAction(t.id, 'approve')}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand text-white hover:bg-brand-dark active:scale-95 transition-all shadow-sm disabled:opacity-50"
                         >
                           {isActing && actingOn?.action === 'approve' ? (
                             <span className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -114,7 +114,7 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
                       </div>
                     )}
                     {t.status === 'approved' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand/10 text-brand border border-brand/20">
                         <CheckCircle size={12} /> Approved
                       </span>
                     )}
@@ -128,7 +128,7 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
               )
             })}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {/* Success / Error Modal */}
@@ -144,8 +144,8 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
             onClick={(e) => e.stopPropagation()}
           >
             {modal.type === 'success' ? (
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
-                <CheckCircle className="w-8 h-8 text-emerald-500" />
+              <div className="w-16 h-16 rounded-2xl bg-brand/10 flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-8 h-8 text-brand" />
               </div>
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
@@ -159,7 +159,7 @@ export default function TimesheetsTable({ timesheets }: { timesheets: Timesheet[
             <button
               onClick={() => setModal(null)}
               className="w-full text-white font-semibold rounded-xl py-2.5 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #0ABFA3, #089E87)' }}
+              style={{ background: 'linear-gradient(135deg, #9A7A4E, #836439)' }}
             >
               OK
             </button>

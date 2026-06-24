@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#0ABFA3",
+      "backgroundColor": "#9A7A4E",
       "resizeMode": "contain"
     },
     "ios": {
@@ -28,7 +28,7 @@
       [
         "expo-notifications",
         {
-          "color": "#0ABFA3"
+          "color": "#9A7A4E"
         }
       ],
       "expo-asset"

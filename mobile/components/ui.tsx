@@ -19,7 +19,7 @@ export function Button({
     variant === 'primary'
       ? 'bg-brand'
       : variant === 'secondary'
-        ? 'bg-white border border-gray-300'
+        ? 'bg-white border border-line'
         : 'bg-transparent';
   const text = variant === 'primary' ? 'text-white' : 'text-ink';
   const isOff = disabled || loading;
@@ -30,7 +30,7 @@ export function Button({
       className={`${base} ${styles} ${isOff ? 'opacity-50' : 'active:opacity-80'}`}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : '#0ABFA3'} />
+        <ActivityIndicator color={variant === 'primary' ? '#fff' : '#9A7A4E'} />
       ) : (
         <Text className={`text-base font-semibold ${text}`}>{label}</Text>
       )}
@@ -51,7 +51,7 @@ export function Chip({
     <Pressable
       onPress={onPress}
       className={`px-4 py-2 rounded-full border mr-2 mb-2 ${
-        selected ? 'bg-brand border-brand' : 'bg-white border-gray-300'
+        selected ? 'bg-brand border-brand' : 'bg-white border-line'
       }`}
     >
       <Text className={`text-sm font-medium ${selected ? 'text-white' : 'text-ink'}`}>{label}</Text>
@@ -61,7 +61,7 @@ export function Chip({
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <View className={`bg-white rounded-2xl p-4 border border-gray-100 ${className}`}>{children}</View>
+    <View className={`bg-white rounded-2xl p-4 border border-line ${className}`}>{children}</View>
   );
 }
 

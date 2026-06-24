@@ -24,6 +24,13 @@ import { todayISO } from '@/lib/date';
 import { Button, Card, Chip, Label } from '@/components/ui';
 import type { BusinessEntity, Project, WorkLocation } from '@/lib/types';
 
+// Build One palette
+const BRONZE = '#9A7A4E';
+const INK    = '#1F1D1A';
+const MUTED  = '#76716A';
+const LINE   = '#E7E2D8';
+const STONE  = '#EFEAE1';
+
 export default function ClockInScreen() {
   const router = useRouter();
   const profile = useAuth((s) => s.profile);
@@ -44,7 +51,6 @@ export default function ClockInScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load entities
   useEffect(() => {
     if (!profile) return;
     fetchBusinessEntities(profile.business_access)
@@ -56,7 +62,6 @@ export default function ClockInScreen() {
       .finally(() => setLoadingEntities(false));
   }, [profile]);
 
-  // Load projects when entity changes
   useEffect(() => {
     if (!businessId) return;
     setLoadingProjects(true);
@@ -86,14 +91,11 @@ export default function ClockInScreen() {
     if (result.canceled) return;
     setSelfieUri(result.assets[0].uri);
 
-    // Grab GPS + reverse geocode address at same time as selfie
     const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
     if (locStatus === 'granted') {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = loc.coords;
       setLocation({ lat: latitude, lng: longitude });
-
-      // Reverse geocode to human-readable address
       try {
         const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
         if (place) {
@@ -103,7 +105,6 @@ export default function ClockInScreen() {
         }
       } catch (_) {}
     }
-
     setStep('details');
   }, []);
 
@@ -146,13 +147,13 @@ export default function ClockInScreen() {
         <View className="flex-row items-center justify-between px-5 pt-4 pb-2">
           <Text className="text-2xl font-bold text-ink">Clock In</Text>
           <Pressable onPress={() => router.back()}>
-            <Text className="text-brand font-semibold text-base">Cancel</Text>
+            <Text className="font-semibold text-base" style={{ color: BRONZE }}>Cancel</Text>
           </Pressable>
         </View>
 
         <View className="flex-1 items-center justify-center px-8">
-          <View className="w-40 h-40 rounded-full bg-gray-100 items-center justify-center mb-6">
-            <Text className="text-6xl">🤳</Text>
+          <View className="w-40 h-40 rounded-full items-center justify-center mb-6" style={{ backgroundColor: STONE }}>
+            <Text className="text-6xl">📷</Text>
           </View>
           <Text className="text-xl font-bold text-ink text-center mb-2">Take a selfie</Text>
           <Text className="text-muted text-center mb-8">
@@ -167,11 +168,11 @@ export default function ClockInScreen() {
 
   // ── Step 2: Pick project & confirm ───────────────────────────────────────
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between px-5 pt-4 pb-2 bg-white border-b border-gray-100">
+    <SafeAreaView className="flex-1 bg-paper">
+      <View className="flex-row items-center justify-between px-5 pt-4 pb-2 bg-white" style={{ borderBottomWidth: 1, borderBottomColor: LINE }}>
         <Text className="text-2xl font-bold text-ink">Clock In</Text>
         <Pressable onPress={() => router.back()}>
-          <Text className="text-brand font-semibold text-base">Cancel</Text>
+          <Text className="font-semibold text-base" style={{ color: BRONZE }}>Cancel</Text>
         </Pressable>
       </View>
 
@@ -182,29 +183,29 @@ export default function ClockInScreen() {
             {selfieUri ? (
               <Image source={{ uri: selfieUri }} className="w-16 h-16 rounded-full" />
             ) : (
-              <View className="w-16 h-16 rounded-full bg-gray-200 items-center justify-center">
-                <Text className="text-2xl">🤳</Text>
+              <View className="w-16 h-16 rounded-full items-center justify-center" style={{ backgroundColor: STONE }}>
+                <Text className="text-2xl">📷</Text>
               </View>
             )}
             <View className="flex-1">
               <Text className="font-semibold text-ink">Selfie captured</Text>
               <Text className="text-muted text-sm">
                 {address
-                  ? `📍 ${address}`
+                  ? address
                   : location
-                  ? `📍 ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
-                  : '📍 Location not captured'}
+                  ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+                  : 'Location not captured'}
               </Text>
             </View>
             <Pressable onPress={() => setStep('selfie')}>
-              <Text className="text-brand text-sm font-medium">Retake</Text>
+              <Text className="text-sm font-medium" style={{ color: BRONZE }}>Retake</Text>
             </Pressable>
           </View>
         </Card>
 
         {/* Business entity */}
         {loadingEntities ? (
-          <ActivityIndicator color="#0ABFA3" />
+          <ActivityIndicator color={BRONZE} />
         ) : entities.length > 1 ? (
           <View>
             <Label>Business</Label>
@@ -225,7 +226,7 @@ export default function ClockInScreen() {
         <View>
           <Label>Project</Label>
           {loadingProjects ? (
-            <ActivityIndicator color="#0ABFA3" />
+            <ActivityIndicator color={BRONZE} />
           ) : projects.length === 0 ? (
             <Text className="text-muted text-sm">No active projects. Ask an admin to create one.</Text>
           ) : (
@@ -237,18 +238,18 @@ export default function ClockInScreen() {
                   onPress={() => setProjectId(p.id)}
                   style={{
                     borderWidth: 1.5,
-                    borderColor: projectId === p.id ? '#0ABFA3' : '#e5e7eb',
-                    backgroundColor: projectId === p.id ? '#f0fdfb' : '#ffffff',
+                    borderColor: projectId === p.id ? BRONZE : LINE,
+                    backgroundColor: projectId === p.id ? 'rgba(154,122,78,0.06)' : '#ffffff',
                     borderRadius: 12,
                     paddingHorizontal: 16,
                     paddingVertical: 12,
                   }}
                 >
-                  <Text style={{ fontWeight: '600', color: projectId === p.id ? '#0ABFA3' : '#101113' }}>
+                  <Text style={{ fontWeight: '600', color: projectId === p.id ? BRONZE : INK }}>
                     {p.name}
                   </Text>
                   {p.client ? (
-                    <Text style={{ color: '#6b7280', fontSize: 13, marginTop: 2 }}>{p.client}</Text>
+                    <Text style={{ color: MUTED, fontSize: 13, marginTop: 2 }}>{p.client}</Text>
                   ) : null}
                 </TouchableOpacity>
               ))}
@@ -259,7 +260,7 @@ export default function ClockInScreen() {
         {/* Work location */}
         <View>
           <Label>Where are you working?</Label>
-          <View className="flex-row bg-gray-100 rounded-xl p-1">
+          <View className="flex-row rounded-xl p-1" style={{ backgroundColor: STONE }}>
             {(['site', 'workshop'] as WorkLocation[]).map((loc) => (
               <TouchableOpacity
                 key={loc}
@@ -273,8 +274,8 @@ export default function ClockInScreen() {
                   backgroundColor: workLocation === loc ? '#ffffff' : 'transparent',
                 }}
               >
-                <Text style={{ fontWeight: '600', color: workLocation === loc ? '#101113' : '#6b7280' }}>
-                  {loc === 'site' ? '🏗  On Site' : '🏭  Factory / Workshop'}
+                <Text style={{ fontWeight: '600', color: workLocation === loc ? INK : MUTED }}>
+                  {loc === 'site' ? 'On Site' : 'Factory / Workshop'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -287,7 +288,7 @@ export default function ClockInScreen() {
       </ScrollView>
 
       {/* Confirm button */}
-      <View className="p-5 bg-white border-t border-gray-100">
+      <View className="p-5 bg-white" style={{ borderTopWidth: 1, borderTopColor: LINE }}>
         <Button
           label={submitting ? 'Clocking in…' : 'Confirm Clock In'}
           loading={submitting}

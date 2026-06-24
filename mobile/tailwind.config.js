@@ -5,13 +5,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Build One brand palette ───────────────────────────────
         brand: {
-          DEFAULT: '#0ABFA3',
-          dark: '#089080',
-          surface: '#062B26',
+          DEFAULT: '#9A7A4E',   // Bronze 500 — primary accent
+          dark:    '#836439',   // Bronze 600 — hover
+          light:   '#C7AB82',   // Bronze 300 — light accent
         },
-        ink: '#101113',
-        muted: '#6B7280',
+        // ── Neutrals ─────────────────────────────────────────────
+        ink:   '#1F1D1A',       // Charcoal — primary text
+        muted: '#76716A',       // Muted — secondary text
+        faint: '#A39C90',       // Faint — placeholder / tertiary
+        stone: '#EFEAE1',       // Stone — subtle fills / hover
+        line:  '#E7E2D8',       // Line — borders / dividers
+        paper: '#F6F4EF',       // Paper — app background
       },
     },
   },

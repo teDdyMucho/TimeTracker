@@ -4,15 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/store/auth';
 
+const LINE = '#E7E2D8';
+
 export default function Login() {
   const { signIn, signingIn, error } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-paper">
       <View className="flex-1 justify-center px-6">
         <View className="items-center mb-10">
+          {/* Build One bronze logo mark */}
           <View className="w-16 h-16 rounded-2xl bg-brand items-center justify-center mb-4">
             <Text className="text-white text-2xl font-bold">B1</Text>
           </View>
@@ -30,7 +33,9 @@ export default function Login() {
               keyboardType="email-address"
               autoComplete="email"
               placeholder="you@buildone.com"
-              className="border border-gray-300 rounded-2xl px-4 py-4 text-base text-ink"
+              placeholderTextColor="#A39C90"
+              className="bg-white text-ink text-base rounded-2xl px-4 py-4"
+              style={{ borderWidth: 1, borderColor: LINE }}
             />
           </View>
           <View>
@@ -40,7 +45,9 @@ export default function Login() {
               onChangeText={setPassword}
               secureTextEntry
               placeholder="••••••••"
-              className="border border-gray-300 rounded-2xl px-4 py-4 text-base text-ink"
+              placeholderTextColor="#A39C90"
+              className="bg-white text-ink text-base rounded-2xl px-4 py-4"
+              style={{ borderWidth: 1, borderColor: LINE }}
             />
           </View>
 

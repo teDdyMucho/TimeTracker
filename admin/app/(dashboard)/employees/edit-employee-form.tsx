@@ -39,7 +39,7 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
     return (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
-          <CheckCircle size={56} className="text-green-500 mx-auto mb-4" />
+          <CheckCircle size={56} className="text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-ink mb-2">Employee updated!</h2>
           <p className="text-muted text-sm mb-6">
             <strong className="text-ink">{employee.name}</strong> has been updated successfully.
@@ -109,7 +109,7 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 flex items-center justify-center gap-2 bg-brand text-white font-semibold rounded-xl py-2.5 text-sm hover:bg-teal-500 disabled:opacity-50 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-brand text-white font-semibold rounded-xl py-2.5 text-sm hover:bg-brand-dark disabled:opacity-50 transition-colors"
             >
               {pending ? (
                 <>
