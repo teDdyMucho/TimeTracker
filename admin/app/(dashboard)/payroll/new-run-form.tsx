@@ -1,5 +1,5 @@
 'use client'
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { generatePayrollAction } from './actions'
 import { Input, Select, Button } from '@/components/ui'
 import type { BusinessEntity } from '@/lib/types'
@@ -7,8 +7,15 @@ import type { BusinessEntity } from '@/lib/types'
 export default function NewPayrollRunForm({ entities }: { entities: BusinessEntity[] }) {
   const [open, setOpen] = useState(false)
   const [error, formAction, pending] = useActionState(generatePayrollAction, null)
+  const prevPending = useRef(false)
 
-  // Default period: fortnightly ending today
+  // Close the modal once a run is created successfully
+  useEffect(() => {
+    if (prevPending.current && !pending && !error) setOpen(false)
+    prevPending.current = pending
+  }, [pending, error])
+
+  // Default period: fortnightly ending today (Brisbane)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
   const twoWeeksAgo = new Date(Date.now() - 13 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
 
@@ -20,8 +27,8 @@ export default function NewPayrollRunForm({ entities }: { entities: BusinessEnti
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h2 className="text-lg font-bold text-ink mb-1">Generate Pay Run</h2>
             <p className="text-muted text-sm mb-5">
-              Creates a draft payroll run. Labour costs are calculated by the Edge Function after
-              pay rates are configured.
+              Aggregates each employee&rsquo;s submitted hours for the period into pay bands
+              (ordinary, overtime, weekend, public holiday) — ready to export to Xero.
             </p>
             <form action={formAction} className="space-y-4">
               {error && (
@@ -32,24 +39,12 @@ export default function NewPayrollRunForm({ entities }: { entities: BusinessEnti
                   <option key={e.id} value={e.id}>{e.name}</option>
                 ))}
               </Select>
-              <Input
-                label="Period start"
-                name="period_start"
-                type="date"
-                required
-                defaultValue={twoWeeksAgo}
-              />
-              <Input
-                label="Period end"
-                name="period_end"
-                type="date"
-                required
-                defaultValue={today}
-              />
+              <Input label="Period start" name="period_start" type="date" required defaultValue={twoWeeksAgo} />
+              <Input label="Period end" name="period_end" type="date" required defaultValue={today} />
               <div className="flex gap-3 pt-2">
                 <Button
                   type="submit"
-                  label={pending ? 'Creating…' : 'Create draft'}
+                  label={pending ? 'Creating…' : 'Create pay run'}
                   disabled={pending}
                   className="flex-1"
                 />
@@ -59,6 +54,7 @@ export default function NewPayrollRunForm({ entities }: { entities: BusinessEnti
                   variant="ghost"
                   className="flex-1"
                   onClick={() => setOpen(false)}
+                  disabled={pending}
                 />
               </div>
             </form>
