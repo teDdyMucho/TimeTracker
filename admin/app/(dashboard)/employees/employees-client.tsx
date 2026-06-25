@@ -14,6 +14,7 @@ interface Profile {
   employment_type: string
   business_access: string[]
   status: string
+  hourly_rate?: number | null
 }
 
 interface Props {
@@ -53,10 +54,10 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
             No employees yet. Use "Invite employee" to add one.
           </p>
         ) : (
-          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[760px]">
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[820px]">
             <thead>
               <tr className="text-left border-b border-slate-100">
-                {['Name', 'Email', 'Role', 'Type', 'Entities', 'Status', ''].map((h) => (
+                {['Name', 'Email', 'Role', 'Type', 'Rate', 'Entities', 'Status', ''].map((h) => (
                   <th key={h} className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">
                     {h}
                   </th>
@@ -73,6 +74,11 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                   </td>
                   <td className="py-3 pr-4 capitalize text-muted">
                     {p.employment_type?.replace('_', ' ')}
+                  </td>
+                  <td className="py-3 pr-4 font-semibold text-ink whitespace-nowrap">
+                    {p.hourly_rate != null
+                      ? `$${Number(p.hourly_rate).toFixed(2)}/hr`
+                      : <span className="text-slate-300 font-normal">Not set</span>}
                   </td>
                   <td className="py-3 pr-4 text-muted text-xs">
                     {p.business_access.map((id) => entityMap[id] ?? id).join(', ') || 'â€”'}

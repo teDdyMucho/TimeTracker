@@ -166,6 +166,17 @@ export default function InviteEmployeeForm({
             <option value="contractor">Contractor</option>
           </Select>
 
+          <Input
+            label="Hourly pay rate ($) — optional"
+            name="hourly_rate"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            placeholder="e.g. 45.00"
+            disabled={pending}
+          />
+
           <div>
             <span className="block text-sm font-medium text-ink mb-2">Entity access</span>
             <div className="flex flex-wrap gap-3">

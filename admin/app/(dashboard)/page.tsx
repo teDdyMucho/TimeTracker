@@ -66,7 +66,7 @@ export default async function DashboardPage({
       supabase.from('timesheets').select('hours').gte('work_date', lwStart).lte('work_date', lwEnd),
       supabase
         .from('timesheets')
-        .select('id, work_date, hours, work_location, created_at, status, profiles!inner(name), projects!inner(name)')
+        .select('id, work_date, hours, work_location, created_at, status, profiles!inner(name, avatar_url), projects!inner(name)')
         .order('created_at', { ascending: false })
         .limit(6),
     ])
@@ -282,10 +282,20 @@ export default async function DashboardPage({
                 return (
                   <div key={t.id} className="flex items-center gap-3 py-3 px-3 -mx-3 rounded-xl transition-colors hover:bg-[#FAF9F6]">
                     <div className="relative shrink-0">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                        style={{ background: 'linear-gradient(135deg, #6F5B45, #5A4A38)' }}>
-                        {initials}
-                      </div>
+                      {t.profiles?.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={t.profiles.avatar_url}
+                          alt={t.profiles?.name ?? 'Employee'}
+                          className="w-9 h-9 rounded-full object-cover"
+                          style={{ border: '1px solid #ECEAE4' }}
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg, #6F5B45, #5A4A38)' }}>
+                          {initials}
+                        </div>
+                      )}
                       <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-white"
                         style={{ background: '#9A7A4E' }}>
                         <Clock size={8} className="text-white" strokeWidth={3} />

@@ -1,7 +1,7 @@
 'use server'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
-import { aggregatePayroll, type PayConfig } from '@/lib/payroll'
+import { aggregatePayroll, grossPay, type PayConfig } from '@/lib/payroll'
 
 export async function generatePayrollAction(
   _prevState: string | null,
@@ -57,7 +57,21 @@ export async function generatePayrollAction(
     .lte('date', periodEnd)
   const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
 
-  const employees = aggregatePayroll(tsRows as any, holidays, entity.pay_config as PayConfig)
+  const payConfig = entity.pay_config as PayConfig
+  const employees = aggregatePayroll(tsRows as any, holidays, payConfig)
+
+  // Current hourly rate per employee (latest effective on/before the period end)
+  const profileIds = employees.map((e) => e.profileId)
+  const { data: rateRows } = await admin
+    .from('pay_rates')
+    .select('profile_id, hourly_rate, effective_from')
+    .in('profile_id', profileIds.length ? profileIds : ['00000000-0000-0000-0000-000000000000'])
+    .lte('effective_from', periodEnd)
+    .order('effective_from', { ascending: false })
+  const rateMap: Record<string, number> = {}
+  for (const r of rateRows ?? []) {
+    if (!(r.profile_id in rateMap)) rateMap[r.profile_id] = Number(r.hourly_rate)
+  }
 
   // Create the run
   const { data: run, error: runErr } = await admin
@@ -73,14 +87,18 @@ export async function generatePayrollAction(
     .single()
   if (runErr || !run) return runErr?.message ?? 'Failed to create pay run.'
 
-  // One entry per employee with their per-band hours (gross is computed by Xero)
-  const entries = employees.map((e) => ({
-    payroll_run_id: run.id,
-    profile_id: e.profileId,
-    band_hours: e.bandHours,
-    band_cost: {},
-    gross_pay: 0,
-  }))
+  // One entry per employee — band hours + computed gross salary (rate × multipliers)
+  const entries = employees.map((e) => {
+    const rate = rateMap[e.profileId] ?? 0
+    const { gross, bandCost } = grossPay(e.bandHours, rate, payConfig)
+    return {
+      payroll_run_id: run.id,
+      profile_id: e.profileId,
+      band_hours: e.bandHours,
+      band_cost: bandCost,
+      gross_pay: gross,
+    }
+  })
   if (entries.length > 0) {
     const { error: entErr } = await admin.from('payroll_entries').insert(entries)
     if (entErr) {

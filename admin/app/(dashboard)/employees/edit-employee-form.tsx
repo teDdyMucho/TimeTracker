@@ -2,7 +2,7 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { updateEmployeeAction } from './actions'
-import { Select, Button } from '@/components/ui'
+import { Select, Button, Input } from '@/components/ui'
 import type { BusinessEntity } from '@/lib/types'
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
     role: string
     employment_type: string
     business_access: string[]
+    hourly_rate?: number | null
   }
   entities: BusinessEntity[]
   onClose: () => void
@@ -84,6 +85,18 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
             <option value="casual">Casual</option>
             <option value="contractor">Contractor</option>
           </Select>
+
+          <Input
+            label="Hourly pay rate ($)"
+            name="hourly_rate"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            placeholder="e.g. 45.00"
+            defaultValue={employee.hourly_rate != null ? String(employee.hourly_rate) : ''}
+            disabled={pending}
+          />
 
           <div>
             <span className="block text-sm font-medium text-ink mb-2">Entity access</span>

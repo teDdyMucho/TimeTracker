@@ -37,6 +37,37 @@ export interface PayConfig {
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
+/** Multiplier for each pay band, from the entity's pay config (e.g. OT 1.5×, Sat 1.5×). */
+export function bandMultipliers(cfg: PayConfig): Record<PayBand, number> {
+  const m: Record<PayBand, number> = {
+    regular: 1,
+    overtime_t1: 1.5,
+    overtime_t2: 2,
+    saturday: cfg.saturdayMultiplier,
+    sunday: cfg.sundayMultiplier,
+    public_holiday: cfg.publicHolidayMultiplier,
+  }
+  for (const t of cfg.weekdayTiers) m[t.band] = t.multiplier
+  return m
+}
+
+/** Gross pay = Σ band hours × hourly rate × band multiplier. */
+export function grossPay(
+  bandHours: Record<PayBand, number>,
+  hourlyRate: number,
+  cfg: PayConfig,
+): { gross: number; bandCost: Record<PayBand, number> } {
+  const mult = bandMultipliers(cfg)
+  const bandCost = {} as Record<PayBand, number>
+  let gross = 0
+  for (const b of PAY_BANDS) {
+    const cost = round2((bandHours[b] || 0) * hourlyRate * mult[b])
+    bandCost[b] = cost
+    gross = round2(gross + cost)
+  }
+  return { gross, bandCost }
+}
+
 export function classifyDay(dateISO: string, isPublicHoliday: boolean): DayType {
   if (isPublicHoliday) return 'public_holiday'
   const [y, m, d] = dateISO.split('-').map(Number)

@@ -41,6 +41,15 @@ export async function createEmployeeAction(
     return profileError.message
   }
 
+  // Optional initial pay rate
+  const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
+  if (rateRaw) {
+    const rate = Number(rateRaw)
+    if (!Number.isNaN(rate) && rate >= 0) {
+      await adminClient.from('pay_rates').insert({ profile_id: userId, hourly_rate: rate })
+    }
+  }
+
   revalidatePath('/employees')
   return null
 }
@@ -70,6 +79,7 @@ export async function updateEmployeeAction(
   const role = formData.get('role') as string
   const employment_type = formData.get('employment_type') as string
   const entityIds = formData.getAll('entity_ids') as string[]
+  const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
 
   const adminClient = createAdminClient()
   const { error } = await adminClient
@@ -78,6 +88,25 @@ export async function updateEmployeeAction(
     .eq('id', id)
 
   if (error) return error.message
+
+  // Pay rate: insert a new effective row only if a valid rate was given and it changed.
+  if (rateRaw) {
+    const rate = Number(rateRaw)
+    if (Number.isNaN(rate) || rate < 0) return 'Hourly rate must be a positive number.'
+    const { data: latest } = await adminClient
+      .from('pay_rates')
+      .select('hourly_rate')
+      .eq('profile_id', id)
+      .order('effective_from', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!latest || Number(latest.hourly_rate) !== rate) {
+      const { error: rateErr } = await adminClient.from('pay_rates').insert({ profile_id: id, hourly_rate: rate })
+      if (rateErr) return rateErr.message
+    }
+  }
+
   revalidatePath('/employees')
+  revalidatePath('/reports')
   return null
 }

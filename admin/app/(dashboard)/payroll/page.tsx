@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient, createAdminClient } from '@/lib/server'
 import { Card, PageHeader, Badge } from '@/components/ui'
 import { updatePayrollStatusAction, deletePayrollRunAction } from './actions'
@@ -21,7 +22,7 @@ export default async function PayrollPage() {
     adminClient
       .from('payroll_runs')
       .select(
-        'id, period_start, period_end, status, xero_sync_status, created_at, business_entity_id, payroll_entries(profile_id, band_hours)',
+        'id, period_start, period_end, status, xero_sync_status, created_at, business_entity_id, payroll_entries(profile_id, band_hours, gross_pay)',
       )
       .order('period_end', { ascending: false }),
     supabase
@@ -67,27 +68,42 @@ export default async function PayrollPage() {
           <div className="overflow-x-auto"><table className="w-full text-sm min-w-[760px]">
             <thead>
               <tr className="text-left border-b border-slate-100">
-                {['Entity', 'Period', 'Employees', 'Total Hours', 'Status', 'Xero', 'Actions'].map((h) => (
+                {['Entity', 'Period', 'Employees', 'Total Hours', 'Gross Pay', 'Status', 'Xero', 'Actions'].map((h) => (
                   <th key={h} className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {runs.map((r) => {
-                const entries = (r.payroll_entries ?? []) as { profile_id: string; band_hours: Record<string, number> }[]
+                const entries = (r.payroll_entries ?? []) as { profile_id: string; band_hours: Record<string, number>; gross_pay: number }[]
                 const empCount = entries.length
                 const totalHours = entries.reduce((s, e) => s + bandTotal(e.band_hours), 0)
+                const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
                 const ent = entityMap[r.business_entity_id]
                 return (
                   <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 pr-4 font-medium">{ent?.name ?? '—'}</td>
+                    <td className="py-3 pr-4 font-medium">
+                      <Link href={`/payroll/${r.id}`} className="hover:underline" style={{ color: '#9A7A4E' }}>
+                        {ent?.name ?? '—'}
+                      </Link>
+                    </td>
                     <td className="py-3 pr-4 text-muted whitespace-nowrap">{r.period_start} – {r.period_end}</td>
                     <td className="py-3 pr-4 text-center">{empCount}</td>
                     <td className="py-3 pr-4 font-semibold tabular-nums">{formatHours(totalHours)}</td>
+                    <td className="py-3 pr-4 font-bold tabular-nums">
+                      {totalGross > 0 ? `$${totalGross.toLocaleString('en-AU', { minimumFractionDigits: 2 })}` : <span className="text-muted font-normal">—</span>}
+                    </td>
                     <td className="py-3 pr-4"><Badge status={r.status} /></td>
                     <td className="py-3 pr-4"><Badge status={r.xero_sync_status} /></td>
                     <td className="py-3">
                       <div className="flex gap-2 flex-wrap items-center">
+                        <Link
+                          href={`/payroll/${r.id}`}
+                          className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+                        >
+                          View salaries
+                        </Link>
+
                         {/* Preview export — works now */}
                         <a
                           href={`/api/xero/payroll-preview?run=${r.id}`}
