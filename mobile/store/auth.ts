@@ -14,6 +14,7 @@ interface AuthState {
   init: () => void;
   signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
@@ -49,7 +50,19 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
-    set({ session: null, profile: null });
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore network/expired-session errors — we still clear the local session below
+    } finally {
+      set({ session: null, profile: null });
+    }
+  },
+
+  refreshProfile: async () => {
+    const { session } = get();
+    if (!session) return;
+    const profile = await fetchProfile(session.user.id);
+    set({ profile });
   },
 }));

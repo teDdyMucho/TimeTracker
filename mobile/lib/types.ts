@@ -14,6 +14,8 @@ export interface Profile {
   role: Role;
   business_access: string[];
   expo_push_token: string | null;
+  avatar_url: string | null;
+  notifications_enabled: boolean;
 }
 
 export interface BusinessEntity {

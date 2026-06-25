@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Button, Card, Chip, Label } from '@/components/ui';
+import { formatHours } from '@/lib/format';
 import { useAuth } from '@/store/auth';
 import {
   fetchBusinessEntities,
@@ -214,7 +215,7 @@ export default function LogHours() {
                 >
                   <Text className="text-2xl text-ink">−</Text>
                 </Pressable>
-                <Text className="text-3xl font-bold text-ink">{line.hours} h</Text>
+                <Text className="text-3xl font-bold text-ink">{formatHours(line.hours)}</Text>
                 <Pressable
                   onPress={() => updateLine(i, { hours: clampHours(line.hours + 0.5) })}
                   className="w-12 h-12 rounded-full bg-gray-100 items-center justify-center"
@@ -245,7 +246,7 @@ export default function LogHours() {
             <Switch
               value={overtime}
               onValueChange={setOvertime}
-              trackColor={{ true: '#0ABFA3', false: '#d1d5db' }}
+              trackColor={{ true: '#9A7A4E', false: '#d1d5db' }}
             />
           </View>
           {overtime ? (
@@ -266,7 +267,7 @@ export default function LogHours() {
       <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4">
         <View className="flex-row justify-between items-center mb-3">
           <Text className="text-muted">Total today</Text>
-          <Text className="text-xl font-bold text-ink">{totalHours} h</Text>
+          <Text className="text-xl font-bold text-ink">{formatHours(totalHours)}</Text>
         </View>
         <Button
           label="Submit Timesheet"

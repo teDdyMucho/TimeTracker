@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Button, Card } from '@/components/ui';
 import { useAuth } from '@/store/auth';
+import { Ionicons } from '@expo/vector-icons';
 import {
   clockOut,
   fetchActiveSession,
   fetchHomeSummary,
   fetchRecentTimesheets,
+  fetchUnreadCount,
   type HomeSummary,
 } from '@/lib/queries';
 import { friendlyDate } from '@/lib/date';
+import { formatHours } from '@/lib/format';
+import { cancelClockOutReminder } from '@/lib/notify';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
 // Build One palette constants
@@ -19,7 +23,6 @@ const BRONZE   = '#9A7A4E';
 const BRONZE_DK = '#836439';
 const INK      = '#1F1D1A';
 const MUTED    = '#76716A';
-const STONE    = '#EFEAE1';
 const LINE     = '#E7E2D8';
 const PAPER    = '#F6F4EF';
 
@@ -33,13 +36,13 @@ function elapsedLabel(since: string): string {
 export default function Home() {
   const router = useRouter();
   const profile = useAuth((s) => s.profile);
-  const signOut = useAuth((s) => s.signOut);
 
   const [summary, setSummary] = useState<HomeSummary>({ todayHours: 0, weekHours: 0, pendingOvertime: 0 });
   const [recent, setRecent] = useState<Timesheet[]>([]);
   const [activeSession, setActiveSession] = useState<ClockSession | null>(null);
   const [elapsed, setElapsed] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [unread, setUnread] = useState(0);
 
   const [clockingOut, setClockingOut] = useState(false);
   const [overtime, setOvertime] = useState(false);
@@ -50,14 +53,16 @@ export default function Home() {
   const load = useCallback(async () => {
     if (!profile) return;
     try {
-      const [s, r, session] = await Promise.all([
+      const [s, r, session, unreadCount] = await Promise.all([
         fetchHomeSummary(profile.id),
         fetchRecentTimesheets(profile.id, 10),
         fetchActiveSession(profile.id),
+        fetchUnreadCount(profile.id),
       ]);
       setSummary(s);
       setRecent(r);
       setActiveSession(session);
+      setUnread(unreadCount);
       if (session) setElapsed(elapsedLabel(session.clocked_in_at));
     } catch (e) {
       console.warn('[home] load', e);
@@ -96,6 +101,7 @@ export default function Home() {
         overtimeRequested: overtime,
         overtimeReason: overtime ? otReason.trim() : null,
       });
+      await cancelClockOutReminder();
       setActiveSession(null);
       setOvertime(false);
       setOtReason('');
@@ -117,29 +123,49 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRONZE} />}
       >
         {/* Header */}
-        <View className="flex-row justify-between items-start mb-6">
+        <View className="flex-row justify-between items-center mb-6">
           <View>
             <Text className="text-muted">Welcome back,</Text>
             <Text className="text-2xl font-bold text-ink">{firstName}</Text>
           </View>
-          <Pressable onPress={signOut} className="px-3 py-2">
-            <Text className="text-muted font-medium">Sign out</Text>
-          </Pressable>
+          <View className="flex-row items-center gap-3">
+            {/* Notifications */}
+            <Pressable onPress={() => router.push('/notifications')} className="relative">
+              <View className="items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(154,122,78,0.10)' }}>
+                <Ionicons name="notifications-outline" size={21} color={INK} />
+              </View>
+              {unread > 0 && (
+                <View
+                  className="absolute -top-0.5 -right-0.5 items-center justify-center"
+                  style={{ minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', paddingHorizontal: 4 }}
+                >
+                  <Text className="text-white font-bold" style={{ fontSize: 10 }}>{unread}</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Profile */}
+            <Pressable onPress={() => router.push('/settings')}>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: LINE }} />
+              ) : (
+                <View className="items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: BRONZE }}>
+                  <Text className="text-white font-bold text-base">{firstName[0]?.toUpperCase() ?? 'U'}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* Stats */}
         <View className="flex-row gap-3 mb-4">
           <Card className="flex-1">
             <Text className="text-muted text-xs uppercase tracking-wide">Today</Text>
-            <Text className="text-3xl font-bold text-ink mt-1">
-              {summary.todayHours}<Text className="text-base text-muted"> h</Text>
-            </Text>
+            <Text className="text-3xl font-bold text-ink mt-1">{formatHours(summary.todayHours)}</Text>
           </Card>
           <Card className="flex-1">
             <Text className="text-muted text-xs uppercase tracking-wide">This week</Text>
-            <Text className="text-3xl font-bold text-ink mt-1">
-              {summary.weekHours}<Text className="text-base text-muted"> h</Text>
-            </Text>
+            <Text className="text-3xl font-bold text-ink mt-1">{formatHours(summary.weekHours)}</Text>
           </Card>
         </View>
 
@@ -231,7 +257,7 @@ export default function Home() {
                       {t.overtime_status !== 'none' ? `OT ${t.overtime_status}` : t.status}
                     </Text>
                   </View>
-                  <Text className="text-lg font-bold text-ink">{Number(t.hours)} h</Text>
+                  <Text className="text-lg font-bold text-ink">{formatHours(Number(t.hours))}</Text>
                 </View>
               </Card>
             ))}

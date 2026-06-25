@@ -1,14 +1,16 @@
 {
   "expo": {
-    "name": "Build One Timesheets",
+    "name": "BuildOne",
     "slug": "buildone-timesheets",
     "version": "0.1.0",
     "scheme": "buildone",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#9A7A4E",
+      "image": "./assets/buildone.png",
+      "backgroundColor": "#F6F4EF",
       "resizeMode": "contain"
     },
     "ios": {
@@ -19,7 +21,11 @@
       }
     },
     "android": {
-      "package": "com.buildone.timesheets"
+      "package": "com.buildone.timesheets",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1C1A16"
+      }
     },
     "plugins": [
       "expo-router",

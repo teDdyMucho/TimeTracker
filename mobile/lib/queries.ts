@@ -5,7 +5,7 @@ import { startOfWeek, todayISO } from './date';
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, email, role, business_access, expo_push_token')
+    .select('id, name, email, role, business_access, expo_push_token, avatar_url, notifications_enabled')
     .eq('id', userId)
     .single();
   if (error) {
@@ -146,6 +146,18 @@ export async function fetchActiveSession(userId: string): Promise<ClockSession |
   return data as ClockSession | null;
 }
 
+/** All clock-in sessions for a user (newest first) — used to show daily selfies/photos. */
+export async function fetchClockSessions(userId: string, limit = 100): Promise<ClockSession[]> {
+  const { data, error } = await supabase
+    .from('clock_sessions')
+    .select('*')
+    .eq('profile_id', userId)
+    .order('clocked_in_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as ClockSession[];
+}
+
 export async function uploadSelfie(userId: string, uri: string): Promise<string | null> {
   try {
     const fileName = `${Date.now()}.jpg`;
@@ -194,6 +206,78 @@ export async function uploadSelfie(userId: string, uri: string): Promise<string 
   }
 }
 
+/** Upload a profile photo to the avatars bucket and return its public URL. */
+export async function uploadAvatar(userId: string, uri: string): Promise<string | null> {
+  try {
+    const fileName = `${Date.now()}.jpg`;
+    const storagePath = `${userId}/${fileName}`;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return null;
+
+    const formData = new FormData();
+    formData.append('file', { uri, name: fileName, type: 'image/jpeg' } as any);
+
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+    const res = await fetch(`${supabaseUrl}/storage/v1/object/avatars/${storagePath}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'x-upsert': 'true' },
+      body: formData,
+    });
+    if (!res.ok) {
+      console.error('[avatar] upload error:', res.status, await res.text());
+      return null;
+    }
+    const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath);
+    return data.publicUrl;
+  } catch (e) {
+    console.error('[avatar] exception:', String(e));
+    return null;
+  }
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export async function fetchNotifications(userId: string, limit = 50): Promise<AppNotification[]> {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id, type, title, body, read, created_at')
+    .eq('profile_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as AppNotification[];
+}
+
+export async function fetchUnreadCount(userId: string): Promise<number> {
+  const { count } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('profile_id', userId)
+    .eq('read', false);
+  return count ?? 0;
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  await supabase.from('notifications').update({ read: true }).eq('profile_id', userId).eq('read', false);
+}
+
+/** Update editable fields on the signed-in user's own profile. */
+export async function updateMyProfile(
+  userId: string,
+  patch: { avatar_url?: string; notifications_enabled?: boolean },
+): Promise<void> {
+  const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  if (error) throw error;
+}
+
 export interface ClockInInput {
   userId: string;
   businessEntityId: string;
@@ -237,7 +321,8 @@ export async function clockOut(input: ClockOutInput): Promise<void> {
   const clockOutAt = new Date().toISOString();
   const msWorked = new Date(clockOutAt).getTime() - new Date(input.clockedInAt).getTime();
   const hoursRaw = msWorked / 3_600_000;
-  const hours = Math.max(0.5, Math.min(24, Math.round(hoursRaw * 4) / 4));
+  // True elapsed time, rounded to the nearest minute (min ~1 min so it's never 0).
+  const hours = Math.max(0.02, Math.min(24, Math.round(hoursRaw * 60) / 60));
 
   const { error: sessionErr } = await supabase
     .from('clock_sessions')

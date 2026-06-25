@@ -21,6 +21,7 @@ import {
   uploadSelfie,
 } from '@/lib/queries';
 import { todayISO } from '@/lib/date';
+import { scheduleClockOutReminder } from '@/lib/notify';
 import { Button, Card, Chip, Label } from '@/components/ui';
 import type { BusinessEntity, Project, WorkLocation } from '@/lib/types';
 
@@ -133,6 +134,10 @@ export default function ClockInScreen() {
         selfieUrl,
         address: address ?? null,
       });
+      // Schedule the 8-hour clock-out reminder (unless the user disabled notifications)
+      if (profile.notifications_enabled !== false) {
+        await scheduleClockOutReminder(new Date().toISOString());
+      }
       router.replace('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not clock in.');
@@ -143,23 +148,44 @@ export default function ClockInScreen() {
   // ── Step 1: Take selfie ───────────────────────────────────────────────────
   if (step === 'selfie') {
     return (
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-paper">
         <View className="flex-row items-center justify-between px-5 pt-4 pb-2">
           <Text className="text-2xl font-bold text-ink">Clock In</Text>
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
             <Text className="font-semibold text-base" style={{ color: BRONZE }}>Cancel</Text>
           </Pressable>
         </View>
 
         <View className="flex-1 items-center justify-center px-8">
-          <View className="w-40 h-40 rounded-full items-center justify-center mb-6" style={{ backgroundColor: STONE }}>
-            <Text className="text-6xl">📷</Text>
+          {/* Camera-lens motif */}
+          <View className="items-center justify-center mb-8" style={{ width: 184, height: 184 }}>
+            <View style={{ position: 'absolute', width: 184, height: 184, borderRadius: 92, backgroundColor: 'rgba(154,122,78,0.08)' }} />
+            <View style={{ position: 'absolute', width: 148, height: 148, borderRadius: 74, backgroundColor: 'rgba(154,122,78,0.12)' }} />
+            <View
+              className="items-center justify-center"
+              style={{ width: 116, height: 116, borderRadius: 58, backgroundColor: '#fff', borderWidth: 2, borderColor: 'rgba(154,122,78,0.35)' }}
+            >
+              <View className="items-center justify-center" style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: BRONZE }}>
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.4)' }} />
+              </View>
+            </View>
           </View>
-          <Text className="text-xl font-bold text-ink text-center mb-2">Take a selfie</Text>
-          <Text className="text-muted text-center mb-8">
-            A photo is required to verify you're on location when clocking in.
-            Your GPS is also captured automatically.
+
+          <Text className="text-2xl font-bold text-ink text-center mb-2">Take a selfie</Text>
+          <Text className="text-muted text-center mb-6 leading-5" style={{ maxWidth: 300 }}>
+            A quick photo verifies you&rsquo;re on site. Your location and time are captured automatically.
           </Text>
+
+          {/* Info chips */}
+          <View className="flex-row gap-2 mb-9">
+            {['GPS captured', 'Time-stamped'].map((label) => (
+              <View key={label} className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(154,122,78,0.10)' }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: BRONZE }} />
+                <Text className="text-xs font-semibold" style={{ color: '#836439' }}>{label}</Text>
+              </View>
+            ))}
+          </View>
+
           <Button label="Open Camera" onPress={takeSelfie} className="w-full" />
         </View>
       </SafeAreaView>

@@ -1,5 +1,68 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
+
+/**
+ * Branded dialog. Pass `confirmLabel` for a two-button confirm (Cancel + action);
+ * omit it for a single-button info dialog.
+ */
+export function AppModal({
+  visible,
+  title,
+  message,
+  onClose,
+  confirmLabel,
+  onConfirm,
+  destructive = false,
+  cancelLabel = 'Cancel',
+}: {
+  visible: boolean;
+  title: string;
+  message?: string;
+  onClose: () => void;
+  confirmLabel?: string;
+  onConfirm?: () => void;
+  destructive?: boolean;
+  cancelLabel?: string;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+        <View className="w-full rounded-3xl p-6" style={{ backgroundColor: '#fff', maxWidth: 360 }}>
+          <Text className="text-lg font-bold text-ink mb-1">{title}</Text>
+          {message ? <Text className="text-muted leading-5 mb-5">{message}</Text> : <View className="mb-4" />}
+          <View className="flex-row gap-3">
+            {confirmLabel ? (
+              <>
+                <Pressable
+                  onPress={onClose}
+                  className="flex-1 items-center justify-center rounded-xl py-3"
+                  style={{ backgroundColor: '#EFEAE1' }}
+                >
+                  <Text className="font-semibold text-ink">{cancelLabel}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={onConfirm}
+                  className="flex-1 items-center justify-center rounded-xl py-3"
+                  style={{ backgroundColor: destructive ? '#EF4444' : '#9A7A4E' }}
+                >
+                  <Text className="font-semibold text-white">{confirmLabel}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={onClose}
+                className="flex-1 items-center justify-center rounded-xl py-3"
+                style={{ backgroundColor: '#9A7A4E' }}
+              >
+                <Text className="font-semibold text-white">OK</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export function Button({
   label,

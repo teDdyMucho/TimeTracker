@@ -13,6 +13,8 @@ export default function AppLayout() {
       <Stack.Screen name="clock-in" options={{ headerShown: false }} />
       <Stack.Screen name="log" options={{ title: 'Log Hours', presentation: 'modal' }} />
       <Stack.Screen name="history" options={{ title: 'My Timesheets' }} />
+      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
     </Stack>
   );
 }
