@@ -1,9 +1,33 @@
 import { createAdminClient } from '@/lib/server'
 import { PageHeader } from '@/components/ui'
 import OvertimeClient from './overtime-client'
+import OvertimeFilter from './overtime-filter'
 
-export default async function OvertimePage() {
+export const dynamic = 'force-dynamic'
+
+export default async function OvertimePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ employee?: string; entity?: string; date?: string; view?: string }>
+}) {
   const admin = createAdminClient()
+  const params = await searchParams
+  const employeeId = params.employee ?? ''
+  const entityId = params.entity ?? ''
+  const view: 'pending' | 'reviewed' = params.view === 'reviewed' ? 'reviewed' : 'pending'
+  // Overtime date filter is based on the linked timesheet's work_date.
+  // Default to all days (no param). 'all' is treated the same as empty.
+  const today = new Date().toLocaleDateString('en-CA')
+  const dateSel = params.date ?? ''
+  const date = dateSel === 'all' ? '' : dateSel
+
+  // Dropdown options for the filters.
+  const [empRes, entRes] = await Promise.all([
+    admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name'),
+    admin.from('business_entities').select('id, name').eq('status', 'active').order('name'),
+  ])
+  const employees = (empRes.data ?? []) as { id: string; name: string }[]
+  const companies = (entRes.data ?? []) as { id: string; name: string }[]
 
   // Fetch overtime requests with no joins first (avoid FK ambiguity)
   const [pendingRaw, recentRaw] = await Promise.all([
@@ -30,7 +54,7 @@ export default async function OvertimePage() {
     timesheetIds.length > 0
       ? admin
           .from('timesheets')
-          .select('id, work_date, hours, work_location, project_id')
+          .select('id, work_date, hours, work_location, project_id, business_entity_id')
           .in('id', timesheetIds)
       : Promise.resolve({ data: [] }),
     profileIds.length > 0
@@ -70,8 +94,16 @@ export default async function OvertimePage() {
     }
   }
 
-  const pending = (pendingRaw.data ?? []).map(enrich)
-  const recent = (recentRaw.data ?? []).map(enrich)
+  // Filter by employee + company (the company lives on the linked timesheet).
+  function matches(r: any): boolean {
+    if (employeeId && r.profile_id !== employeeId) return false
+    if (entityId && r.timesheets?.business_entity_id !== entityId) return false
+    if (date && r.timesheets?.work_date !== date) return false
+    return true
+  }
+
+  const pending = (pendingRaw.data ?? []).map(enrich).filter(matches)
+  const recent = (recentRaw.data ?? []).map(enrich).filter(matches)
 
   return (
     <div>
@@ -79,7 +111,18 @@ export default async function OvertimePage() {
         title="Overtime Approvals"
         subtitle={`${pending.length} pending request${pending.length !== 1 ? 's' : ''}`}
       />
-      <OvertimeClient pending={pending} recent={recent} />
+      <OvertimeFilter
+        employees={employees}
+        companies={companies}
+        employeeId={employeeId}
+        entityId={entityId}
+        date={dateSel}
+        today={today}
+        view={view}
+        pendingCount={pending.length}
+        reviewedCount={recent.length}
+      />
+      <OvertimeClient pending={pending} recent={recent} view={view} />
     </div>
   )
 }

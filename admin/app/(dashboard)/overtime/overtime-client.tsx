@@ -23,9 +23,11 @@ interface Modal {
 export default function OvertimeClient({
   pending: initialPending,
   recent,
+  view = 'pending',
 }: {
   pending: OvertimeRequest[]
   recent: any[]
+  view?: 'pending' | 'reviewed'
 }) {
   const [isPending, startTransition] = useTransition()
   const [actingOn, setActingOn] = useState<{ id: string; action: 'approve' | 'reject' } | null>(null)
@@ -63,8 +65,9 @@ export default function OvertimeClient({
 
   return (
     <>
-      {/* Pending */}
-      {pending.length > 0 ? (
+      {/* Pending view */}
+      {view === 'pending' && (
+      pending.length > 0 ? (
         <div className="space-y-3 mb-10">
           <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">
             Awaiting review
@@ -122,31 +125,41 @@ export default function OvertimeClient({
         <Card className="mb-10">
           <p className="text-muted text-sm py-4 text-center">No pending overtime requests.</p>
         </Card>
+      )
       )}
 
-      {/* Recently reviewed */}
-      {recent && recent.length > 0 && (
+      {/* Reviewed view */}
+      {view === 'reviewed' && (
+        recent && recent.length > 0 ? (
         <div>
           <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">
             Recently reviewed
           </h2>
           <Card>
-            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[600px]">
+            <div className="overflow-x-auto"><table className="w-full text-sm min-w-[860px]">
               <thead>
                 <tr className="text-left border-b border-slate-100">
-                  {['Employee', 'Date', 'Hours', 'Decision', 'Reviewed'].map((h) => (
+                  {['Employee', 'Date', 'Project', 'Hours', 'Reason', 'Decision', 'Reviewed'].map((h) => (
                     <th key={h} className="pb-3 pr-4 text-left text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {recent.map((req: any) => (
-                  <tr key={req.id} className="hover:bg-slate-50">
-                    <td className="py-3 pr-4 font-medium">{req.profiles?.name}</td>
-                    <td className="py-3 pr-4 text-muted">{req.timesheets?.work_date}</td>
-                    <td className="py-3 pr-4">{formatHours(req.timesheets?.hours)}</td>
+                  <tr key={req.id} className="hover:bg-slate-50 align-top">
+                    <td className="py-3 pr-4 font-medium whitespace-nowrap">{req.profiles?.name}</td>
+                    <td className="py-3 pr-4 text-muted whitespace-nowrap">{req.timesheets?.work_date}</td>
+                    <td className="py-3 pr-4 text-ink whitespace-nowrap">{req.timesheets?.projects?.name ?? '—'}</td>
+                    <td className="py-3 pr-4 whitespace-nowrap">{formatHours(req.timesheets?.hours)}</td>
+                    <td className="py-3 pr-4 text-muted max-w-[260px]">
+                      {req.reason ? (
+                        <span className="italic">&ldquo;{req.reason}&rdquo;</span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4"><Badge status={req.status} /></td>
-                    <td className="py-3 text-muted">
+                    <td className="py-3 text-muted whitespace-nowrap">
                       {req.reviewed_at
                         ? new Date(req.reviewed_at).toLocaleDateString('en-AU')
                         : '—'}
@@ -157,6 +170,11 @@ export default function OvertimeClient({
             </table></div>
           </Card>
         </div>
+        ) : (
+          <Card>
+            <p className="text-muted text-sm py-4 text-center">No reviewed overtime requests for this filter.</p>
+          </Card>
+        )
       )}
 
       {/* Success / Error Modal */}

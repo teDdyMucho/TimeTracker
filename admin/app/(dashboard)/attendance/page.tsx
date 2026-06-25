@@ -1,8 +1,10 @@
 import { createAdminClient } from '@/lib/server'
 import { Card, PageHeader } from '@/components/ui'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import AutoRefresh from './auto-refresh'
 import PhotoPreview from './photo-preview'
 import AttendanceFilter from './attendance-filter'
+import { approveAttendanceAction, rejectAttendanceAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,18 +60,33 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>
+  searchParams: Promise<{ date?: string; employee?: string; entity?: string }>
 }) {
   const admin = createAdminClient()
   const params = await searchParams
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-  const date = params.date ?? ''
+  // Use the server's local date (matches how work_date is recorded), not a forced timezone.
+  const today = new Date().toLocaleDateString('en-CA')
+  // Default to TODAY when no param is given. Use ?date=all to see every day.
+  // `selection` is what the filter UI reflects ('all' or a specific date);
+  // `date` is the actual SQL filter ('' = no filter = all days).
+  const selection = params.date ?? today
+  const date = selection === 'all' ? '' : selection
+  const employeeId = params.employee ?? ''
+  const entityId = params.entity ?? ''
+
+  // Dropdown options for the filters (all employees + entities, alphabetical).
+  const [empRes, entRes] = await Promise.all([
+    admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name'),
+    admin.from('business_entities').select('id, name').eq('status', 'active').order('name'),
+  ])
+  const employees = (empRes.data ?? []) as { id: string; name: string }[]
+  const companies = (entRes.data ?? []) as { id: string; name: string }[]
 
   let query = admin
     .from('clock_sessions')
     .select(`
       id, work_date, work_location, clocked_in_at, clocked_out_at,
-      clock_in_lat, clock_in_lng, clock_in_address, selfie_url,
+      clock_in_lat, clock_in_lng, clock_in_address, selfie_url, review_status,
       profiles ( name, email ),
       projects ( name ),
       business_entities ( name )
@@ -78,6 +95,8 @@ export default async function AttendancePage({
     .limit(200)
 
   if (date) query = query.eq('work_date', date)
+  if (employeeId) query = query.eq('profile_id', employeeId)
+  if (entityId) query = query.eq('business_entity_id', entityId)
 
   const { data: sessions } = await query
 
@@ -106,13 +125,20 @@ export default async function AttendancePage({
       <PageHeader
         title="Attendance"
         subtitle={
-          date
-            ? `${sorted.length} session${sorted.length !== 1 ? 's' : ''} on ${formatDate(date)}`
-            : `${active.length} currently on the clock · auto-refreshes every 30s`
+          selection === 'all'
+            ? `${active.length} currently on the clock · auto-refreshes every 30s`
+            : `${sorted.length} session${sorted.length !== 1 ? 's' : ''} on ${formatDate(date)}`
         }
       />
 
-      <AttendanceFilter date={date} today={today} />
+      <AttendanceFilter
+        date={selection}
+        today={today}
+        employees={employees}
+        companies={companies}
+        employeeId={employeeId}
+        entityId={entityId}
+      />
 
       <Card>
         {sorted.length === 0 ? (
@@ -121,16 +147,19 @@ export default async function AttendancePage({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[900px]">
+            <table className="w-full text-sm min-w-[1080px]">
               <thead>
                 <tr className="text-left border-b border-slate-200">
                   {[
                     'Photo', 'Employee', 'Company', 'Date',
                     'Project', 'Type', 'Status',
                     'Clock In', 'Clock Out', 'Duration',
-                    'Clock-in Address',
+                    'Clock-in Address', 'Actions',
                   ].map((h) => (
-                    <th key={h} className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap">
+                    <th
+                      key={h}
+                      className={`pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap ${h === 'Actions' ? 'text-right' : ''}`}
+                    >
                       {h}
                     </th>
                   ))}
@@ -139,6 +168,7 @@ export default async function AttendancePage({
               <tbody className="divide-y divide-slate-200">
                 {sorted.map((s) => {
                   const isActive = !s.clocked_out_at
+                  const review = (s.review_status ?? 'pending') as 'pending' | 'approved' | 'rejected'
                   return (
                     <tr
                       key={s.id}
@@ -181,17 +211,27 @@ export default async function AttendancePage({
                         {s.work_location === 'site' ? 'Site' : 'Factory'}
                       </td>
 
-                      {/* Status */}
+                      {/* Status — live timer if active, else the review decision */}
                       <td className="py-3 pr-4 whitespace-nowrap">
                         {isActive ? (
                           <span className="inline-flex items-center gap-1.5 text-brand text-xs font-semibold">
                             <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
                             {elapsed(s.clocked_in_at)}
                           </span>
+                        ) : review === 'approved' ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#15803D' }}>
+                            <span className="w-2 h-2 rounded-full" style={{ background: '#16A34A' }} />
+                            Approved
+                          </span>
+                        ) : review === 'rejected' ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#DC2626' }}>
+                            <span className="w-2 h-2 rounded-full" style={{ background: '#DC2626' }} />
+                            Rejected
+                          </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 text-slate-400 text-xs">
-                            <span className="w-2 h-2 rounded-full bg-slate-300" />
-                            Done
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#B45309' }}>
+                            <span className="w-2 h-2 rounded-full" style={{ background: '#D97706' }} />
+                            Pending
                           </span>
                         )}
                       </td>
@@ -231,6 +271,49 @@ export default async function AttendancePage({
                         ) : (
                           <span className="text-slate-300 text-xs">&mdash;</span>
                         )}
+                      </td>
+
+                      {/* Actions — accept/reject the attendance after checking photo + location */}
+                      <td className="py-3">
+                        <div className="flex gap-1.5 items-center justify-end flex-nowrap">
+                          {isActive ? (
+                            <span className="text-slate-300 text-xs">On the clock</span>
+                          ) : review === 'pending' ? (
+                            <>
+                              <form action={approveAttendanceAction}>
+                                <input type="hidden" name="id" value={s.id} />
+                                <button
+                                  type="submit"
+                                  className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-semibold text-white transition-colors whitespace-nowrap"
+                                  style={{ background: '#9A7A4E' }}
+                                >
+                                  <CheckCircle2 size={13} /> Approve
+                                </button>
+                              </form>
+                              <form action={rejectAttendanceAction}>
+                                <input type="hidden" name="id" value={s.id} />
+                                <button
+                                  type="submit"
+                                  className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors whitespace-nowrap"
+                                >
+                                  <XCircle size={13} /> Reject
+                                </button>
+                              </form>
+                            </>
+                          ) : (
+                            // Already decided — allow flipping the decision
+                            <form action={review === 'approved' ? rejectAttendanceAction : approveAttendanceAction}>
+                              <input type="hidden" name="id" value={s.id} />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-medium border text-muted hover:bg-slate-50 transition-colors whitespace-nowrap"
+                                style={{ borderColor: '#ECEAE4' }}
+                              >
+                                {review === 'approved' ? 'Reject instead' : 'Approve instead'}
+                              </button>
+                            </form>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )

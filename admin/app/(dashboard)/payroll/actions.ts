@@ -60,13 +60,14 @@ export async function generatePayrollAction(
   const payConfig = entity.pay_config as PayConfig
   const employees = aggregatePayroll(tsRows as any, holidays, payConfig)
 
-  // Current hourly rate per employee (latest effective on/before the period end)
+  // Current hourly rate per employee — use the latest rate on record.
+  // (We don't filter by effective_from <= periodEnd, so a rate set today still
+  //  applies to a back-dated run; otherwise gross would silently come out $0.)
   const profileIds = employees.map((e) => e.profileId)
   const { data: rateRows } = await admin
     .from('pay_rates')
     .select('profile_id, hourly_rate, effective_from')
     .in('profile_id', profileIds.length ? profileIds : ['00000000-0000-0000-0000-000000000000'])
-    .lte('effective_from', periodEnd)
     .order('effective_from', { ascending: false })
   const rateMap: Record<string, number> = {}
   for (const r of rateRows ?? []) {

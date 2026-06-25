@@ -4,7 +4,7 @@ import { Card, PageHeader, Badge } from '@/components/ui'
 import { updatePayrollStatusAction, deletePayrollRunAction } from './actions'
 import NewPayrollRunForm from './new-run-form'
 import { formatHours } from '@/lib/format'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import type { BusinessEntity } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -69,7 +69,12 @@ export default async function PayrollPage() {
             <thead>
               <tr className="text-left border-b border-slate-100">
                 {['Entity', 'Period', 'Employees', 'Total Hours', 'Gross Pay', 'Status', 'Xero', 'Actions'].map((h) => (
-                  <th key={h} className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">{h}</th>
+                  <th
+                    key={h}
+                    className={`pb-3 pr-4 font-medium text-muted whitespace-nowrap ${h === 'Actions' ? 'text-right' : ''}`}
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -96,30 +101,35 @@ export default async function PayrollPage() {
                     <td className="py-3 pr-4"><Badge status={r.status} /></td>
                     <td className="py-3 pr-4"><Badge status={r.xero_sync_status} /></td>
                     <td className="py-3">
-                      <div className="flex gap-2 flex-wrap items-center">
+                      <div className="flex gap-1.5 items-center justify-end flex-nowrap">
                         <Link
                           href={`/payroll/${r.id}`}
-                          className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+                          className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 transition-colors whitespace-nowrap"
                         >
                           View salaries
                         </Link>
 
-                        {/* Preview export — works now */}
+                        {/* Preview export */}
                         <a
                           href={`/api/xero/payroll-preview?run=${r.id}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium transition-colors"
+                          title="Preview Xero export"
+                          className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
                           style={{ background: 'rgba(154,122,78,0.10)', color: '#836439' }}
                         >
-                          <ExternalLink size={11} /> Preview export
+                          <ExternalLink size={12} /> Preview
                         </a>
 
                         {r.status === 'draft' && (
                           <form action={updatePayrollStatusAction}>
                             <input type="hidden" name="id" value={r.id} />
                             <input type="hidden" name="status" value="approved" />
-                            <button type="submit" className="text-xs px-2.5 py-1 bg-slate-800 text-white hover:bg-slate-700 rounded-lg font-medium transition-colors">
+                            <button
+                              type="submit"
+                              className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap"
+                              style={{ borderColor: 'rgba(154,122,78,0.35)', color: '#836439' }}
+                            >
                               Approve
                             </button>
                           </form>
@@ -127,8 +137,13 @@ export default async function PayrollPage() {
 
                         <form action={deletePayrollRunAction}>
                           <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className="text-xs px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors">
-                            Delete
+                          <button
+                            type="submit"
+                            title="Delete pay run"
+                            aria-label="Delete pay run"
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 size={14} />
                           </button>
                         </form>
                       </div>
