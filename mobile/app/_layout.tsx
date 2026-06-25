@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/store/auth';
 import { isBiometricAvailable, getBiometricEnabled, authenticate } from '@/lib/biometric';
+import AnimatedSplash from '@/components/animated-splash';
 
 const BRONZE = '#9A7A4E';
 
@@ -74,10 +75,14 @@ export default function RootLayout() {
   useProtectedRoute();
   const { locked, tryUnlock } = useBiometricLock();
 
+  // Branded open animation (logo → app). Shows once per cold start.
+  const [splashDone, setSplashDone] = useState(false);
+
   return (
     <SafeAreaProvider>
-      <StatusBar style={locked ? 'light' : 'dark'} />
+      <StatusBar style={locked || !splashDone ? 'light' : 'dark'} />
       {locked ? <LockScreen onUnlock={tryUnlock} /> : <Stack screenOptions={{ headerShown: false }} />}
+      {!splashDone && <AnimatedSplash onDone={() => setSplashDone(true)} />}
     </SafeAreaProvider>
   );
 }

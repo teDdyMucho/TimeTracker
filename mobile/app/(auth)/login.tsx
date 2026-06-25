@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Image, Pressable, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, AppModal } from '@/components/ui';
 import { useAuth } from '@/store/auth';
@@ -13,6 +13,20 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [info, setInfo] = useState<{ title: string; message: string } | null>(null);
+
+  // Entrance animation — logo + form rise/fade in as the splash clears.
+  const logoIn = useRef(new Animated.Value(0)).current;
+  const formIn = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.stagger(140, [
+      Animated.timing(logoIn, { toValue: 1, duration: 560, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(formIn, { toValue: 1, duration: 560, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, []);
+  const rise = (v: Animated.Value) => ({
+    opacity: v,
+    transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+  });
 
   const forgotPassword = async () => {
     if (!email.trim()) {
@@ -30,7 +44,7 @@ export default function Login() {
   return (
     <SafeAreaView className="flex-1 bg-paper">
       <View className="flex-1 justify-center px-6">
-        <View className="items-center mb-10">
+        <Animated.View className="items-center mb-10" style={rise(logoIn)}>
           {/* BuildOne logo */}
           <Image
             source={require('../../assets/buildone.png')}
@@ -38,9 +52,9 @@ export default function Login() {
             resizeMode="contain"
           />
           <Text className="text-muted mt-3">Sign in to log your hours</Text>
-        </View>
+        </Animated.View>
 
-        <View className="gap-3">
+        <Animated.View className="gap-3" style={rise(formIn)}>
           <View>
             <Text className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Email</Text>
             <TextInput
@@ -82,7 +96,7 @@ export default function Login() {
               onPress={() => signIn(email, password)}
             />
           </View>
-        </View>
+        </Animated.View>
       </View>
 
       <AppModal

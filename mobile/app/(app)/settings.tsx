@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Label, AppModal } from '@/components/ui';
 import { useAuth } from '@/store/auth';
 import { supabase } from '@/lib/supabase';
@@ -25,7 +26,10 @@ export default function Settings() {
   const [uploading, setUploading] = useState(false);
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  const [pwDoneOpen, setPwDoneOpen] = useState(false);
   const [notif, setNotif] = useState(profile?.notifications_enabled ?? true);
   const [savingNotif, setSavingNotif] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -82,7 +86,8 @@ export default function Settings() {
       const { error } = await supabase.auth.updateUser({ password: pw });
       if (error) throw error;
       setPw(''); setPw2('');
-      Alert.alert('Done', 'Your password has been updated.');
+      setShowPw(false); setShowPw2(false);
+      setPwDoneOpen(true);
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Could not update password.');
     } finally {
@@ -185,24 +190,44 @@ export default function Settings() {
       {/* Change password */}
       <Card>
         <Label>Change password</Label>
-        <TextInput
-          value={pw}
-          onChangeText={setPw}
-          secureTextEntry
-          placeholder="New password (min 8 chars)"
-          placeholderTextColor={MUTED}
-          className="bg-white text-ink rounded-xl px-4 py-3 mt-1"
-          style={{ borderWidth: 1, borderColor: LINE }}
-        />
-        <TextInput
-          value={pw2}
-          onChangeText={setPw2}
-          secureTextEntry
-          placeholder="Confirm new password"
-          placeholderTextColor={MUTED}
-          className="bg-white text-ink rounded-xl px-4 py-3 mt-3"
-          style={{ borderWidth: 1, borderColor: LINE }}
-        />
+        <View className="relative mt-1">
+          <TextInput
+            value={pw}
+            onChangeText={setPw}
+            secureTextEntry={!showPw}
+            autoCapitalize="none"
+            placeholder="New password (min 8 chars)"
+            placeholderTextColor={MUTED}
+            className="bg-white text-ink rounded-xl pl-4 pr-12 py-3"
+            style={{ borderWidth: 1, borderColor: LINE }}
+          />
+          <Pressable
+            onPress={() => setShowPw((v) => !v)}
+            hitSlop={10}
+            className="absolute right-3 top-0 bottom-0 justify-center"
+          >
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={21} color={MUTED} />
+          </Pressable>
+        </View>
+        <View className="relative mt-3">
+          <TextInput
+            value={pw2}
+            onChangeText={setPw2}
+            secureTextEntry={!showPw2}
+            autoCapitalize="none"
+            placeholder="Confirm new password"
+            placeholderTextColor={MUTED}
+            className="bg-white text-ink rounded-xl pl-4 pr-12 py-3"
+            style={{ borderWidth: 1, borderColor: LINE }}
+          />
+          <Pressable
+            onPress={() => setShowPw2((v) => !v)}
+            hitSlop={10}
+            className="absolute right-3 top-0 bottom-0 justify-center"
+          >
+            <Ionicons name={showPw2 ? 'eye-off-outline' : 'eye-outline'} size={21} color={MUTED} />
+          </Pressable>
+        </View>
         <View className="mt-3">
           <Button
             label="Update password"
@@ -221,6 +246,15 @@ export default function Settings() {
       >
         <Text className="font-semibold" style={{ color: '#DC2626' }}>Sign out</Text>
       </Pressable>
+
+      <AppModal
+        visible={pwDoneOpen}
+        title="Password updated"
+        message="Your password has been changed. Use it the next time you sign in."
+        confirmLabel="Got it"
+        onConfirm={() => setPwDoneOpen(false)}
+        onClose={() => setPwDoneOpen(false)}
+      />
 
       <AppModal
         visible={signOutOpen}
