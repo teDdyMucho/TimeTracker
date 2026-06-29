@@ -38,7 +38,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <Link href="/payroll" className="inline-flex items-center gap-1.5 text-sm font-semibold mb-4" style={{ color: '#9A7A4E' }}>
+      <Link href="/payroll" className="inline-flex items-center gap-1.5 text-sm font-semibold mb-4" style={{ color: '#1C1A16' }}>
         <ArrowLeft size={14} /> Back to Payroll
       </Link>
 

@@ -2,7 +2,8 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { createEmployeeAction } from './actions'
-import { Input, Select, Button } from '@/components/ui'
+import { Input, Button } from '@/components/ui'
+import Dropdown from '@/components/dropdown'
 import type { BusinessEntity } from '@/lib/types'
 
 export default function InviteEmployeeForm({
@@ -18,6 +19,8 @@ export default function InviteEmployeeForm({
   const [showConfirm, setShowConfirm] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [role, setRole] = useState('employee')
+  const [employmentType, setEmploymentType] = useState('full_time')
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const [createdName, setCreatedName] = useState('')
   const prevPendingRef = useRef(false)
@@ -41,8 +44,8 @@ export default function InviteEmployeeForm({
   // ── Success state ─────────────────────────────────────────────────────────
   if (status === 'success') {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="glass-panel rounded-2xl p-8 w-full max-w-sm text-center">
           <CheckCircle size={56} className="text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-ink mb-2">Employee created!</h2>
           <p className="text-muted text-sm mb-6">
@@ -60,8 +63,8 @@ export default function InviteEmployeeForm({
 
   // ── Form state ────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl my-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-md my-auto">
         <h2 className="text-lg font-bold text-ink mb-5">Invite Employee</h2>
 
         <form
@@ -116,7 +119,7 @@ export default function InviteEmployeeForm({
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min. 8 characters"
                 disabled={pending}
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-11 text-sm text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+                className="w-full bg-white border border-line rounded-xl px-4 py-2.5 pr-11 text-sm text-ink placeholder-faint focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:opacity-50"
               />
               <button
                 type="button"
@@ -140,8 +143,8 @@ export default function InviteEmployeeForm({
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder="Repeat password"
                 disabled={pending}
-                className={`w-full border rounded-xl px-4 py-2.5 pr-11 text-sm text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50 ${
-                  passwordMismatch ? 'border-red-400 bg-red-50' : 'border-slate-200'
+                className={`w-full rounded-xl px-4 py-2.5 pr-11 text-sm text-ink placeholder-faint focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:opacity-50 ${
+                  passwordMismatch ? 'border border-red-400 bg-white' : 'bg-white border border-line'
                 }`}
               />
               <button
@@ -154,17 +157,33 @@ export default function InviteEmployeeForm({
             </div>
           </div>
 
-          <Select label="Role" name="role" required disabled={pending}>
-            <option value="employee">Employee</option>
-            <option value="supervisor">Supervisor</option>
-          </Select>
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Role</span>
+            <Dropdown
+              name="role"
+              value={role}
+              onChange={setRole}
+              options={[
+                { value: 'employee', label: 'Employee' },
+                { value: 'supervisor', label: 'Supervisor' },
+              ]}
+            />
+          </div>
 
-          <Select label="Employment type" name="employment_type" required disabled={pending}>
-            <option value="full_time">Full time</option>
-            <option value="part_time">Part time</option>
-            <option value="casual">Casual</option>
-            <option value="contractor">Contractor</option>
-          </Select>
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Employment type</span>
+            <Dropdown
+              name="employment_type"
+              value={employmentType}
+              onChange={setEmploymentType}
+              options={[
+                { value: 'full_time', label: 'Full time' },
+                { value: 'part_time', label: 'Part time' },
+                { value: 'casual', label: 'Casual' },
+                { value: 'contractor', label: 'Contractor' },
+              ]}
+            />
+          </div>
 
           <Input
             label="Hourly pay rate ($) — optional"

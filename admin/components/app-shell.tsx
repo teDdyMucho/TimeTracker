@@ -19,7 +19,7 @@ export default function AppShell({ pendingOvertimeCount, userName, userEmail, ch
   useEffect(() => { setOpen(false) }, [pathname])
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#F7F6F2' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: '#F4F4F5' }}>
 
       {/* Backdrop (mobile only, when drawer open) */}
       <div
@@ -43,12 +43,12 @@ export default function AppShell({ pendingOvertimeCount, userName, userEmail, ch
       </div>
 
       {/* Main column */}
-      <main className="flex-1 overflow-auto min-w-0" style={{ background: '#F7F6F2' }}>
+      <main className="flex-1 overflow-auto min-w-0" style={{ background: '#F4F4F5' }}>
 
         {/* Mobile top bar with hamburger — matches the dark sidebar */}
         <div
           className="lg:hidden sticky top-0 z-30 relative flex items-center px-4 h-14"
-          style={{ background: '#1C1A16', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ background: '#000000', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
         >
           <button
             type="button"

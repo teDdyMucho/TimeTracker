@@ -2,7 +2,8 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { CheckCircle, XCircle, Loader2, Plus } from 'lucide-react'
 import { createProjectAction } from './actions'
-import { Input, Select, Button } from '@/components/ui'
+import { Input, Button } from '@/components/ui'
+import Dropdown from '@/components/dropdown'
 import type { BusinessEntity } from '@/lib/types'
 
 export default function NewProjectForm({ entities }: { entities: BusinessEntity[] }) {
@@ -10,6 +11,7 @@ export default function NewProjectForm({ entities }: { entities: BusinessEntity[
   const [serverError, formAction, pending] = useActionState(createProjectAction, null)
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const [createdName, setCreatedName] = useState('')
+  const [entityId, setEntityId] = useState(entities[0]?.id ?? '')
   const prevPendingRef = useRef(false)
 
   useEffect(() => {
@@ -40,8 +42,8 @@ export default function NewProjectForm({ entities }: { entities: BusinessEntity[
   // ── Success ───────────────────────────────────────────────────────────────
   if (status === 'success') {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="glass-panel rounded-2xl p-8 w-full max-w-sm text-center">
           <CheckCircle size={56} className="text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-ink mb-2">Project created!</h2>
           <p className="text-muted text-sm mb-6">
@@ -55,8 +57,8 @@ export default function NewProjectForm({ entities }: { entities: BusinessEntity[
 
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl my-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-md my-auto">
         <h2 className="text-lg font-bold text-ink mb-5">New Project</h2>
 
         <form
@@ -67,7 +69,7 @@ export default function NewProjectForm({ entities }: { entities: BusinessEntity[
           className="space-y-4"
         >
           {serverError && (
-            <div className="flex items-start gap-2 bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm">
+            <div className="flex items-start gap-2 bg-red-500/10 text-[#F87171] rounded-xl px-4 py-3 text-sm border border-red-500/20">
               <XCircle size={16} className="shrink-0 mt-0.5" />
               {serverError}
             </div>
@@ -92,13 +94,15 @@ export default function NewProjectForm({ entities }: { entities: BusinessEntity[
             placeholder="Optional reference code"
             disabled={pending}
           />
-          <Select label="Business entity" name="business_entity_id" required disabled={pending}>
-            {entities.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </Select>
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Business entity</span>
+            <Dropdown
+              name="business_entity_id"
+              value={entityId}
+              onChange={setEntityId}
+              options={entities.map((e) => ({ value: e.id, label: e.name }))}
+            />
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button

@@ -285,7 +285,7 @@ export default async function AttendancePage({
                                 <button
                                   type="submit"
                                   className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-semibold text-white transition-colors whitespace-nowrap"
-                                  style={{ background: '#9A7A4E' }}
+                                  style={{ background: '#1C1A16' }}
                                 >
                                   <CheckCircle2 size={13} /> Approve
                                 </button>

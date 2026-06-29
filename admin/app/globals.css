@@ -5,8 +5,8 @@
 @layer base {
   body {
     @apply antialiased;
-    background-color: #F7F6F2;
-    color: #2D2A26;
+    background-color: #F4F4F5;
+    color: #18181B;
   }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -74,12 +74,35 @@
 }
 .animate-float-slow { animation: floatSlow 5s ease-in-out infinite; }
 
-/* Normalize browser autofill inside glass forms (scoped to login) */
+/* Dropdown menu open animation (slide down + fade) */
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.dropdown-menu {
+  animation: dropdownIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top;
+}
+
+/* Frosted-glass panel — used by all modals & dropdowns for a consistent look */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(28, 26, 22, 0.10);
+  box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.30);
+}
+
+/* Normalize browser autofill inside glass forms (login + all dark modals) */
 .glass-form input:-webkit-autofill,
 .glass-form input:-webkit-autofill:hover,
-.glass-form input:-webkit-autofill:focus {
+.glass-form input:-webkit-autofill:focus,
+.glass-input:-webkit-autofill,
+.glass-input:-webkit-autofill:hover,
+.glass-input:-webkit-autofill:focus,
+.glass-input:-webkit-autofill:active {
   -webkit-text-fill-color: #ffffff;
-  -webkit-box-shadow: 0 0 0 1000px rgba(255,255,255,0.06) inset;
+  -webkit-box-shadow: 0 0 0 1000px rgba(40,40,44,0.92) inset;
   caret-color: #ffffff;
   transition: background-color 9999s ease-in-out 0s;
 }

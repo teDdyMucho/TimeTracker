@@ -9,7 +9,7 @@ const fieldClass =
 const fieldStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.06)',
   borderColor: 'rgba(255,255,255,0.16)',
-  ['--tw-ring-color' as string]: 'rgba(154,122,78,0.55)',
+  ['--tw-ring-color' as string]: 'rgba(28,26,22,0.55)',
 }
 
 export default function LoginForm({ initialError }: { initialError: string | null }) {
@@ -74,7 +74,7 @@ export default function LoginForm({ initialError }: { initialError: string | nul
         type="submit"
         disabled={pending}
         className="w-full text-white font-semibold rounded-xl py-3 text-sm mt-1 transition-all duration-200 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
-        style={{ background: 'linear-gradient(135deg, #9A7A4E, #836439)', boxShadow: '0 8px 24px -8px rgba(154,122,78,0.6)' }}
+        style={{ background: 'linear-gradient(135deg, #1C1A16, #000000)', boxShadow: '0 8px 24px -8px rgba(28,26,22,0.6)' }}
       >
         {pending ? (
           <span className="flex items-center justify-center gap-2">

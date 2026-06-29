@@ -32,7 +32,7 @@ export default function WeekPicker({
           type="button"
           onClick={() => router.push(pathname)}
           className="px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors hover:bg-[#FAF9F6]"
-          style={{ color: '#9A7A4E', borderColor: '#ECEAE4', background: '#fff' }}
+          style={{ color: '#1C1A16', borderColor: '#ECEAE4', background: '#fff' }}
         >
           This Week
         </button>

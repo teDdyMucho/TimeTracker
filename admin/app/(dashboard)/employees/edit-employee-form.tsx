@@ -2,7 +2,8 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { updateEmployeeAction } from './actions'
-import { Select, Button, Input } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
+import Dropdown from '@/components/dropdown'
 import type { BusinessEntity } from '@/lib/types'
 
 interface Props {
@@ -21,6 +22,8 @@ interface Props {
 export default function EditEmployeeForm({ employee, entities, onClose }: Props) {
   const [serverError, formAction, pending] = useActionState(updateEmployeeAction, null)
   const [selectedEntities, setSelectedEntities] = useState<string[]>(employee.business_access)
+  const [role, setRole] = useState(employee.role)
+  const [employmentType, setEmploymentType] = useState(employee.employment_type)
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const prevPendingRef = useRef(false)
 
@@ -38,8 +41,8 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
 
   if (status === 'success') {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="glass-panel rounded-2xl p-8 w-full max-w-sm text-center">
           <CheckCircle size={56} className="text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-ink mb-2">Employee updated!</h2>
           <p className="text-muted text-sm mb-6">
@@ -52,8 +55,8 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm">
         <h2 className="text-lg font-bold text-ink mb-1">Edit Employee</h2>
         <p className="text-muted text-sm mb-5">{employee.name}</p>
 
@@ -61,30 +64,40 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
           <input type="hidden" name="id" value={employee.id} />
 
           {serverError && (
-            <div className="flex items-start gap-2 bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm">
+            <div className="flex items-start gap-2 bg-[rgba(239,68,68,0.12)] text-[#F87171] rounded-xl px-4 py-3 text-sm">
               <XCircle size={16} className="shrink-0 mt-0.5" />
               {serverError}
             </div>
           )}
 
-          <Select label="Role" name="role" required disabled={pending} defaultValue={employee.role}>
-            <option value="employee">Employee</option>
-            <option value="supervisor">Supervisor</option>
-            <option value="admin">Admin</option>
-          </Select>
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Role</span>
+            <Dropdown
+              name="role"
+              value={role}
+              onChange={setRole}
+              options={[
+                { value: 'employee', label: 'Employee' },
+                { value: 'supervisor', label: 'Supervisor' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+            />
+          </div>
 
-          <Select
-            label="Employment type"
-            name="employment_type"
-            required
-            disabled={pending}
-            defaultValue={employee.employment_type}
-          >
-            <option value="full_time">Full time</option>
-            <option value="part_time">Part time</option>
-            <option value="casual">Casual</option>
-            <option value="contractor">Contractor</option>
-          </Select>
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Employment type</span>
+            <Dropdown
+              name="employment_type"
+              value={employmentType}
+              onChange={setEmploymentType}
+              options={[
+                { value: 'full_time', label: 'Full time' },
+                { value: 'part_time', label: 'Part time' },
+                { value: 'casual', label: 'Casual' },
+                { value: 'contractor', label: 'Contractor' },
+              ]}
+            />
+          </div>
 
           <Input
             label="Hourly pay rate ($)"

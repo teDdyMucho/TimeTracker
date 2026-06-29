@@ -32,8 +32,8 @@ export default function NewEntityForm() {
 
   if (status === 'success') {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="glass-panel rounded-2xl p-8 w-full max-w-sm text-center">
           <CheckCircle size={56} className="text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-ink mb-2">Entity created!</h2>
           <p className="text-muted text-sm mb-6">
@@ -41,7 +41,7 @@ export default function NewEntityForm() {
           </p>
           <Button
             label="Done"
-            className="w-full"
+            className="w-full bg-white text-black hover:bg-[#E5E5E5]"
             onClick={() => {
               setStatus('idle')
               setOpen(false)
@@ -53,8 +53,8 @@ export default function NewEntityForm() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm">
         <h2 className="text-lg font-bold text-ink mb-5">Add Business Entity</h2>
 
         <form
@@ -65,7 +65,7 @@ export default function NewEntityForm() {
           className="space-y-4"
         >
           {serverError && (
-            <div className="flex items-start gap-2 bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm">
+            <div className="flex items-start gap-2 bg-[rgba(239,68,68,0.12)] text-[#F87171] rounded-xl px-4 py-3 text-sm">
               <XCircle size={16} className="shrink-0 mt-0.5" />
               {serverError}
             </div>
@@ -77,6 +77,7 @@ export default function NewEntityForm() {
             required
             placeholder="e.g. Build One"
             disabled={pending}
+            className="bg-white text-ink border-line placeholder-faint"
           />
 
           <p className="text-xs text-muted">

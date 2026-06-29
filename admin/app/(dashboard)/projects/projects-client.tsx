@@ -42,15 +42,14 @@ export default function ProjectsClient({
   return (
     <>
       {/* ── Entity filter tabs ─────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 mb-6 p-1 bg-white rounded-2xl border border-slate-100 shadow-card w-fit">
+      <div className="flex items-center gap-1.5 mb-6 p-1 bg-white rounded-2xl border border-line shadow-card w-fit">
         <button
           onClick={() => setActiveId('all')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 ${
             activeId === 'all'
-              ? 'text-white shadow-sm'
-              : 'text-muted hover:text-ink'
+              ? 'bg-[#1C1A16] text-white shadow-sm'
+              : 'text-muted hover:bg-stone hover:text-ink'
           }`}
-          style={activeId === 'all' ? { background: 'linear-gradient(135deg, #9A7A4E, #836439)' } : {}}
         >
           All
         </button>
@@ -61,15 +60,14 @@ export default function ProjectsClient({
             <button
               key={e.id}
               onClick={() => setActiveId(e.id)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                active ? 'text-white shadow-sm' : 'text-muted hover:text-ink'
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 ${
+                active ? 'bg-[#1C1A16] text-white shadow-sm' : 'text-muted hover:bg-stone hover:text-ink'
               }`}
-              style={active ? { background: 'linear-gradient(135deg, #9A7A4E, #836439)' } : {}}
             >
               {e.name}
               <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  active ? 'bg-white/20 text-white' : 'bg-slate-100 text-muted'
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full transition-colors ${
+                  active ? 'bg-white/20 text-white' : 'bg-stone text-muted'
                 }`}
               >
                 {count}
@@ -140,7 +138,7 @@ export default function ProjectsClient({
                             type="submit"
                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap ${
                               p.status === 'active'
-                                ? 'bg-slate-700 text-white hover:bg-slate-800'
+                                ? 'bg-slate-700 text-ink hover:bg-slate-800'
                                 : 'bg-brand text-white hover:bg-brand-dark'
                             }`}
                           >

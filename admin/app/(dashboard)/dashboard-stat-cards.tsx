@@ -24,7 +24,7 @@ export default function DashboardStatCards({ cards }: { cards: StatCard[] }) {
           <Link
             key={c.label}
             href={c.href}
-            className="block bg-white rounded-2xl p-5 border border-[#ECEAE4] shadow-card hover:shadow-card-hover transition-shadow duration-200 animate-fade-in-up"
+            className="block bg-white rounded-2xl p-5 border border-[#1C1A16] shadow-card hover:shadow-card-hover transition-shadow duration-200 animate-fade-in-up"
             style={{ animationDelay: `${i * 70}ms` }}
           >
             {/* Icon + label + value */}
@@ -50,7 +50,7 @@ export default function DashboardStatCards({ cards }: { cards: StatCard[] }) {
               {c.trend && (
                 <span
                   className="inline-flex items-center gap-0.5 text-xs font-bold"
-                  style={{ color: c.trend.positive ? '#9A7A4E' : '#EF4444' }}
+                  style={{ color: c.trend.positive ? '#1C1A16' : '#EF4444' }}
                 >
                   {c.trend.positive ? <ArrowUp size={13} strokeWidth={2.5} /> : <ArrowDown size={13} strokeWidth={2.5} />}
                   {c.trend.text}

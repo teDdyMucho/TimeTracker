@@ -12,8 +12,8 @@ import type { StatCard } from './dashboard-stat-cards'
 export const dynamic = 'force-dynamic'
 
 const DAY_LABELS     = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const PROJECT_COLORS = ['#9A7A4E', '#6F5B45', '#F5B33E', '#C7AB82', '#D2C5AE']
-const USER_COLORS    = ['#6F5B45', '#9A7A4E', '#C7AB82', '#5A4A38', '#B08D57', '#D2C5AE']
+const PROJECT_COLORS = ['#1C1A16', '#52525B', '#71717A', '#A1A1AA', '#D4D4D8']
+const USER_COLORS    = ['#1C1A16', '#52525B', '#71717A', '#9CA3AF', '#A1A1AA', '#D4D4D8']
 
 function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + 'T00:00:00')
@@ -108,7 +108,7 @@ export default async function DashboardPage({
   const chartSeries = userSeriesArr.length > 0 ? userSeriesArr : [{
     userId: '__total__',
     name: 'Total Hours',
-    color: '#6F5B45',
+    color: '#52525B',
     days: weekDays.map((date, j) => ({
       label: DAY_LABELS[j], date, isToday: date === today,
       hours: weekTimesheets.filter((t) => t.work_date === date).reduce((s, r) => s + Number(r.hours), 0),
@@ -143,17 +143,17 @@ export default async function DashboardPage({
       value: String(employeesRes.count ?? 0),
       iconName: 'users',
       href: '/employees',
-      iconBg: '#F0EBE3',
-      iconColor: '#6F5B45',
+      iconBg: '#F4F4F5',
+      iconColor: '#52525B',
       sub: 'Team members',
     },
     {
       label: 'Hours This Week',
       value: formatHours(weekHours),
       iconName: 'clock',
-      href: '/timesheets',
-      iconBg: 'rgba(154,122,78,0.12)',
-      iconColor: '#9A7A4E',
+      href: '/attendance',
+      iconBg: 'rgba(28,26,22,0.12)',
+      iconColor: '#1C1A16',
       trend: hoursTrend,
       sub: hoursTrend ? 'vs last week' : `${weekTimesheets.length} logged`,
     },
@@ -162,8 +162,8 @@ export default async function DashboardPage({
       value: String(pendingCount),
       iconName: 'timer',
       href: '/overtime',
-      iconBg: '#FCF3E2',
-      iconColor: '#F5B33E',
+      iconBg: '#F4F4F5',
+      iconColor: '#A1A1AA',
       sub: pendingCount > 0 ? 'Awaiting review' : 'All cleared',
     },
     {
@@ -171,8 +171,8 @@ export default async function DashboardPage({
       value: String(projectsRes.count ?? 0),
       iconName: 'folder',
       href: '/projects',
-      iconBg: '#F0EBE3',
-      iconColor: '#836439',
+      iconBg: '#F4F4F5',
+      iconColor: '#000000',
       trend: newProjects > 0 ? { text: `${newProjects} new`, positive: true } : undefined,
       sub: newProjects > 0 ? 'this week' : 'In progress',
     },
@@ -185,8 +185,8 @@ export default async function DashboardPage({
       <div className="flex items-center justify-between mb-7">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#9A7A4E' }} />
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#9A7A4E' }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#1C1A16' }} />
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#1C1A16' }}>
               {headerDate}
             </span>
           </div>
@@ -225,7 +225,7 @@ export default async function DashboardPage({
       <div className="grid xl:grid-cols-5 gap-5 mb-5 animate-fade-in-up delay-150">
 
         {/* Chart — 3/5 */}
-        <div className="xl:col-span-3 bg-white rounded-2xl flex flex-col border border-[#ECEAE4] shadow-card">
+        <div className="xl:col-span-3 bg-white rounded-2xl flex flex-col border border-[#1C1A16] shadow-card">
           <div className="px-6 pt-5 flex items-center justify-between">
             <div>
               <h2 className="font-bold text-base" style={{ color: '#2D2A26' }}>Time Tracking Overview</h2>
@@ -259,10 +259,10 @@ export default async function DashboardPage({
       <div className="grid xl:grid-cols-2 gap-5 animate-fade-in-up delay-300">
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-2xl p-6 border border-[#ECEAE4] shadow-card">
+        <div className="bg-white rounded-2xl p-6 border border-[#1C1A16] shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold" style={{ color: '#2D2A26' }}>Recent Activity</h2>
-            <Link href="/timesheets" className="text-xs font-bold flex items-center gap-1" style={{ color: '#9A7A4E' }}>
+            <Link href="/attendance" className="text-xs font-bold flex items-center gap-1" style={{ color: '#1C1A16' }}>
               View all <ArrowRight size={12} />
             </Link>
           </div>
@@ -292,12 +292,12 @@ export default async function DashboardPage({
                         />
                       ) : (
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                          style={{ background: 'linear-gradient(135deg, #6F5B45, #5A4A38)' }}>
+                          style={{ background: 'linear-gradient(135deg, #52525B, #3F3F46)' }}>
                           {initials}
                         </div>
                       )}
                       <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-white"
-                        style={{ background: '#9A7A4E' }}>
+                        style={{ background: '#1C1A16' }}>
                         <Clock size={8} className="text-white" strokeWidth={3} />
                       </div>
                     </div>
@@ -305,7 +305,7 @@ export default async function DashboardPage({
                       <p className="text-sm leading-snug" style={{ color: '#2D2A26' }}>
                         <span className="font-bold">{t.profiles?.name ?? '—'}</span>
                         {' logged '}
-                        <span className="font-bold" style={{ color: '#836439' }}>{formatHours(t.hours)}</span>
+                        <span className="font-bold" style={{ color: '#000000' }}>{formatHours(t.hours)}</span>
                         {' on '}
                         <span className="font-semibold">{t.projects?.name ?? '—'}</span>
                       </p>
@@ -322,10 +322,10 @@ export default async function DashboardPage({
         </div>
 
         {/* Top Projects */}
-        <div className="bg-white rounded-2xl p-6 border border-[#ECEAE4] shadow-card">
+        <div className="bg-white rounded-2xl p-6 border border-[#1C1A16] shadow-card">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-bold" style={{ color: '#2D2A26' }}>Top Projects by Hours</h2>
-            <Link href="/reports" className="text-xs font-bold flex items-center gap-1" style={{ color: '#9A7A4E' }}>
+            <Link href="/reports" className="text-xs font-bold flex items-center gap-1" style={{ color: '#1C1A16' }}>
               View report <ArrowRight size={12} />
             </Link>
           </div>

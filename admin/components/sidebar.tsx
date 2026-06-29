@@ -15,6 +15,7 @@ import {
   Users,
 } from 'lucide-react'
 import { signOutAction } from '@/app/actions'
+import ConfirmModal from '@/components/confirm-modal'
 
 const NAV = [
   { href: '/',           label: 'Dashboard',  icon: LayoutGrid },
@@ -27,15 +28,15 @@ const NAV = [
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
 ]
 
-// Dark warm sidebar palette
-const BG          = '#1C1A16'
-const ACTIVE_BG   = '#2C2822'
-const HOVER_BG    = '#24201B'
-const CARD_BG     = '#26221C'
-const TEXT_OFF    = '#9A938A'
-const TEXT_FAINT  = '#6F6A62'
-const GREEN       = '#9A7A4E'
-const DIVIDER     = 'rgba(255,255,255,0.07)'
+// Pure-black monochrome sidebar palette
+const BG          = '#000000'   // true black
+const ACTIVE_BG   = '#1F1F22'   // dark grey active pill (visible on black)
+const HOVER_BG    = 'rgba(255,255,255,0.06)'
+const CARD_BG     = 'rgba(255,255,255,0.06)'
+const TEXT_OFF    = '#A1A1AA'
+const TEXT_FAINT  = '#71717A'
+const GREEN       = '#FFFFFF'   // accent on black sidebar — white for contrast
+const DIVIDER     = 'rgba(255,255,255,0.08)'
 
 function SessionClock() {
   const [time, setTime] = useState('--:--:--')
@@ -80,6 +81,8 @@ interface Props {
 export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: Props) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const signOutFormRef = useRef<HTMLFormElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
@@ -136,7 +139,7 @@ export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: P
               {badgeCount > 0 && (
                 <span
                   className="text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center"
-                  style={active ? { background: GREEN, color: '#FFFFFF' } : { background: 'rgba(245,179,62,0.18)', color: '#F5B33E' }}
+                  style={active ? { background: '#FFFFFF', color: '#1C1A16' } : { background: 'rgba(255,255,255,0.14)', color: '#E4E4E7' }}
                 >
                   {badgeCount}
                 </span>
@@ -152,26 +155,39 @@ export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: P
       {/* ── User footer ────────────────────────────────────── */}
       <div className="px-3 pb-5 pt-3 relative" style={{ borderTop: `1px solid ${DIVIDER}` }} ref={menuRef}>
 
+        {/* Hidden sign-out form — submitted by the confirm modal */}
+        <form action={signOutAction} ref={signOutFormRef} className="hidden" />
+
         {/* Dropdown (opens upward) */}
         {menuOpen && (
           <div
             className="absolute left-3 right-3 bottom-full mb-2 rounded-xl overflow-hidden z-50 animate-fade-in"
-            style={{ background: '#2C2822', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 14px 36px -10px rgba(0,0,0,0.7)' }}
+            style={{ background: '#1F1F22', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 14px 36px -10px rgba(0,0,0,0.7)' }}
           >
-            <form action={signOutAction}>
-              <button
-                type="submit"
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold transition-colors"
-                style={{ color: '#F87171' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-              >
-                <LogOut size={16} />
-                Log out
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); setConfirmOpen(true) }}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold transition-colors"
+              style={{ color: '#FCA5A5' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <LogOut size={16} />
+              Log out
+            </button>
           </div>
         )}
+
+        <ConfirmModal
+          open={confirmOpen}
+          title="Log out?"
+          message="You'll need to sign in again to access the dashboard."
+          confirmLabel="Log out"
+          cancelLabel="Cancel"
+          destructive
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={() => { setConfirmOpen(false); signOutFormRef.current?.requestSubmit() }}
+        />
 
         <button
           type="button"

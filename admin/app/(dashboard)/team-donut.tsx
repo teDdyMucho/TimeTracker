@@ -49,17 +49,17 @@ interface Props {
 
 export default function TeamDonut({ statusCounts }: Props) {
   const segments: Segment[] = [
-    { label: 'Approved',  count: statusCounts.approved,  color: '#9A7A4E' },
-    { label: 'Submitted', count: statusCounts.submitted, color: '#F5B33E' },
-    { label: 'Locked',    count: statusCounts.locked,    color: '#5A4A38' },
+    { label: 'Approved',  count: statusCounts.approved,  color: '#1C1A16' },
+    { label: 'Submitted', count: statusCounts.submitted, color: '#A1A1AA' },
+    { label: 'Locked',    count: statusCounts.locked,    color: '#3F3F46' },
   ]
   const total = segments.reduce((s, seg) => s + seg.count, 0)
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-[#ECEAE4] shadow-card h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-6 border border-[#1C1A16] shadow-card h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-bold text-base" style={{ color: '#2D2A26' }}>Team Activity</h2>
-        <Link href="/timesheets" className="text-xs font-bold" style={{ color: '#9A7A4E' }}>
+        <Link href="/attendance" className="text-xs font-bold" style={{ color: '#1C1A16' }}>
           View all
         </Link>
       </div>

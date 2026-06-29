@@ -94,7 +94,7 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'approve')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-brand hover:bg-brand-dark active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink bg-brand hover:bg-brand-dark active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
                     {isActing && actingOn?.action === 'approve' ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -107,7 +107,7 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'reject')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink bg-red-500 hover:bg-red-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
                     {isActing && actingOn?.action === 'reject' ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -185,8 +185,8 @@ export default function OvertimeClient({
           onClick={() => setModal(null)}
         >
           <div
-            className="bg-white rounded-3xl p-8 w-full max-w-sm text-center animate-scale-in"
-            style={{ boxShadow: '0 24px 64px -12px rgba(0,0,0,0.25)' }}
+            className="rounded-3xl p-8 w-full max-w-sm text-center animate-scale-in border"
+            style={{ background: '#FFFFFF', borderColor: '#E4E4E7', boxShadow: '0 24px 64px -12px rgba(0,0,0,0.6)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {modal.type === 'success' ? (
@@ -194,18 +194,18 @@ export default function OvertimeClient({
                 <CheckCircle className="w-8 h-8 text-brand" />
               </div>
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
-                <XCircle className="w-8 h-8 text-red-500" />
+              <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+                <XCircle className="w-8 h-8 text-red-400" />
               </div>
             )}
             <h3 className="text-lg font-bold text-ink mb-2">
               {modal.type === 'success' ? 'Done!' : 'Something went wrong'}
             </h3>
-            <p className="text-muted text-sm mb-6">{modal.message}</p>
+            <p className="text-sm mb-6" style={{ color: '#71717A' }}>{modal.message}</p>
             <button
               onClick={() => setModal(null)}
-              className="w-full text-white font-semibold rounded-xl py-2.5 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #9A7A4E, #836439)' }}
+              className="w-full font-semibold rounded-xl py-2.5 text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: '#1C1A16', color: '#fff' }}
             >
               OK
             </button>

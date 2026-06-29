@@ -23,24 +23,24 @@ export default async function LoginPage({
   return (
     <div
       className="min-h-screen relative overflow-hidden flex items-center"
-      style={{ background: 'linear-gradient(150deg, #15130F 0%, #221C14 55%, #15130F 100%)' }}
+      style={{ background: 'linear-gradient(150deg, #000000 0%, #0A0A0A 55%, #000000 100%)' }}
     >
       {/* dot grid */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(154,122,78,0.13) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(28,26,22,0.13) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
         }}
       />
       {/* animated warm glows */}
       <div
         className="absolute -top-32 left-[18%] w-[640px] h-[640px] rounded-full pointer-events-none animate-glow-pulse"
-        style={{ background: 'radial-gradient(circle, rgba(154,122,78,0.18) 0%, transparent 65%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(28,26,22,0.18) 0%, transparent 65%)' }}
       />
       <div
         className="absolute -bottom-40 right-[8%] w-[520px] h-[520px] rounded-full pointer-events-none animate-glow-pulse delay-300"
-        style={{ background: 'radial-gradient(circle, rgba(199,171,130,0.10) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
       />
 
       <div className="relative z-10 w-full max-w-[1500px] mx-auto px-6 sm:px-12 lg:px-20 flex items-center justify-center lg:justify-between gap-12">
@@ -59,9 +59,9 @@ export default async function LoginPage({
 
           <span
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] mb-5 animate-fade-in-up delay-75"
-            style={{ background: 'rgba(154,122,78,0.14)', border: '1px solid rgba(154,122,78,0.28)', color: '#C7AB82' }}
+            style={{ background: 'rgba(28,26,22,0.14)', border: '1px solid rgba(28,26,22,0.28)', color: '#A1A1AA' }}
           >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#C7AB82' }} />
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#A1A1AA' }} />
             Workforce Management · Admin
           </span>
 
@@ -72,11 +72,11 @@ export default async function LoginPage({
           <p className="mt-6 text-lg leading-relaxed max-w-md text-white/90 animate-fade-in-up delay-150">
             Your command center for managing the crew across Build One &amp; ARKO Joinery.
           </p>
-          <p className="mt-3 text-[15px] leading-relaxed max-w-md mx-auto animate-fade-in-up delay-200" style={{ color: '#9A938A' }}>
+          <p className="mt-3 text-[15px] leading-relaxed max-w-md mx-auto animate-fade-in-up delay-200" style={{ color: '#A1A1AA' }}>
             Track site and workshop hours in real time, monitor labour cost per project, approve
             overtime, and run fortnightly payroll straight into Xero — all from one dashboard.
           </p>
-          <p className="mt-4 text-sm font-medium max-w-md mx-auto animate-fade-in-up delay-300" style={{ color: '#C7AB82' }}>
+          <p className="mt-4 text-sm font-medium max-w-md mx-auto animate-fade-in-up delay-300" style={{ color: '#A1A1AA' }}>
             Built for the office — invisible to the crew. Every hour costed, allocated, and pay-ready.
           </p>
 
@@ -85,12 +85,12 @@ export default async function LoginPage({
               <div key={title} className="flex flex-col items-center gap-2.5">
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-300 hover:scale-110 hover:-translate-y-1"
-                  style={{ background: 'rgba(154,122,78,0.14)', border: '1px solid rgba(154,122,78,0.24)' }}
+                  style={{ background: 'rgba(28,26,22,0.14)', border: '1px solid rgba(28,26,22,0.24)' }}
                 >
-                  <Icon size={22} style={{ color: '#C7AB82' }} strokeWidth={2} />
+                  <Icon size={22} style={{ color: '#A1A1AA' }} strokeWidth={2} />
                 </div>
                 <div className="text-sm font-semibold text-white">{title}</div>
-                <div className="text-[11px]" style={{ color: '#6F6A62' }}>{sub}</div>
+                <div className="text-[11px]" style={{ color: '#71717A' }}>{sub}</div>
               </div>
             ))}
           </div>

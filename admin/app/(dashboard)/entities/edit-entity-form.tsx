@@ -34,18 +34,18 @@ export default function EditEntityForm({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-scale-in"
+        className="glass-panel rounded-3xl w-full max-w-md animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-slate-100">
+        <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-line">
           <div>
             <h2 className="text-lg font-bold text-ink">Edit Entity</h2>
             <p className="text-sm text-muted mt-0.5">Update business entity details</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-muted transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone text-muted transition-colors"
           >
             <X size={16} />
           </button>
@@ -60,7 +60,7 @@ export default function EditEntityForm({
           className="px-7 py-6 space-y-4"
         >
           {serverError && (
-            <div className="flex items-start gap-2 bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm">
+            <div className="flex items-start gap-2 text-[#F87171] rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
               <XCircle size={16} className="shrink-0 mt-0.5" />
               {serverError}
             </div>
@@ -87,8 +87,8 @@ export default function EditEntityForm({
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 flex items-center justify-center gap-2 text-white font-semibold rounded-xl py-2.5 text-sm disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #9A7A4E, #836439)' }}
+              className="flex-1 flex items-center justify-center gap-2 font-semibold rounded-xl py-2.5 text-sm disabled:opacity-50 transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: '#1C1A16', color: '#fff' }}
             >
               {pending ? (
                 <>

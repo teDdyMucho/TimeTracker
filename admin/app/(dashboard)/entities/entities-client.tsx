@@ -43,7 +43,7 @@ export default function EntitiesClient({
           className="mb-5 rounded-2xl px-5 py-3.5 text-sm flex items-center gap-2.5"
           style={
             xeroNotice.status === 'connected'
-              ? { background: 'rgba(154,122,78,0.10)', border: '1px solid rgba(154,122,78,0.22)', color: '#836439' }
+              ? { background: 'rgba(28,26,22,0.10)', border: '1px solid rgba(28,26,22,0.22)', color: '#000000' }
               : { background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }
           }
         >
@@ -56,7 +56,7 @@ export default function EntitiesClient({
         <EditEntityForm entity={editing} onClose={() => setEditing(null)} />
       )}
 
-      <Card>
+      <Card className="!border-line">
         {entities.length === 0 ? (
           <p className="text-muted text-sm py-4">
             No entities yet. Add Build One and ARKO Joinery to get started.
@@ -97,8 +97,8 @@ export default function EntitiesClient({
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap hover:opacity-90"
                         style={
                           e.xero_tenant_id
-                            ? { background: '#F0EBE3', color: '#836439' }
-                            : { background: '#9A7A4E', color: '#fff' }
+                            ? { background: '#F4F4F5', color: '#000000' }
+                            : { background: '#1C1A16', color: '#fff' }
                         }
                       >
                         <Link2 size={11} />
@@ -136,7 +136,7 @@ export default function EntitiesClient({
         )}
       </Card>
 
-      <div className="mt-6 rounded-2xl px-5 py-4 text-sm" style={{ background: 'rgba(154,122,78,0.08)', border: '1px solid rgba(154,122,78,0.18)', color: '#836439' }}>
+      <div className="mt-6 rounded-2xl px-5 py-4 text-sm" style={{ background: 'rgba(28,26,22,0.08)', border: '1px solid rgba(28,26,22,0.18)', color: '#000000' }}>
         <strong>Xero:</strong> Click <em>Connect Xero</em> on an entity to link its Xero organisation.
         You&rsquo;ll be redirected to Xero to authorise, then the org is attached here — ready for payroll export.
       </div>
