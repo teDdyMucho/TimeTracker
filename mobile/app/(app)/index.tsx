@@ -19,12 +19,12 @@ import { cancelClockOutReminder } from '@/lib/notify';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
 // Build One palette constants
-const BRONZE   = '#9A7A4E';
-const BRONZE_DK = '#836439';
-const INK      = '#1F1D1A';
-const MUTED    = '#76716A';
-const LINE     = '#E7E2D8';
-const PAPER    = '#F6F4EF';
+const BRONZE   = '#1C1A16';
+const BRONZE_DK = '#000000';
+const INK      = '#18181B';
+const MUTED    = '#71717A';
+const LINE     = '#E4E4E7';
+const PAPER    = '#F4F4F5';
 
 function elapsedLabel(since: string): string {
   const ms = Date.now() - new Date(since).getTime();
@@ -131,7 +131,7 @@ export default function Home() {
           <View className="flex-row items-center gap-3">
             {/* Notifications */}
             <Pressable onPress={() => router.push('/notifications')} className="relative">
-              <View className="items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(154,122,78,0.10)' }}>
+              <View className="items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(28,26,22,0.10)' }}>
                 <Ionicons name="notifications-outline" size={21} color={INK} />
               </View>
               {unread > 0 && (
@@ -180,7 +180,7 @@ export default function Home() {
 
         {/* ── CLOCKED IN STATE ─────────────────────────────────────── */}
         {activeSession ? (
-          <Card className="mb-4" style={{ backgroundColor: 'rgba(154,122,78,0.06)', borderColor: LINE }}>
+          <Card className="mb-4" style={{ backgroundColor: 'rgba(28,26,22,0.06)', borderColor: LINE }}>
             <View className="flex-row items-center gap-3 mb-3">
               <View className="w-3 h-3 rounded-full" style={{ backgroundColor: BRONZE }} />
               <Text className="font-bold text-ink text-base">On the clock</Text>

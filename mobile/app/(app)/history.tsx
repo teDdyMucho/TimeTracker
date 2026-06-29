@@ -7,8 +7,8 @@ import { friendlyDate } from '@/lib/date';
 import { formatHours, formatTime } from '@/lib/format';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
-const BRONZE = '#9A7A4E';
-const LINE = '#E7E2D8';
+const BRONZE = '#1C1A16';
+const LINE = '#E4E4E7';
 
 export default function History() {
   const profile = useAuth((s) => s.profile);
@@ -85,9 +85,9 @@ export default function History() {
                     ) : (
                       <View
                         className="mr-3 items-center justify-center"
-                        style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(154,122,78,0.10)' }}
+                        style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(28,26,22,0.10)' }}
                       >
-                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(154,122,78,0.4)' }} />
+                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(28,26,22,0.4)' }} />
                       </View>
                     )}
 

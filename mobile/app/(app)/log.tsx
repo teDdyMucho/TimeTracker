@@ -139,7 +139,7 @@ export default function LogHours() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator color="#0ABFA3" />
+        <ActivityIndicator color="#1C1A16" />
       </View>
     );
   }
@@ -246,7 +246,7 @@ export default function LogHours() {
             <Switch
               value={overtime}
               onValueChange={setOvertime}
-              trackColor={{ true: '#9A7A4E', false: '#d1d5db' }}
+              trackColor={{ true: '#1C1A16', false: '#d1d5db' }}
             />
           </View>
           {overtime ? (
@@ -295,7 +295,7 @@ export default function LogHours() {
           />
           {loadingProjects ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator color="#0ABFA3" />
+              <ActivityIndicator color="#1C1A16" />
             </View>
           ) : (
             <FlatList

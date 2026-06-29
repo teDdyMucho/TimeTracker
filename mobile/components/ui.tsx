@@ -36,14 +36,14 @@ export function AppModal({
                 <Pressable
                   onPress={onClose}
                   className="flex-1 items-center justify-center rounded-xl py-3"
-                  style={{ backgroundColor: '#EFEAE1' }}
+                  style={{ backgroundColor: '#F4F4F5' }}
                 >
                   <Text className="font-semibold text-ink">{cancelLabel}</Text>
                 </Pressable>
                 <Pressable
                   onPress={onConfirm}
                   className="flex-1 items-center justify-center rounded-xl py-3"
-                  style={{ backgroundColor: destructive ? '#EF4444' : '#9A7A4E' }}
+                  style={{ backgroundColor: destructive ? '#EF4444' : '#1C1A16' }}
                 >
                   <Text className="font-semibold text-white">{confirmLabel}</Text>
                 </Pressable>
@@ -52,7 +52,7 @@ export function AppModal({
               <Pressable
                 onPress={onClose}
                 className="flex-1 items-center justify-center rounded-xl py-3"
-                style={{ backgroundColor: '#9A7A4E' }}
+                style={{ backgroundColor: '#1C1A16' }}
               >
                 <Text className="font-semibold text-white">OK</Text>
               </Pressable>
@@ -93,7 +93,7 @@ export function Button({
       className={`${base} ${styles} ${isOff ? 'opacity-50' : 'active:opacity-80'}`}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : '#9A7A4E'} />
+        <ActivityIndicator color={variant === 'primary' ? '#fff' : '#1C1A16'} />
       ) : (
         <Text className={`text-base font-semibold ${text}`}>{label}</Text>
       )}

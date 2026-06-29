@@ -10,7 +10,7 @@
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/buildone.png",
-      "backgroundColor": "#F6F4EF",
+      "backgroundColor": "#F4F4F5",
       "resizeMode": "contain"
     },
     "ios": {
@@ -24,7 +24,7 @@
       "package": "com.buildone.timesheets",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1C1A16"
+        "backgroundColor": "#000000"
       },
       "permissions": [
         "android.permission.USE_BIOMETRIC",
@@ -38,7 +38,7 @@
       [
         "expo-notifications",
         {
-          "color": "#9A7A4E"
+          "color": "#1C1A16"
         }
       ],
       "expo-asset"

@@ -5,8 +5,8 @@ import { Button, AppModal } from '@/components/ui';
 import { useAuth } from '@/store/auth';
 import { supabase } from '@/lib/supabase';
 
-const LINE = '#E7E2D8';
-const BRONZE = '#9A7A4E';
+const LINE = '#E4E4E7';
+const BRONZE = '#1C1A16';
 
 export default function Login() {
   const { signIn, signingIn, error } = useAuth();
@@ -64,7 +64,7 @@ export default function Login() {
               keyboardType="email-address"
               autoComplete="email"
               placeholder="you@buildone.com"
-              placeholderTextColor="#A39C90"
+              placeholderTextColor="#A1A1AA"
               className="bg-white text-ink text-base rounded-2xl px-4 py-4"
               style={{ borderWidth: 1, borderColor: LINE }}
             />
@@ -76,7 +76,7 @@ export default function Login() {
               onChangeText={setPassword}
               secureTextEntry
               placeholder="••••••••"
-              placeholderTextColor="#A39C90"
+              placeholderTextColor="#A1A1AA"
               className="bg-white text-ink text-base rounded-2xl px-4 py-4"
               style={{ borderWidth: 1, borderColor: LINE }}
             />

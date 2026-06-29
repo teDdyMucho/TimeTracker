@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
 // Foreground notifications: show a banner.
@@ -21,6 +22,17 @@ Notifications.setNotificationHandler({
  */
 export async function registerPush(userId: string): Promise<void> {
   try {
+    // Android requires a notification channel for sound/heads-up display.
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#1C1A16',
+      });
+    }
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
     if (existing !== 'granted') {

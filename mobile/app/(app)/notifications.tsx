@@ -4,7 +4,7 @@ import { Card } from '@/components/ui';
 import { useAuth } from '@/store/auth';
 import { fetchNotifications, markAllNotificationsRead, type AppNotification } from '@/lib/queries';
 
-const BRONZE = '#9A7A4E';
+const BRONZE = '#1C1A16';
 
 function relative(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -59,7 +59,7 @@ export default function Notifications() {
               <View className="flex-1">
                 <View className="flex-row items-center justify-between">
                   <Text className="font-semibold text-ink">{n.title}</Text>
-                  <Text className="text-xs" style={{ color: '#A39C90' }}>{relative(n.created_at)}</Text>
+                  <Text className="text-xs" style={{ color: '#A1A1AA' }}>{relative(n.created_at)}</Text>
                 </View>
                 {n.body ? <Text className="text-muted text-sm mt-0.5">{n.body}</Text> : null}
               </View>

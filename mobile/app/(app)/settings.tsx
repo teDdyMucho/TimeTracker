@@ -14,9 +14,9 @@ import {
 } from '@/lib/notify';
 import { isBiometricAvailable, getBiometricEnabled, setBiometricEnabled } from '@/lib/biometric';
 
-const BRONZE = '#9A7A4E';
-const LINE = '#E7E2D8';
-const MUTED = '#76716A';
+const BRONZE = '#1C1A16';
+const LINE = '#E4E4E7';
+const MUTED = '#71717A';
 
 export default function Settings() {
   const profile = useAuth((s) => s.profile);
@@ -143,7 +143,7 @@ export default function Settings() {
               onPress={changePhoto}
               disabled={uploading}
               className="self-start rounded-xl px-4 py-2"
-              style={{ backgroundColor: 'rgba(154,122,78,0.12)' }}
+              style={{ backgroundColor: 'rgba(28,26,22,0.12)' }}
             >
               {uploading ? (
                 <ActivityIndicator color={BRONZE} />

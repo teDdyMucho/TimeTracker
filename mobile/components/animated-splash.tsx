@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
-const DARK = '#1C1A16';
-const BRONZE = '#9A7A4E';
+// Fire-and-forget haptic; silently ignored on devices without a vibrator.
+const tap = (style: Haptics.ImpactFeedbackStyle) =>
+  Haptics.impactAsync(style).catch(() => {});
+
+const DARK = '#000000';
+const BRONZE = '#FFFFFF'; // accent underline — white, to show on the black splash plate
 
 /**
  * Branded open animation: BuildOne logo fades + scales up over a dark plate,
@@ -17,6 +22,9 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
   const plateOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Soft tap as the logo begins to appear.
+    tap(Haptics.ImpactFeedbackStyle.Light);
+
     Animated.sequence([
       // Logo entrance — fade up + settle
       Animated.parallel([
@@ -39,7 +47,7 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
           useNativeDriver: true,
         }),
       ]),
-      // Bronze underline sweep
+      // White underline sweep
       Animated.timing(lineWidth, {
         toValue: 1,
         duration: 420,
@@ -58,6 +66,11 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
     ]).start(({ finished }) => {
       if (finished) onDone();
     });
+
+    // Firmer "landing" tap timed to when the logo settles + the underline sweeps.
+    const t1 = setTimeout(() => tap(Haptics.ImpactFeedbackStyle.Medium), 620);
+    const t2 = setTimeout(() => tap(Haptics.ImpactFeedbackStyle.Light), 1040);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
   return (
@@ -85,7 +98,7 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
       >
         <Image
           source={require('../assets/buildone.png')}
-          style={{ width: 240, height: 60 }}
+          style={{ width: 240, height: 60, tintColor: '#FFFFFF' }}
           resizeMode="contain"
         />
         <View style={{ height: 10 }} />

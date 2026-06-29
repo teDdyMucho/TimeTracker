@@ -2,6 +2,7 @@
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
 import { formatHours } from '@/lib/format'
+import { sendPushToProfile } from '@/lib/push'
 
 async function decideOvertime(
   id: string,
@@ -33,12 +34,15 @@ async function decideOvertime(
   // Notify the employee (in-app inbox; also delivered as push once an EAS build is live)
   if (ts?.profile_id) {
     const approved = decision === 'approved'
+    const title = approved ? 'Overtime approved' : 'Overtime declined'
+    const body = `Your overtime on ${ts.work_date} (${formatHours(Number(ts.hours))}) was ${approved ? 'approved' : 'declined'}.`
     await admin.from('notifications').insert({
       profile_id: ts.profile_id,
       type: approved ? 'overtime_approved' : 'overtime_rejected',
-      title: approved ? 'Overtime approved' : 'Overtime declined',
-      body: `Your overtime on ${ts.work_date} (${formatHours(Number(ts.hours))}) was ${approved ? 'approved' : 'declined'}.`,
+      title,
+      body,
     })
+    await sendPushToProfile(admin, ts.profile_id, { title, body, data: { type: 'overtime' } })
   }
 
   revalidatePath('/overtime')

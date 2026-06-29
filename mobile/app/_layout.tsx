@@ -8,8 +8,6 @@ import { useAuth } from '@/store/auth';
 import { isBiometricAvailable, getBiometricEnabled, authenticate } from '@/lib/biometric';
 import AnimatedSplash from '@/components/animated-splash';
 
-const BRONZE = '#9A7A4E';
-
 function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
@@ -54,16 +52,16 @@ function useBiometricLock() {
 
 function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   return (
-    <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: '#1C1A16' }}>
+    <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: '#000000' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <Image
         source={require('../assets/buildone.png')}
-        style={{ width: 220, height: 56, marginBottom: 28 }}
+        style={{ width: 220, height: 56, marginBottom: 28, tintColor: '#FFFFFF' }}
         resizeMode="contain"
       />
       <Text className="text-white/70 mb-8 text-center">Locked — unlock to continue</Text>
-      <Pressable onPress={onUnlock} className="rounded-2xl px-8 py-3" style={{ backgroundColor: BRONZE }}>
-        <Text className="text-white font-semibold text-base">Unlock</Text>
+      <Pressable onPress={onUnlock} className="rounded-2xl px-8 py-3" style={{ backgroundColor: '#FFFFFF' }}>
+        <Text className="font-semibold text-base" style={{ color: '#000000' }}>Unlock</Text>
       </Pressable>
     </View>
   );

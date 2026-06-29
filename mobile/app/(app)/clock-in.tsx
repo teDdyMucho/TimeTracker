@@ -26,11 +26,11 @@ import { Button, Card, Chip, Label } from '@/components/ui';
 import type { BusinessEntity, Project, WorkLocation } from '@/lib/types';
 
 // Build One palette
-const BRONZE = '#9A7A4E';
-const INK    = '#1F1D1A';
-const MUTED  = '#76716A';
-const LINE   = '#E7E2D8';
-const STONE  = '#EFEAE1';
+const BRONZE = '#1C1A16';
+const INK    = '#18181B';
+const MUTED  = '#71717A';
+const LINE   = '#E4E4E7';
+const STONE  = '#F4F4F5';
 
 export default function ClockInScreen() {
   const router = useRouter();
@@ -159,11 +159,11 @@ export default function ClockInScreen() {
         <View className="flex-1 items-center justify-center px-8">
           {/* Camera-lens motif */}
           <View className="items-center justify-center mb-8" style={{ width: 184, height: 184 }}>
-            <View style={{ position: 'absolute', width: 184, height: 184, borderRadius: 92, backgroundColor: 'rgba(154,122,78,0.08)' }} />
-            <View style={{ position: 'absolute', width: 148, height: 148, borderRadius: 74, backgroundColor: 'rgba(154,122,78,0.12)' }} />
+            <View style={{ position: 'absolute', width: 184, height: 184, borderRadius: 92, backgroundColor: 'rgba(28,26,22,0.08)' }} />
+            <View style={{ position: 'absolute', width: 148, height: 148, borderRadius: 74, backgroundColor: 'rgba(28,26,22,0.12)' }} />
             <View
               className="items-center justify-center"
-              style={{ width: 116, height: 116, borderRadius: 58, backgroundColor: '#fff', borderWidth: 2, borderColor: 'rgba(154,122,78,0.35)' }}
+              style={{ width: 116, height: 116, borderRadius: 58, backgroundColor: '#fff', borderWidth: 2, borderColor: 'rgba(28,26,22,0.35)' }}
             >
               <View className="items-center justify-center" style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: BRONZE }}>
                 <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.4)' }} />
@@ -179,9 +179,9 @@ export default function ClockInScreen() {
           {/* Info chips */}
           <View className="flex-row gap-2 mb-9">
             {['GPS captured', 'Time-stamped'].map((label) => (
-              <View key={label} className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(154,122,78,0.10)' }}>
+              <View key={label} className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(28,26,22,0.10)' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: BRONZE }} />
-                <Text className="text-xs font-semibold" style={{ color: '#836439' }}>{label}</Text>
+                <Text className="text-xs font-semibold" style={{ color: '#000000' }}>{label}</Text>
               </View>
             ))}
           </View>
@@ -265,7 +265,7 @@ export default function ClockInScreen() {
                   style={{
                     borderWidth: 1.5,
                     borderColor: projectId === p.id ? BRONZE : LINE,
-                    backgroundColor: projectId === p.id ? 'rgba(154,122,78,0.06)' : '#ffffff',
+                    backgroundColor: projectId === p.id ? 'rgba(28,26,22,0.06)' : '#ffffff',
                     borderRadius: 12,
                     paddingHorizontal: 16,
                     paddingVertical: 12,

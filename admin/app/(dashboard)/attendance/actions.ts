@@ -1,6 +1,7 @@
 'use server'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
+import { sendPushToProfile } from '@/lib/push'
 
 /**
  * Approving/rejecting an attendance record (a clock_sessions row) also updates
@@ -31,14 +32,19 @@ async function setReview(sessionId: string, decision: 'approved' | 'rejected'): 
     // 3. Notify the employee (in-app inbox; delivered as push once an EAS build is live).
     const approved = decision === 'approved'
     const project = (session as any).projects?.name as string | undefined
+    const title = approved ? 'Attendance approved' : 'Attendance rejected'
+    const body = approved
+      ? `Your attendance on ${session.work_date}${project ? ` (${project})` : ''} was approved.`
+      : `Your attendance on ${session.work_date}${project ? ` (${project})` : ''} was rejected. Those hours won't be paid — contact your supervisor if this is a mistake.`
+
     await admin.from('notifications').insert({
       profile_id: session.profile_id,
       type: approved ? 'attendance_approved' : 'attendance_rejected',
-      title: approved ? 'Attendance approved' : 'Attendance rejected',
-      body: approved
-        ? `Your attendance on ${session.work_date}${project ? ` (${project})` : ''} was approved.`
-        : `Your attendance on ${session.work_date}${project ? ` (${project})` : ''} was rejected. Those hours won't be paid — contact your supervisor if this is a mistake.`,
+      title,
+      body,
     })
+    // Push to the phone (works on an EAS build; no-op without a token).
+    await sendPushToProfile(admin, session.profile_id, { title, body, data: { type: 'attendance' } })
   }
 
   revalidatePath('/attendance')
