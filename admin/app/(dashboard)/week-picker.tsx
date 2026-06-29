@@ -1,4 +1,5 @@
 'use client'
+import { useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -19,10 +20,23 @@ export default function WeekPicker({
 }) {
   const router = useRouter()
   const pathname = usePathname()
+  const dateRef = useRef<HTMLInputElement>(null)
 
   const go = (date: string) => {
     const params = new URLSearchParams({ week: date })
     router.push(`${pathname}?${params}`)
+  }
+
+  // Open the native date picker on click (transparent date inputs don't open on their own).
+  const openPicker = () => {
+    const el = dateRef.current
+    if (!el) return
+    // showPicker() is the reliable way; fall back to focus/click.
+    if (typeof (el as any).showPicker === 'function') {
+      try { (el as any).showPicker() } catch { el.focus() }
+    } else {
+      el.focus()
+    }
   }
 
   return (
@@ -48,21 +62,28 @@ export default function WeekPicker({
           <ChevronLeft size={16} style={{ color: '#6B6660' }} />
         </button>
 
-        <label
-          className="relative flex items-center gap-2 px-3 py-2.5 text-sm font-semibold cursor-pointer border-x border-[#ECEAE4]"
+        <button
+          type="button"
+          onClick={openPicker}
+          className="relative flex items-center gap-2 px-3 py-2.5 text-sm font-semibold cursor-pointer border-x border-[#ECEAE4] hover:bg-[#FAF9F6] transition-colors"
           style={{ color: '#6B6660' }}
+          title="Pick a week"
         >
           <CalendarDays size={15} style={{ color: '#B4AEA3' }} />
           {label}
           <ChevronDown size={14} style={{ color: '#B4AEA3' }} />
           <input
+            ref={dateRef}
             type="date"
             value={weekStart}
             max={today}
             onChange={(e) => e.target.value && go(e.target.value)}
-            className="absolute inset-0 opacity-0 cursor-pointer"
+            // Kept in the DOM (not display:none) so showPicker() works; visually hidden.
+            className="absolute bottom-0 left-1/2 w-px h-px opacity-0 pointer-events-none"
+            tabIndex={-1}
+            aria-hidden="true"
           />
-        </label>
+        </button>
 
         <button
           type="button"
