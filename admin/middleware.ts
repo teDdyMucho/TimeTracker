@@ -57,5 +57,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Skip Next internals AND static asset files (images/fonts) so public/ assets
+  // like login_bg.png aren't caught by the auth redirect.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|avif|woff2?)$).*)'],
 }

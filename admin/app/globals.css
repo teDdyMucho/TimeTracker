@@ -84,6 +84,88 @@
   transform-origin: top;
 }
 
+/* ── Post-login success splash ────────────────────────────────────────────── */
+@keyframes splashRise {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.9); }
+  60%  { opacity: 1; transform: translateY(0) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes splashLine {
+  from { width: 0; opacity: 0; }
+  to   { width: 180px; opacity: 1; }
+}
+.animate-splash-rise { animation: splashRise 0.7s cubic-bezier(0.16,1,0.3,1) both; }
+.animate-splash-line { animation: splashLine 0.5s ease-out 0.45s both; }
+
+/* ── Running glow border (login card) ─────────────────────────────────────── */
+@property --glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes glowSpin {
+  to { --glow-angle: 360deg; }
+}
+@keyframes glowSpinFallback {
+  to { transform: rotate(360deg); }
+}
+.glow-card {
+  position: relative;
+  border-radius: 1.5rem; /* matches rounded-3xl */
+  padding: 1.5px;        /* glow border thickness */
+}
+/* The animated conic glow that runs around the edge */
+.glow-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0deg,
+    transparent 250deg,
+    rgba(255,255,255,0.35) 300deg,
+    #ffffff 330deg,
+    rgba(255,255,255,0.35) 350deg,
+    transparent 360deg
+  );
+  /* show only the border ring */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: glowSpin 4.5s linear infinite;
+  pointer-events: none;
+}
+/* Soft outer halo following the same sweep */
+.glow-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0deg,
+    transparent 285deg,
+    rgba(255,255,255,0.5) 330deg,
+    transparent 360deg
+  );
+  filter: blur(9px);
+  opacity: 0.7;
+  animation: glowSpin 4.5s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+.glow-card-inner {
+  position: relative;
+  border-radius: calc(1.5rem - 1.5px);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-card::before, .glow-card::after { animation: none; }
+}
+
 /* Frosted-glass panel — used by all modals & dropdowns for a consistent look */
 .glass-panel {
   background: rgba(255, 255, 255, 0.72);

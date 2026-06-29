@@ -23,24 +23,36 @@ export default async function LoginPage({
   return (
     <div
       className="min-h-screen relative overflow-hidden flex items-center"
-      style={{ background: 'linear-gradient(150deg, #000000 0%, #0A0A0A 55%, #000000 100%)' }}
+      style={{
+        backgroundColor: '#000000',
+        backgroundImage: 'url(/login_bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
     >
-      {/* dot grid */}
+      {/* Dark gradient overlay — keeps the photo visible but text/form readable */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(circle, rgba(28,26,22,0.13) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-        }}
+        style={{ background: 'linear-gradient(105deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.72) 50%, rgba(0,0,0,0.9) 100%)' }}
       />
-      {/* animated warm glows */}
+
+      {/* soft glow behind the form for depth */}
       <div
-        className="absolute -top-32 left-[18%] w-[640px] h-[640px] rounded-full pointer-events-none animate-glow-pulse"
-        style={{ background: 'radial-gradient(circle, rgba(28,26,22,0.18) 0%, transparent 65%)' }}
+        className="absolute top-[18%] right-[-6%] w-[560px] h-[560px] rounded-full pointer-events-none animate-glow-pulse"
+        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 68%)' }}
       />
+
+      {/* top hairline accent */}
       <div
-        className="absolute -bottom-40 right-[8%] w-[520px] h-[520px] rounded-full pointer-events-none animate-glow-pulse delay-300"
-        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%)' }}
+        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }}
+      />
+
+      {/* vignette — darkens edges for focus */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(135% 115% at 45% 45%, transparent 38%, rgba(0,0,0,0.8) 100%)' }}
       />
 
       <div className="relative z-10 w-full max-w-[1500px] mx-auto px-6 sm:px-12 lg:px-20 flex items-center justify-center lg:justify-between gap-12">
@@ -96,15 +108,14 @@ export default async function LoginPage({
           </div>
         </div>
 
-        {/* ── Floating glass form card ── */}
-        <div className="w-full max-w-md shrink-0 animate-scale-in">
+        {/* ── Floating glass form card with a glow that runs the border ── */}
+        <div className="glow-card w-full max-w-md shrink-0 animate-scale-in">
           <div
-            className="rounded-3xl p-8 sm:p-10"
+            className="glow-card-inner rounded-3xl p-8 sm:p-10"
             style={{
               background: 'rgba(255,255,255,0.07)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
-              border: '1px solid rgba(255,255,255,0.14)',
               boxShadow: '0 30px 70px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
             }}
           >

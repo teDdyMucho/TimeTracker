@@ -1,7 +1,9 @@
 'use client'
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { signInAction } from './actions'
+import SuccessSplash from './success-splash'
 
 const fieldClass =
   'w-full rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-white/40 border focus:outline-none focus:ring-2 transition-all duration-200'
@@ -13,8 +15,21 @@ const fieldStyle: React.CSSProperties = {
 }
 
 export default function LoginForm({ initialError }: { initialError: string | null }) {
-  const [error, formAction, pending] = useActionState(signInAction, initialError)
+  const router = useRouter()
+  const [state, formAction, pending] = useActionState(signInAction, initialError ? { error: initialError } : null)
   const [showPw, setShowPw] = useState(false)
+  const [success, setSuccess] = useState(false)
+
+  const error = state?.error ?? null
+
+  // On successful sign-in, play the splash then go to the dashboard.
+  useEffect(() => {
+    if (state?.ok) setSuccess(true)
+  }, [state])
+
+  if (success) {
+    return <SuccessSplash onDone={() => router.replace('/')} />
+  }
 
   return (
     <form action={formAction} className="space-y-4 glass-form">
