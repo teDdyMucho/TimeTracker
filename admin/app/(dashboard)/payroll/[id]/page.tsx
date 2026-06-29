@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/server'
 import { Card, Badge } from '@/components/ui'
 import { PAY_BANDS, PAY_BAND_LABELS } from '@/lib/payroll'
 import { formatHours } from '@/lib/format'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,6 +50,13 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <a
+            href={`/api/payroll/pdf?run=${id}`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm"
+            style={{ background: '#1C1A16' }}
+          >
+            <Download size={14} /> Download PDF
+          </a>
           <Badge status={(run as any).status} />
           <div className="text-right">
             <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#A39C90' }}>Total gross</div>

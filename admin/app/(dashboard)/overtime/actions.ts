@@ -21,7 +21,7 @@ async function decideOvertime(
   const [otRes, tsRes] = await Promise.all([
     admin
       .from('overtime_requests')
-      .update({ status: decision, reviewed_at: new Date().toISOString() })
+      .update({ status: decision, decided_at: new Date().toISOString() })
       .eq('id', id),
     admin
       .from('timesheets')

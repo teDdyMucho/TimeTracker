@@ -4,7 +4,8 @@ import { Card, PageHeader, Badge } from '@/components/ui'
 import { updatePayrollStatusAction, deletePayrollRunAction } from './actions'
 import NewPayrollRunForm from './new-run-form'
 import { formatHours } from '@/lib/format'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2, Download } from 'lucide-react'
+import PayrollDownload from './payroll-download'
 import type { BusinessEntity } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,7 @@ export default async function PayrollPage() {
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
-  const [runsRes, entitiesRes] = await Promise.all([
+  const [runsRes, entitiesRes, employeesRes] = await Promise.all([
     adminClient
       .from('payroll_runs')
       .select(
@@ -30,10 +31,17 @@ export default async function PayrollPage() {
       .select('id, name, xero_tenant_id')
       .eq('status', 'active')
       .order('name'),
+    adminClient
+      .from('profiles')
+      .select('id, name')
+      .eq('status', 'active')
+      .neq('role', 'admin')
+      .order('name'),
   ])
 
   const runs = (runsRes.data ?? []) as any[]
   const entities = (entitiesRes.data ?? []) as (BusinessEntity & { xero_tenant_id: string | null })[]
+  const employees = (employeesRes.data ?? []) as { id: string; name: string }[]
   const entityMap = Object.fromEntries(entities.map((e) => [e.id, e]))
   const anyConnected = entities.some((e) => e.xero_tenant_id)
 
@@ -56,6 +64,9 @@ export default async function PayrollPage() {
           <strong>No entity connected to Xero yet.</strong> Connect an entity in <em>Entities → Connect Xero</em> to enable payroll export.
         </div>
       )}
+
+      {/* Filtered PDF export */}
+      {runs.length > 0 && <PayrollDownload entities={entities} employees={employees} />}
 
       {runs.length === 0 ? (
         <Card>
@@ -119,6 +130,16 @@ export default async function PayrollPage() {
                           style={{ background: 'rgba(28,26,22,0.10)', color: '#000000' }}
                         >
                           <ExternalLink size={12} /> Preview
+                        </a>
+
+                        {/* Download PDF for this run */}
+                        <a
+                          href={`/api/payroll/pdf?run=${r.id}`}
+                          title="Download PDF"
+                          className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-colors whitespace-nowrap"
+                          style={{ background: '#1C1A16' }}
+                        >
+                          <Download size={12} /> PDF
                         </a>
 
                         {r.status === 'draft' && (

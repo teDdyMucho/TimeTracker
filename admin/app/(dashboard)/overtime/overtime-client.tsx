@@ -1,5 +1,5 @@
 ﻿'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { CheckCircle, XCircle } from 'lucide-react'
 import { Card, Badge } from '@/components/ui'
 import { approveOvertimeAction, rejectOvertimeAction } from './actions'
@@ -33,6 +33,9 @@ export default function OvertimeClient({
   const [actingOn, setActingOn] = useState<{ id: string; action: 'approve' | 'reject' } | null>(null)
   const [modal, setModal] = useState<Modal | null>(null)
   const [pending, setPending] = useState<OvertimeRequest[]>(initialPending)
+
+  // Keep local list in sync when the server re-renders with new props (e.g. filters change).
+  useEffect(() => { setPending(initialPending) }, [initialPending])
 
   const handleAction = (id: string, timesheetId: string, action: 'approve' | 'reject') => {
     if (isPending) return
@@ -94,7 +97,7 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'approve')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink bg-brand hover:bg-brand-dark active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-brand hover:bg-brand-dark active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
                     {isActing && actingOn?.action === 'approve' ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -107,7 +110,7 @@ export default function OvertimeClient({
                     type="button"
                     disabled={isPending}
                     onClick={() => handleAction(req.id, req.timesheet_id, 'reject')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink bg-red-500 hover:bg-red-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition-all shadow-sm whitespace-nowrap disabled:opacity-50"
                   >
                     {isActing && actingOn?.action === 'reject' ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -160,8 +163,8 @@ export default function OvertimeClient({
                     </td>
                     <td className="py-3 pr-4"><Badge status={req.status} /></td>
                     <td className="py-3 text-muted whitespace-nowrap">
-                      {req.reviewed_at
-                        ? new Date(req.reviewed_at).toLocaleDateString('en-AU')
+                      {req.decided_at
+                        ? new Date(req.decided_at).toLocaleDateString('en-AU')
                         : '—'}
                     </td>
                   </tr>

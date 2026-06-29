@@ -138,7 +138,7 @@ export default function ProjectsClient({
                             type="submit"
                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap ${
                               p.status === 'active'
-                                ? 'bg-slate-700 text-ink hover:bg-slate-800'
+                                ? 'bg-red-500 text-white hover:bg-red-600'
                                 : 'bg-brand text-white hover:bg-brand-dark'
                             }`}
                           >

@@ -90,11 +90,11 @@ export default function EntitiesClient({
                     <Badge status={e.status} />
                   </td>
                   <td className="py-3">
-                    <div className="flex items-center gap-2">
-                      {/* Connect / Reconnect Xero */}
+                    <div className="flex items-center gap-2 justify-end">
+                      {/* Connect / Reconnect Xero — fixed width so Edit/Archive align across rows */}
                       <a
                         href={`/api/xero/connect?entity=${e.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap hover:opacity-90"
+                        className="inline-flex items-center justify-center gap-1.5 w-[124px] px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap hover:opacity-90"
                         style={
                           e.xero_tenant_id
                             ? { background: '#F4F4F5', color: '#000000' }
@@ -107,7 +107,7 @@ export default function EntitiesClient({
 
                       <button
                         onClick={() => setEditing(e)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all shadow-sm"
+                        className="inline-flex items-center justify-center gap-1.5 w-[76px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all shadow-sm"
                       >
                         <Pencil size={11} />
                         Edit
@@ -118,9 +118,9 @@ export default function EntitiesClient({
                         <input type="hidden" name="current_status" value={e.status} />
                         <button
                           type="submit"
-                          className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap ${
+                          className={`inline-flex items-center justify-center w-[84px] px-3 py-1.5 rounded-lg text-xs font-semibold active:scale-95 transition-all shadow-sm whitespace-nowrap ${
                             e.status === 'active'
-                              ? 'bg-slate-700 text-white hover:bg-slate-800'
+                              ? 'bg-red-500 text-white hover:bg-red-600'
                               : 'bg-brand text-white hover:bg-brand-dark'
                           }`}
                         >

@@ -38,9 +38,9 @@ export default async function OvertimePage({
       .order('created_at', { ascending: false }),
     admin
       .from('overtime_requests')
-      .select('id, reason, status, reviewed_at, timesheet_id, profile_id')
+      .select('id, reason, status, decided_at, timesheet_id, profile_id')
       .in('status', ['approved', 'rejected'])
-      .order('reviewed_at', { ascending: false })
+      .order('decided_at', { ascending: false })
       .limit(20),
   ])
 
