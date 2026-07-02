@@ -1,5 +1,7 @@
 import LoginForm from './login-form'
 import { Clock, TrendingUp, Banknote } from 'lucide-react'
+import timeveraLogo from '../../../lib/timevera-web-logo.png'
+import arkoLogo from '../../../lib/arko-logo.png'
 import buildoneLogo from '../../../lib/buildone-logo.png'
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -60,12 +62,11 @@ export default async function LoginPage({
         {/* ── Left branding (centered content, pinned far-left) ── */}
         <div className="hidden lg:flex flex-col items-center text-center max-w-xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <div className="animate-fade-in-up">
+          <div className="animate-fade-in-up mb-7">
             <img
-              src={buildoneLogo.src}
-              alt="BuildOne"
-              className="h-20 w-auto object-contain mb-7 animate-float-slow"
-              style={{ filter: 'brightness(0) invert(1)' }}
+              src={timeveraLogo.src}
+              alt="Timevera"
+              className="h-16 w-auto object-contain animate-float-slow"
             />
           </div>
 
@@ -119,20 +120,28 @@ export default async function LoginPage({
               boxShadow: '0 30px 70px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
             }}
           >
-            {/* Logo on the card — shown on mobile (left branding hidden) */}
-            <div className="lg:hidden flex justify-center mb-6">
+            {/* BuildOne + ARKO logos at the top of the card */}
+            <div className="flex items-center justify-center gap-4 mb-6">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={buildoneLogo.src}
                 alt="BuildOne"
-                className="h-9 w-auto object-contain"
+                className="h-7 w-auto object-contain"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+              <span className="w-px h-6" style={{ background: 'rgba(255,255,255,0.2)' }} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={arkoLogo.src}
+                alt="ARKO Joinery"
+                className="h-7 w-auto object-contain"
                 style={{ filter: 'brightness(0) invert(1)' }}
               />
             </div>
 
             <h2 className="text-2xl font-bold text-center text-white">Welcome Back</h2>
             <p className="text-sm text-center mt-1.5 mb-7" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              Sign in to continue to BuildOne
+              Sign in to continue to Timevera
             </p>
 
             <LoginForm initialError={initialError} />

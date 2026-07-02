@@ -7,69 +7,51 @@ const tap = (style: Haptics.ImpactFeedbackStyle) =>
   Haptics.impactAsync(style).catch(() => {});
 
 const DARK = '#000000';
-const BRONZE = '#FFFFFF'; // accent underline — white, to show on the black splash plate
+const WHITE = '#FFFFFF';
 
 /**
- * Branded open animation: BuildOne logo fades + scales up over a dark plate,
- * a bronze underline sweeps in, then the whole splash fades away to reveal
- * the app underneath. Calls onDone when finished.
+ * Branded open animation over a black plate:
+ *   1. BuildOne logo fades + scales up
+ *   2. a white underline sweeps in
+ *   3. the ARKO (client) logo fades up beneath it
+ *   4. the whole plate fades away to reveal the app.
+ * Calls onDone when finished.
  */
 export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.82)).current;
   const logoY = useRef(new Animated.Value(12)).current;
-  const lineWidth = useRef(new Animated.Value(0)).current;
+  const lineWidth = useRef(new Animated.Value(0)).current;      // BuildOne underline
+  const arkoLineWidth = useRef(new Animated.Value(0)).current;  // ARKO underline
   const plateOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Soft tap as the logo begins to appear.
+    // Soft tap as the logos begin to appear.
     tap(Haptics.ImpactFeedbackStyle.Light);
 
     Animated.sequence([
-      // Logo entrance — fade up + settle
+      // 1. Both logos enter TOGETHER — fade up + settle
       Animated.parallel([
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 520,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoY, {
-          toValue: 0,
-          duration: 620,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(logoScale, {
-          toValue: 1,
-          friction: 7,
-          tension: 60,
-          useNativeDriver: true,
-        }),
+        Animated.timing(logoOpacity, { toValue: 1, duration: 560, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(logoY, { toValue: 0, duration: 640, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.spring(logoScale, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
       ]),
-      // White underline sweep
-      Animated.timing(lineWidth, {
-        toValue: 1,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }),
+      // 2. Both underlines sweep TOGETHER
+      Animated.parallel([
+        Animated.timing(lineWidth, { toValue: 1, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+        Animated.timing(arkoLineWidth, { toValue: 1, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      ]),
       // Hold a beat
-      Animated.delay(420),
-      // Fade the whole plate away to reveal the screen beneath
-      Animated.timing(plateOpacity, {
-        toValue: 0,
-        duration: 480,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
+      Animated.delay(520),
+      // 3. Fade the whole plate away
+      Animated.timing(plateOpacity, { toValue: 0, duration: 480, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
     ]).start(({ finished }) => {
       if (finished) onDone();
     });
 
-    // Firmer "landing" tap timed to when the logo settles + the underline sweeps.
+    // Haptic beats: logos landing, then the underline sweep.
     const t1 = setTimeout(() => tap(Haptics.ImpactFeedbackStyle.Medium), 620);
-    const t2 = setTimeout(() => tap(Haptics.ImpactFeedbackStyle.Light), 1040);
+    const t2 = setTimeout(() => tap(Haptics.ImpactFeedbackStyle.Light), 1060);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
@@ -78,10 +60,7 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
       pointerEvents="none"
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: DARK,
         alignItems: 'center',
         justifyContent: 'center',
@@ -89,6 +68,7 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
         zIndex: 100,
       }}
     >
+      {/* Both logos share one entrance so they appear TOGETHER */}
       <Animated.View
         style={{
           opacity: logoOpacity,
@@ -96,9 +76,10 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
           alignItems: 'center',
         }}
       >
+        {/* BuildOne */}
         <Image
           source={require('../assets/buildone.png')}
-          style={{ width: 240, height: 60, tintColor: '#FFFFFF' }}
+          style={{ width: 240, height: 60, tintColor: WHITE }}
           resizeMode="contain"
         />
         <View style={{ height: 10 }} />
@@ -106,8 +87,26 @@ export default function AnimatedSplash({ onDone }: { onDone: () => void }) {
           style={{
             height: 3,
             borderRadius: 3,
-            backgroundColor: BRONZE,
+            backgroundColor: WHITE,
             width: lineWidth.interpolate({ inputRange: [0, 1], outputRange: [0, 180] }),
+          }}
+        />
+
+        <View style={{ height: 30 }} />
+
+        {/* ARKO (client) — now with its own underline sweep */}
+        <Image
+          source={require('../assets/arko.png')}
+          style={{ width: 150, height: 54, tintColor: WHITE }}
+          resizeMode="contain"
+        />
+        <View style={{ height: 10 }} />
+        <Animated.View
+          style={{
+            height: 3,
+            borderRadius: 3,
+            backgroundColor: WHITE,
+            width: arkoLineWidth.interpolate({ inputRange: [0, 1], outputRange: [0, 120] }),
           }}
         />
       </Animated.View>

@@ -28,7 +28,7 @@ export async function setBiometricEnabled(on: boolean): Promise<void> {
 export async function authenticate(): Promise<boolean> {
   try {
     const res = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock BuildOne',
+      promptMessage: 'Unlock Timevera',
       fallbackLabel: 'Use device passcode',
     });
     return res.success;

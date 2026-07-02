@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('✓ valid JSON'\\)\")",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('name:', c.expo.name\\); console.log\\('icon:', c.expo.icon\\); console.log\\('splash:', c.expo.splash.image\\); console.log\\('adaptiveIcon:', c.expo.android.adaptiveIcon.foregroundImage\\); console.log\\('✓ valid JSON'\\)\")",
+      "Bash(ls assets/timevera-icon.png)",
+      "Bash(powershell -NoProfile -Command ' *)",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('icon:',c.expo.icon,'| adaptiveIcon bg:',c.expo.android.adaptiveIcon.backgroundColor\\)\")",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('icon:',c.expo.icon,'| adaptive bg:',c.expo.android.adaptiveIcon.backgroundColor,'| splash bg:',c.expo.splash.backgroundColor\\)\")",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('name:',c.expo.name\\); console.log\\('icon:',c.expo.icon\\); console.log\\('adaptive bg:',c.expo.android.adaptiveIcon.backgroundColor\\); console.log\\('splash:',c.expo.splash.image,'bg',c.expo.splash.backgroundColor\\); console.log\\('✓ valid'\\)\")",
+      "Bash(file assets/timevera-icon.png)",
+      "Bash(powershell -NoProfile -Command 'Add-Type -AssemblyName System.Drawing; $i=New-Object System.Drawing.Bitmap\\([System.Drawing.Bitmap]::FromFile\\('\\\\''C:\\\\Users\\\\AKT\\\\Desktop\\\\TimeTracker\\\\mobile\\\\assets\\\\timevera-icon.png'\\\\''\\)\\); Write-Host \\('\\\\''icon: {0}x{1}, corner: {2},{3},{4}'\\\\'' -f $i.Width,$i.Height,$i.GetPixel\\(3,3\\).R,$i.GetPixel\\(3,3\\).G,$i.GetPixel\\(3,3\\).B\\); $i.Dispose\\(\\)')",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('adaptive bg:',c.expo.android.adaptiveIcon.backgroundColor\\)\")",
+      "Bash(sed -i 's|/timevera-web.png?v=2|/timevera-web.png?v=3|g' components/sidebar.tsx components/app-shell.tsx)"
+    ]
+  }
+}

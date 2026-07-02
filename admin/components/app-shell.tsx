@@ -62,10 +62,9 @@ export default function AppShell({ pendingOvertimeCount, userName, userEmail, ch
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/buildone.png?v=2"
-            alt="BuildOne"
+            src="/timevera-web.png?v=3"
+            alt="Timevera"
             className="absolute left-1/2 -translate-x-1/2 h-6 w-auto object-contain"
-            style={{ filter: 'brightness(0) invert(1)' }}
           />
         </div>
 

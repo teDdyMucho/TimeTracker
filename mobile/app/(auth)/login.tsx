@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, AppModal } from '@/components/ui';
 import { useAuth } from '@/store/auth';
@@ -12,6 +13,7 @@ export default function Login() {
   const { signIn, signingIn, error } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [info, setInfo] = useState<{ title: string; message: string } | null>(null);
 
   // Entrance animation — logo + form rise/fade in as the splash clears.
@@ -42,50 +44,74 @@ export default function Login() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-paper">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: '#F4F4F5' }}>
       <View className="flex-1 justify-center px-6">
         <Animated.View className="items-center mb-10" style={rise(logoIn)}>
-          {/* BuildOne logo */}
+          {/* BuildOne (unchanged) */}
           <Image
             source={require('../../assets/buildone.png')}
-            style={{ width: 230, height: 58 }}
+            style={{ width: 210, height: 54 }}
             resizeMode="contain"
           />
-          <Text className="text-muted mt-3">Sign in to log your hours</Text>
+
+          {/* divider */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, width: 200 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.15)' }} />
+            <Text style={{ color: 'rgba(0,0,0,0.4)', fontSize: 9, letterSpacing: 2, marginHorizontal: 10 }}>×</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.15)' }} />
+          </View>
+
+          {/* ARKO (client) — transparent dark logo, sits directly on the light page */}
+          <Image
+            source={require('../../assets/arko-dark.png')}
+            style={{ width: 170, height: 60 }}
+            resizeMode="contain"
+          />
+
+          <Text className="mt-5" style={{ color: '#3F3F46' }}>Sign in to log your hours</Text>
         </Animated.View>
 
         <Animated.View className="gap-3" style={rise(formIn)}>
           <View>
-            <Text className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Email</Text>
+            <Text className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#3F3F46' }}>Email</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
-              placeholder="you@buildone.com"
-              placeholderTextColor="#A1A1AA"
+              placeholder="you@timevera.com"
+              placeholderTextColor="#71717A"
               className="bg-white text-ink text-base rounded-2xl px-4 py-4"
-              style={{ borderWidth: 1, borderColor: LINE }}
+              style={{ borderWidth: 1, borderColor: '#C4C4CA' }}
             />
           </View>
           <View>
-            <Text className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Password</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="••••••••"
-              placeholderTextColor="#A1A1AA"
-              className="bg-white text-ink text-base rounded-2xl px-4 py-4"
-              style={{ borderWidth: 1, borderColor: LINE }}
-            />
+            <Text className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#3F3F46' }}>Password</Text>
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPw}
+                placeholder="••••••••"
+                placeholderTextColor="#71717A"
+                className="bg-white text-ink text-base rounded-2xl px-4 py-4 pr-12"
+                style={{ borderWidth: 1, borderColor: '#C4C4CA' }}
+              />
+              <Pressable
+                onPress={() => setShowPw((v) => !v)}
+                hitSlop={10}
+                style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}
+              >
+                <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={22} color="#71717A" />
+              </Pressable>
+            </View>
           </View>
 
-          {error ? <Text className="text-red-600 text-sm">{error}</Text> : null}
+          {error ? <Text className="text-sm" style={{ color: '#DC2626' }}>{error}</Text> : null}
 
           <Pressable onPress={forgotPassword} className="self-end py-1">
-            <Text className="text-sm font-semibold" style={{ color: BRONZE }}>Forgot password?</Text>
+            <Text className="text-sm font-semibold" style={{ color: '#1C1A16' }}>Forgot password?</Text>
           </Pressable>
 
           <View className="mt-1">

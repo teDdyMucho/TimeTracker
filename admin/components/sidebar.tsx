@@ -107,10 +107,9 @@ export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: P
       <div className="px-4 pt-5 pb-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/buildone.png?v=2"
-          alt="BuildOne"
+          src="/timevera-web.png?v=3"
+          alt="Timevera"
           className="w-full h-auto object-contain"
-          style={{ filter: 'brightness(0) invert(1)' }}
         />
       </div>
 

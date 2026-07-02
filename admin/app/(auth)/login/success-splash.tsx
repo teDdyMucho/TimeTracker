@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CheckCircle2 } from 'lucide-react'
-import buildoneLogo from '../../../lib/buildone-logo.png'
+import timeveraLogo from '../../../lib/timevera-web-logo.png'
 
 /**
  * Post-login success animation. A full-screen branded takeover (portaled to
@@ -29,10 +29,9 @@ export default function SuccessSplash({ onDone }: { onDone: () => void }) {
       <div className="flex flex-col items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={buildoneLogo.src}
-          alt="BuildOne"
+          src={timeveraLogo.src}
+          alt="Timevera"
           className="h-20 sm:h-24 w-auto object-contain animate-splash-rise"
-          style={{ filter: 'brightness(0) invert(1)' }}
         />
         {/* underline sweep */}
         <div className="mt-3 h-[3px] rounded-full animate-splash-line" style={{ background: '#ffffff' }} />
