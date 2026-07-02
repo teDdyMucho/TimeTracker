@@ -12,7 +12,9 @@
       "Bash(file assets/timevera-icon.png)",
       "Bash(powershell -NoProfile -Command 'Add-Type -AssemblyName System.Drawing; $i=New-Object System.Drawing.Bitmap\\([System.Drawing.Bitmap]::FromFile\\('\\\\''C:\\\\Users\\\\AKT\\\\Desktop\\\\TimeTracker\\\\mobile\\\\assets\\\\timevera-icon.png'\\\\''\\)\\); Write-Host \\('\\\\''icon: {0}x{1}, corner: {2},{3},{4}'\\\\'' -f $i.Width,$i.Height,$i.GetPixel\\(3,3\\).R,$i.GetPixel\\(3,3\\).G,$i.GetPixel\\(3,3\\).B\\); $i.Dispose\\(\\)')",
       "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('adaptive bg:',c.expo.android.adaptiveIcon.backgroundColor\\)\")",
-      "Bash(sed -i 's|/timevera-web.png?v=2|/timevera-web.png?v=3|g' components/sidebar.tsx components/app-shell.tsx)"
+      "Bash(sed -i 's|/timevera-web.png?v=2|/timevera-web.png?v=3|g' components/sidebar.tsx components/app-shell.tsx)",
+      "Bash(ls -la \"public/timevera-white.png\")",
+      "Bash(grep -rn \"favcon.png\\\\|/favcon\" components/sidebar.tsx app/\\\\\\(dashboard\\\\\\)/header-actions.tsx)"
     ]
   }
 }

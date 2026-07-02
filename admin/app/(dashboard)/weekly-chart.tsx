@@ -180,9 +180,9 @@ export default function WeeklyChart({ series }: { series: UserSeries[] }) {
         <path key={s.userId}
           ref={(el) => { glowRefs.current[si] = el }}
           d={buildPath(s.days)}
-          fill="none" stroke={s.color} strokeWidth="10"
+          fill="none" stroke={s.color} strokeWidth="6"
           strokeLinecap="round" strokeLinejoin="round"
-          opacity="0.16" filter="url(#lineBlur)" />
+          opacity="0.14" filter="url(#lineBlur)" />
       ))}
 
       {/* Main lines */}
@@ -190,7 +190,7 @@ export default function WeeklyChart({ series }: { series: UserSeries[] }) {
         <path key={s.userId}
           ref={(el) => { lineRefs.current[si] = el }}
           d={buildPath(s.days)}
-          fill="none" stroke={s.color} strokeWidth="3.25"
+          fill="none" stroke={s.color} strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round" />
       ))}
 
@@ -210,7 +210,7 @@ export default function WeeklyChart({ series }: { series: UserSeries[] }) {
                 </>
               )}
               {!isHov && (
-                <circle cx={x} cy={y} r={4.5} fill="white" stroke={s.color} strokeWidth="2.5" />
+                <circle cx={x} cy={y} r={3.5} fill="white" stroke={s.color} strokeWidth="1.75" />
               )}
             </g>
           )

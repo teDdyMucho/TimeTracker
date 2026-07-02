@@ -195,9 +195,9 @@ export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: P
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
         >
-          <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favcon.png" alt="BuildOne" className="w-full h-full object-contain scale-[1.9]" style={{ filter: 'brightness(0) invert(1)' }} />
+            <img src="/timevera-white.png?v=1" alt="Timevera" className="w-full h-full object-contain scale-[1.15]" />
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="text-sm font-semibold truncate text-white">{userName}</div>

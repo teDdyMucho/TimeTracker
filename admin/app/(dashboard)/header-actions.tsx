@@ -95,9 +95,9 @@ export default function HeaderActions({
           onClick={() => { setOpenUser((v) => !v); setOpenBell(false) }}
           className="flex items-center gap-2 pl-1"
         >
-          <div className="w-12 h-12 flex items-center justify-center overflow-hidden">
+          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center overflow-hidden border border-[#ECEAE4]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favcon.png" alt="BuildOne" className="w-full h-full object-contain scale-[1.9]" />
+            <img src="/timevera-white.png?v=1" alt="Timevera" className="w-full h-full object-contain scale-[1.15]" />
           </div>
           <ChevronDown size={15} style={{ color: '#B4AEA3' }}
             className={`transition-transform ${openUser ? 'rotate-180' : ''}`} />
