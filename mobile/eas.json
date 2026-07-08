@@ -20,6 +20,7 @@
     "production": {
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },
+      "ios": { "resourceClass": "m-medium" },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://efszrjuxjqaeqzrwrmuh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmc3pyanV4anFhZXF6cndybXVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzMwMTcsImV4cCI6MjA5NzcwOTAxN30.kdjmOly69pp5Gg1x5q-kz03bOOJftkugKFhYiUz30OQ"
@@ -27,6 +28,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "tapangjoseangelo@gmail.com",
+        "ascAppId": "6787161301",
+        "appleTeamId": "Z569DQP3YF"
+      }
+    }
   }
 }

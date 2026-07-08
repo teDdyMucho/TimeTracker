@@ -11,6 +11,7 @@ import {
   fetchHomeSummary,
   fetchRecentTimesheets,
   fetchUnreadCount,
+  fetchUnreadMessageCount,
   type HomeSummary,
 } from '@/lib/queries';
 import { friendlyDate } from '@/lib/date';
@@ -43,6 +44,7 @@ export default function Home() {
   const [elapsed, setElapsed] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [unreadMsgs, setUnreadMsgs] = useState(0);
 
   const [clockingOut, setClockingOut] = useState(false);
   const [overtime, setOvertime] = useState(false);
@@ -53,16 +55,18 @@ export default function Home() {
   const load = useCallback(async () => {
     if (!profile) return;
     try {
-      const [s, r, session, unreadCount] = await Promise.all([
+      const [s, r, session, unreadCount, unreadMsgCount] = await Promise.all([
         fetchHomeSummary(profile.id),
         fetchRecentTimesheets(profile.id, 10),
         fetchActiveSession(profile.id),
         fetchUnreadCount(profile.id),
+        fetchUnreadMessageCount(profile.id),
       ]);
       setSummary(s);
       setRecent(r);
       setActiveSession(session);
       setUnread(unreadCount);
+      setUnreadMsgs(unreadMsgCount);
       if (session) setElapsed(elapsedLabel(session.clocked_in_at));
     } catch (e) {
       console.warn('[home] load', e);
@@ -129,6 +133,21 @@ export default function Home() {
             <Text className="text-2xl font-bold text-ink">{firstName}</Text>
           </View>
           <View className="flex-row items-center gap-3">
+            {/* Messages */}
+            <Pressable onPress={() => router.push('/messages')} className="relative">
+              <View className="items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(28,26,22,0.10)' }}>
+                <Ionicons name="chatbubble-ellipses-outline" size={21} color={INK} />
+              </View>
+              {unreadMsgs > 0 && (
+                <View
+                  className="absolute -top-0.5 -right-0.5 items-center justify-center"
+                  style={{ minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', paddingHorizontal: 4 }}
+                >
+                  <Text className="text-white font-bold" style={{ fontSize: 10 }}>{unreadMsgs}</Text>
+                </View>
+              )}
+            </Pressable>
+
             {/* Notifications */}
             <Pressable onPress={() => router.push('/notifications')} className="relative">
               <View className="items-center justify-center" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(28,26,22,0.10)' }}>

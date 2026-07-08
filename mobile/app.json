@@ -16,12 +16,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.timevera.timesheets",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID to sign in to your timesheet."
+        "NSFaceIDUsageDescription": "Timevera uses Face ID to securely unlock the app and sign you in.",
+        "NSCameraUsageDescription": "Timevera uses the camera to take a photo when you clock in, verifying your attendance on site.",
+        "NSPhotoLibraryUsageDescription": "Timevera lets you choose a photo from your library to set your profile picture.",
+        "NSLocationWhenInUseUsageDescription": "Timevera records your location when you clock in to confirm you are on the job site.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.timevera.timesheets",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/timevera-icon.png",
         "backgroundColor": "#FFFFFF"

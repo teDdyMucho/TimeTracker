@@ -269,6 +269,54 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
   await supabase.from('notifications').update({ read: true }).eq('profile_id', userId).eq('read', false);
 }
 
+// ── Messages (two-way chat with Admin) ────────────────────────────────────────
+export interface ChatMessage {
+  id: string;
+  body: string;
+  sender_role: 'admin' | 'employee';
+  read: boolean;
+  created_at: string;
+}
+
+/** All messages in the signed-in user's thread (oldest → newest). */
+export async function fetchMessages(userId: string): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, body, sender_role, read, created_at')
+    .eq('profile_id', userId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ChatMessage[];
+}
+
+/** Employee sends a message to Admin (their own thread). */
+export async function sendMessage(userId: string, body: string): Promise<void> {
+  const { error } = await supabase.from('messages').insert({
+    profile_id: userId,
+    sender_id: userId,
+    sender_role: 'employee',
+    body: body.trim(),
+  });
+  if (error) throw error;
+}
+
+/** Count of unread admin messages for the badge. */
+export async function fetchUnreadMessageCount(userId: string): Promise<number> {
+  const { count } = await supabase
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('profile_id', userId)
+    .eq('sender_role', 'admin')
+    .eq('read', false);
+  return count ?? 0;
+}
+
+/** Mark admin messages as read when the employee opens the chat. */
+export async function markMessagesRead(userId: string): Promise<void> {
+  await supabase.from('messages').update({ read: true })
+    .eq('profile_id', userId).eq('sender_role', 'admin').eq('read', false);
+}
+
 /** Update editable fields on the signed-in user's own profile. */
 export async function updateMyProfile(
   userId: string,

@@ -14,7 +14,27 @@
       "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('adaptive bg:',c.expo.android.adaptiveIcon.backgroundColor\\)\")",
       "Bash(sed -i 's|/timevera-web.png?v=2|/timevera-web.png?v=3|g' components/sidebar.tsx components/app-shell.tsx)",
       "Bash(ls -la \"public/timevera-white.png\")",
-      "Bash(grep -rn \"favcon.png\\\\|/favcon\" components/sidebar.tsx app/\\\\\\(dashboard\\\\\\)/header-actions.tsx)"
+      "Bash(grep -rn \"favcon.png\\\\|/favcon\" components/sidebar.tsx app/\\\\\\(dashboard\\\\\\)/header-actions.tsx)",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('owner \\(Expo account\\):', c.expo.owner\\); console.log\\('projectId:', c.expo.extra?.eas?.projectId ?? '\\(none\\)'\\); console.log\\('slug:', c.expo.slug\\)\")",
+      "Bash(eas whoami *)",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\(JSON.stringify\\(c.expo.ios,null,2\\)\\); console.log\\('version:', c.expo.version\\); console.log\\('owner:', c.expo.owner\\)\")",
+      "Bash(cat eas.json)",
+      "Bash(node -e \"const c=JSON.parse\\(require\\('fs'\\).readFileSync\\('app.json','utf8'\\)\\); console.log\\('✓ app.json valid'\\); console.log\\('  bundle:', c.expo.ios.bundleIdentifier\\); console.log\\('  buildNumber:', c.expo.ios.buildNumber\\); console.log\\('  iOS permissions set:', Object.keys\\(c.expo.ios.infoPlist\\).length\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('eas.json','utf8'\\)\\); console.log\\('✓ eas.json valid'\\)\")",
+      "Bash(ls privacy-policy.html APP-STORE-LISTING.md)",
+      "Bash(mkdir -p privacy-site)",
+      "Bash(cp mobile/privacy-policy.html privacy-site/index.html)",
+      "Bash(ls -la privacy-site/)",
+      "Bash(node -e \"const c=require\\('./eas.json'\\); console.log\\(c.build.preview.env.EXPO_PUBLIC_SUPABASE_ANON_KEY\\)\")",
+      "Bash(curl -s -w '\\\\n[HTTP %{http_code}]\\\\n' -X POST https://efszrjuxjqaeqzrwrmuh.supabase.co/auth/v1/token?grant_type=password -H 'apikey: __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"email\":\"joshua@gmail.com\",\"password\":\"12345678\"}' --max-time 15)",
+      "Bash(echo \"Where did you save the screenshots? Let me check common download locations for images:\" *)",
+      "Read(//c/Users/AKT/Downloads/**)",
+      "Bash(mkdir -p /c/Users/AKT/Desktop/appstore-screenshots *)",
+      "Bash(grep -E \"keyboard-controller|react-native-safe-area|react-native-reanimated\" package.json)",
+      "Bash(grep -E \"\\\\\"expo\\\\\"|\\\\\"react-native\\\\\"\" package.json)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\AKT\\Desktop"
     ]
   }
 }
