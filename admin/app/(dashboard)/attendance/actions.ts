@@ -59,3 +59,124 @@ export async function approveAttendanceAction(formData: FormData) {
 export async function rejectAttendanceAction(formData: FormData) {
   await setReview(formData.get('id') as string, 'rejected')
 }
+
+/**
+ * Manually add an attendance record. The admin picks the employee, project and
+ * clock-in/out times. The company (business_entity_id) is derived from the
+ * chosen project so it always stays consistent.
+ *
+ * `clocked_in_at` / `clocked_out_at` arrive as ISO strings already converted to
+ * UTC in the browser (the <input type="datetime-local"> local value is turned
+ * into an ISO string client-side), so we store them as-is. `work_date` is the
+ * calendar day of the clock-in, in the admin's local timezone (passed as
+ * `work_date`), matching how the mobile app records it.
+ */
+export async function addAttendanceAction(
+  _prev: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  const admin = createAdminClient()
+
+  const profileId = formData.get('profile_id') as string
+  const projectId = formData.get('project_id') as string
+  const clockedInAt = formData.get('clocked_in_at') as string
+  const clockedOutAt = (formData.get('clocked_out_at') as string) || null
+  const workDate = formData.get('work_date') as string
+  const workLocation = (formData.get('work_location') as string) || 'site'
+  const review = (formData.get('review_status') as string) || 'approved'
+
+  if (!profileId) return 'Please choose an employee.'
+  if (!projectId) return 'Please choose a project.'
+  if (!clockedInAt) return 'Please set the clock-in time.'
+  if (!workDate) return 'Missing work date.'
+  if (clockedOutAt && new Date(clockedOutAt) <= new Date(clockedInAt)) {
+    return 'Clock-out must be after clock-in.'
+  }
+
+  // Derive the company from the project (they are always linked).
+  const { data: project } = await admin
+    .from('projects')
+    .select('business_entity_id')
+    .eq('id', projectId)
+    .single()
+  if (!project) return 'That project no longer exists.'
+
+  const { error } = await admin.from('clock_sessions').insert({
+    profile_id: profileId,
+    business_entity_id: project.business_entity_id,
+    project_id: projectId,
+    work_location: workLocation,
+    work_date: workDate,
+    clocked_in_at: clockedInAt,
+    clocked_out_at: clockedOutAt,
+    review_status: review,
+  })
+  if (error) return error.message
+
+  revalidatePath('/attendance')
+  revalidatePath('/') // dashboard counts
+  return null
+}
+
+/**
+ * Edit an existing attendance record's clock-in / clock-out times (and optional
+ * project / work type / review). Same time-handling as the add action: the
+ * ISO strings are already UTC. `work_date` is recomputed from the new clock-in.
+ */
+export async function editAttendanceAction(
+  _prev: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  const admin = createAdminClient()
+
+  const id = formData.get('id') as string
+  const projectId = formData.get('project_id') as string
+  const clockedInAt = formData.get('clocked_in_at') as string
+  const clockedOutAt = (formData.get('clocked_out_at') as string) || null
+  const workDate = formData.get('work_date') as string
+  const workLocation = (formData.get('work_location') as string) || 'site'
+  const review = (formData.get('review_status') as string) || 'pending'
+
+  if (!id) return 'Missing record id.'
+  if (!projectId) return 'Please choose a project.'
+  if (!clockedInAt) return 'Please set the clock-in time.'
+  if (!workDate) return 'Missing work date.'
+  if (clockedOutAt && new Date(clockedOutAt) <= new Date(clockedInAt)) {
+    return 'Clock-out must be after clock-in.'
+  }
+
+  const { data: project } = await admin
+    .from('projects')
+    .select('business_entity_id')
+    .eq('id', projectId)
+    .single()
+  if (!project) return 'That project no longer exists.'
+
+  const { error } = await admin
+    .from('clock_sessions')
+    .update({
+      business_entity_id: project.business_entity_id,
+      project_id: projectId,
+      work_location: workLocation,
+      work_date: workDate,
+      clocked_in_at: clockedInAt,
+      clocked_out_at: clockedOutAt,
+      review_status: review,
+    })
+    .eq('id', id)
+  if (error) return error.message
+
+  revalidatePath('/attendance')
+  revalidatePath('/')
+  return null
+}
+
+/** Permanently delete an attendance record (e.g. a mistaken manual entry). */
+export async function deleteAttendanceAction(formData: FormData) {
+  const admin = createAdminClient()
+  const id = formData.get('id') as string
+  if (!id) return
+  await admin.from('clock_sessions').delete().eq('id', id)
+  revalidatePath('/attendance')
+  revalidatePath('/')
+}

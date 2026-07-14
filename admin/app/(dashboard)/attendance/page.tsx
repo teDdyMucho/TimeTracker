@@ -4,6 +4,8 @@ import { CheckCircle2, XCircle } from 'lucide-react'
 import AutoRefresh from './auto-refresh'
 import PhotoPreview from './photo-preview'
 import AttendanceFilter from './attendance-filter'
+import AttendanceForm from './attendance-form'
+import EditAttendanceButton from './edit-attendance-button'
 import { approveAttendanceAction, rejectAttendanceAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -75,18 +77,21 @@ export default async function AttendancePage({
   const entityId = params.entity ?? ''
 
   // Dropdown options for the filters (all employees + entities, alphabetical).
-  const [empRes, entRes] = await Promise.all([
+  const [empRes, entRes, projRes] = await Promise.all([
     admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name'),
     admin.from('business_entities').select('id, name').eq('status', 'active').order('name'),
+    admin.from('projects').select('id, name, business_entity_id').eq('status', 'active').order('name'),
   ])
   const employees = (empRes.data ?? []) as { id: string; name: string }[]
   const companies = (entRes.data ?? []) as { id: string; name: string }[]
+  const projects = (projRes.data ?? []) as { id: string; name: string; business_entity_id: string }[]
 
   let query = admin
     .from('clock_sessions')
     .select(`
       id, work_date, work_location, clocked_in_at, clocked_out_at,
       clock_in_lat, clock_in_lng, clock_in_address, selfie_url, review_status,
+      project_id,
       profiles ( name, email ),
       projects ( name ),
       business_entities ( name )
@@ -128,6 +133,9 @@ export default async function AttendancePage({
           selection === 'all'
             ? `${active.length} currently on the clock · auto-refreshes every 30s`
             : `${sorted.length} session${sorted.length !== 1 ? 's' : ''} on ${formatDate(date)}`
+        }
+        action={
+          <AttendanceForm employees={employees} projects={projects} companies={companies} />
         }
       />
 
@@ -273,9 +281,23 @@ export default async function AttendancePage({
                         )}
                       </td>
 
-                      {/* Actions — accept/reject the attendance after checking photo + location */}
+                      {/* Actions — edit times, then accept/reject after checking photo + location */}
                       <td className="py-3">
                         <div className="flex gap-1.5 items-center justify-end flex-nowrap">
+                          <EditAttendanceButton
+                            session={{
+                              id: s.id,
+                              profileName: s.profiles?.name ?? 'Employee',
+                              project_id: s.project_id ?? null,
+                              work_location: s.work_location ?? 'site',
+                              clocked_in_at: s.clocked_in_at,
+                              clocked_out_at: s.clocked_out_at ?? null,
+                              review_status: s.review_status ?? 'pending',
+                            }}
+                            employees={employees}
+                            projects={projects}
+                            companies={companies}
+                          />
                           {isActive ? (
                             <span className="text-slate-300 text-xs">On the clock</span>
                           ) : review === 'pending' ? (

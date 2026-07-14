@@ -31,7 +31,8 @@
       "Read(//c/Users/AKT/Downloads/**)",
       "Bash(mkdir -p /c/Users/AKT/Desktop/appstore-screenshots *)",
       "Bash(grep -E \"keyboard-controller|react-native-safe-area|react-native-reanimated\" package.json)",
-      "Bash(grep -E \"\\\\\"expo\\\\\"|\\\\\"react-native\\\\\"\" package.json)"
+      "Bash(grep -E \"\\\\\"expo\\\\\"|\\\\\"react-native\\\\\"\" package.json)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(Object.keys\\(p.scripts||{}\\).join\\(', '\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\AKT\\Desktop"
