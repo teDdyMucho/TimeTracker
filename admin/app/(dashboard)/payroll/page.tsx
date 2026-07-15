@@ -6,6 +6,9 @@ import NewPayrollRunForm from './new-run-form'
 import { formatHours } from '@/lib/format'
 import { ExternalLink, Trash2, Download } from 'lucide-react'
 import PayrollDownload from './payroll-download'
+import ProjectTotalsFilter from './project-totals-filter'
+import ProjectTotals from './project-totals'
+import PayrollTabs from './payroll-tabs'
 import type { BusinessEntity } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -15,11 +18,29 @@ function bandTotal(band_hours: Record<string, number> | null): number {
   return Object.values(band_hours).reduce((s, v) => s + Number(v || 0), 0)
 }
 
-export default async function PayrollPage() {
+/** YYYY-MM-DD `days` before/after today (server local date). */
+function isoDay(offsetDays: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  return d.toLocaleDateString('en-CA')
+}
+
+export default async function PayrollPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ppEntity?: string; ppProject?: string; ppFrom?: string; ppTo?: string }>
+}) {
   const supabase = await createClient()
   const adminClient = createAdminClient()
+  const sp = await searchParams
 
-  const [runsRes, entitiesRes, employeesRes] = await Promise.all([
+  // Per-project scope (defaults to the last 14 days).
+  const ppEntity = sp.ppEntity ?? ''
+  const ppProject = sp.ppProject ?? ''
+  const ppFrom = sp.ppFrom || isoDay(-13)
+  const ppTo = sp.ppTo || isoDay(0)
+
+  const [runsRes, entitiesRes, employeesRes, projectsRes] = await Promise.all([
     adminClient
       .from('payroll_runs')
       .select(
@@ -37,13 +58,128 @@ export default async function PayrollPage() {
       .eq('status', 'active')
       .neq('role', 'admin')
       .order('name'),
+    adminClient
+      .from('projects')
+      .select('id, name, business_entity_id')
+      .order('name'),
   ])
 
   const runs = (runsRes.data ?? []) as any[]
   const entities = (entitiesRes.data ?? []) as (BusinessEntity & { xero_tenant_id: string | null })[]
   const employees = (employeesRes.data ?? []) as { id: string; name: string }[]
+  const projects = (projectsRes.data ?? []) as { id: string; name: string; business_entity_id: string }[]
   const entityMap = Object.fromEntries(entities.map((e) => [e.id, e]))
   const anyConnected = entities.some((e) => e.xero_tenant_id)
+
+  const runsTable =
+    runs.length === 0 ? (
+      <Card>
+        <p className="text-muted text-sm py-8 text-center">
+          No payroll runs yet. Use &ldquo;New pay run&rdquo; to create one.
+        </p>
+      </Card>
+    ) : (
+      <Card>
+        <div className="overflow-x-auto"><table className="w-full text-sm min-w-[760px]">
+          <thead>
+            <tr className="text-left border-b border-slate-100">
+              {['Entity', 'Period', 'Employees', 'Total Hours', 'Gross Pay', 'Status', 'Xero', 'Actions'].map((h) => (
+                <th
+                  key={h}
+                  className={`pb-3 pr-4 font-medium text-muted whitespace-nowrap ${h === 'Actions' ? 'text-right' : ''}`}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {runs.map((r) => {
+              const entries = (r.payroll_entries ?? []) as { profile_id: string; band_hours: Record<string, number>; gross_pay: number }[]
+              const empCount = entries.length
+              const totalHours = entries.reduce((s, e) => s + bandTotal(e.band_hours), 0)
+              const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
+              const ent = entityMap[r.business_entity_id]
+              return (
+                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="py-3 pr-4 font-medium">
+                    <Link href={`/payroll/${r.id}`} className="hover:underline" style={{ color: '#1C1A16' }}>
+                      {ent?.name ?? '—'}
+                    </Link>
+                  </td>
+                  <td className="py-3 pr-4 text-muted whitespace-nowrap">{r.period_start} – {r.period_end}</td>
+                  <td className="py-3 pr-4 text-center">{empCount}</td>
+                  <td className="py-3 pr-4 font-semibold tabular-nums">{formatHours(totalHours)}</td>
+                  <td className="py-3 pr-4 font-bold tabular-nums">
+                    {totalGross > 0 ? `$${totalGross.toLocaleString('en-AU', { minimumFractionDigits: 2 })}` : <span className="text-muted font-normal">—</span>}
+                  </td>
+                  <td className="py-3 pr-4"><Badge status={r.status} /></td>
+                  <td className="py-3 pr-4"><Badge status={r.xero_sync_status} /></td>
+                  <td className="py-3">
+                    <div className="flex gap-1.5 items-center justify-end flex-nowrap">
+                      <Link
+                        href={`/payroll/${r.id}`}
+                        className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 transition-colors whitespace-nowrap"
+                      >
+                        View salaries
+                      </Link>
+
+                      {/* Preview export */}
+                      <a
+                        href={`/api/xero/payroll-preview?run=${r.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Preview Xero export"
+                        className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
+                        style={{ background: 'rgba(28,26,22,0.10)', color: '#000000' }}
+                      >
+                        <ExternalLink size={12} /> Preview
+                      </a>
+
+                      {/* Download PDF for this run */}
+                      <a
+                        href={`/api/payroll/pdf?run=${r.id}`}
+                        title="Download PDF"
+                        className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-colors whitespace-nowrap"
+                        style={{ background: '#1C1A16' }}
+                      >
+                        <Download size={12} /> PDF
+                      </a>
+
+                      {r.status === 'draft' && (
+                        <form action={updatePayrollStatusAction}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="status" value="approved" />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap"
+                            style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
+                          >
+                            Approve
+                          </button>
+                        </form>
+                      )}
+
+                      <form action={deletePayrollRunAction}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <button
+                          type="submit"
+                          title="Delete pay run"
+                          aria-label="Delete pay run"
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table></div>
+      </Card>
+    )
 
   return (
     <div>
@@ -65,117 +201,34 @@ export default async function PayrollPage() {
         </div>
       )}
 
-      {/* Filtered PDF export */}
-      {runs.length > 0 && <PayrollDownload entities={entities} employees={employees} />}
-
-      {runs.length === 0 ? (
-        <Card>
-          <p className="text-muted text-sm py-8 text-center">
-            No payroll runs yet. Use &ldquo;New pay run&rdquo; to create one.
-          </p>
-        </Card>
-      ) : (
-        <Card>
-          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[760px]">
-            <thead>
-              <tr className="text-left border-b border-slate-100">
-                {['Entity', 'Period', 'Employees', 'Total Hours', 'Gross Pay', 'Status', 'Xero', 'Actions'].map((h) => (
-                  <th
-                    key={h}
-                    className={`pb-3 pr-4 font-medium text-muted whitespace-nowrap ${h === 'Actions' ? 'text-right' : ''}`}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {runs.map((r) => {
-                const entries = (r.payroll_entries ?? []) as { profile_id: string; band_hours: Record<string, number>; gross_pay: number }[]
-                const empCount = entries.length
-                const totalHours = entries.reduce((s, e) => s + bandTotal(e.band_hours), 0)
-                const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
-                const ent = entityMap[r.business_entity_id]
-                return (
-                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 pr-4 font-medium">
-                      <Link href={`/payroll/${r.id}`} className="hover:underline" style={{ color: '#1C1A16' }}>
-                        {ent?.name ?? '—'}
-                      </Link>
-                    </td>
-                    <td className="py-3 pr-4 text-muted whitespace-nowrap">{r.period_start} – {r.period_end}</td>
-                    <td className="py-3 pr-4 text-center">{empCount}</td>
-                    <td className="py-3 pr-4 font-semibold tabular-nums">{formatHours(totalHours)}</td>
-                    <td className="py-3 pr-4 font-bold tabular-nums">
-                      {totalGross > 0 ? `$${totalGross.toLocaleString('en-AU', { minimumFractionDigits: 2 })}` : <span className="text-muted font-normal">—</span>}
-                    </td>
-                    <td className="py-3 pr-4"><Badge status={r.status} /></td>
-                    <td className="py-3 pr-4"><Badge status={r.xero_sync_status} /></td>
-                    <td className="py-3">
-                      <div className="flex gap-1.5 items-center justify-end flex-nowrap">
-                        <Link
-                          href={`/payroll/${r.id}`}
-                          className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-slate-700 transition-colors whitespace-nowrap"
-                        >
-                          View salaries
-                        </Link>
-
-                        {/* Preview export */}
-                        <a
-                          href={`/api/xero/payroll-preview?run=${r.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Preview Xero export"
-                          className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
-                          style={{ background: 'rgba(28,26,22,0.10)', color: '#000000' }}
-                        >
-                          <ExternalLink size={12} /> Preview
-                        </a>
-
-                        {/* Download PDF for this run */}
-                        <a
-                          href={`/api/payroll/pdf?run=${r.id}`}
-                          title="Download PDF"
-                          className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-colors whitespace-nowrap"
-                          style={{ background: '#1C1A16' }}
-                        >
-                          <Download size={12} /> PDF
-                        </a>
-
-                        {r.status === 'draft' && (
-                          <form action={updatePayrollStatusAction}>
-                            <input type="hidden" name="id" value={r.id} />
-                            <input type="hidden" name="status" value="approved" />
-                            <button
-                              type="submit"
-                              className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap"
-                              style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
-                            >
-                              Approve
-                            </button>
-                          </form>
-                        )}
-
-                        <form action={deletePayrollRunAction}>
-                          <input type="hidden" name="id" value={r.id} />
-                          <button
-                            type="submit"
-                            title="Delete pay run"
-                            aria-label="Delete pay run"
-                            className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table></div>
-        </Card>
-      )}
+      {/* Two tabs: Pay runs (PDF export + list) · Payroll per project */}
+      <PayrollTabs
+        runsPanel={
+          <>
+            {runs.length > 0 && <PayrollDownload entities={entities} employees={employees} />}
+            {runsTable}
+          </>
+        }
+        perProjectPanel={
+          <>
+            <ProjectTotalsFilter
+              entities={entities}
+              projects={projects}
+              entityId={ppEntity}
+              projectId={ppProject}
+              from={ppFrom}
+              to={ppTo}
+            />
+            <ProjectTotals
+              projects={projects}
+              entityId={ppEntity}
+              projectId={ppProject}
+              from={ppFrom}
+              to={ppTo}
+            />
+          </>
+        }
+      />
     </div>
   )
 }

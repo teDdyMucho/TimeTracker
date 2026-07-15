@@ -111,6 +111,78 @@ export interface EmployeeBands {
  * Aggregate an entity's timesheet rows into per-employee band hours for a period.
  * Daily totals drive the OT ladder (overtime is a function of total hours per day).
  */
+/**
+ * Per-project labour totals for a set of timesheet rows.
+ *
+ * The pay-band ladder (regular / OT 1.5× / OT 2× / weekend / holiday) is a
+ * function of an employee's TOTAL hours on a given day, regardless of project.
+ * So we band each employee-day as a whole to get its dollar cost, then split
+ * that day's cost across the projects worked that day **pro-rata by hours**.
+ * This attributes overtime/weekend loading fairly to the projects that caused it.
+ *
+ * `rateFor(profileId)` returns the employee's hourly rate (0 if unknown → cost 0).
+ */
+export interface ProjectTotal {
+  projectId: string
+  hours: number
+  cost: number
+}
+
+export interface ProjectTimesheetRow {
+  profile_id: string
+  project_id: string
+  work_date: string
+  hours: number | string
+}
+
+export function aggregateByProject(
+  rows: ProjectTimesheetRow[],
+  holidays: Set<string>,
+  cfg: PayConfig,
+  rateFor: (profileId: string) => number,
+): ProjectTotal[] {
+  // profile → day → { total, byProject: project → hours }
+  const byEmpDay = new Map<string, Map<string, { total: number; byProject: Map<string, number> }>>()
+  for (const r of rows) {
+    if (!r.profile_id || !r.project_id) continue
+    const days = byEmpDay.get(r.profile_id) ?? new Map()
+    const day = days.get(r.work_date) ?? { total: 0, byProject: new Map<string, number>() }
+    const h = Number(r.hours)
+    day.total = round2(day.total + h)
+    day.byProject.set(r.project_id, round2((day.byProject.get(r.project_id) ?? 0) + h))
+    days.set(r.work_date, day)
+    byEmpDay.set(r.profile_id, days)
+  }
+
+  const totals = new Map<string, ProjectTotal>()
+  const bump = (projectId: string, hours: number, cost: number) => {
+    const t = totals.get(projectId) ?? { projectId, hours: 0, cost: 0 }
+    t.hours = round2(t.hours + hours)
+    t.cost = round2(t.cost + cost)
+    totals.set(projectId, t)
+  }
+
+  for (const [pid, days] of byEmpDay) {
+    const rate = rateFor(pid)
+    for (const [date, day] of days) {
+      // Band the whole day → total dollar cost for the day.
+      const dt = classifyDay(date, holidays.has(date))
+      const split = splitDayHours(day.total, dt, cfg)
+      const bandHours = Object.fromEntries(PAY_BANDS.map((b) => [b, 0])) as Record<PayBand, number>
+      for (const [band, h] of Object.entries(split)) bandHours[band as PayBand] = h as number
+      const { gross } = grossPay(bandHours, rate, cfg)
+
+      // Split the day's cost across projects pro-rata by hours worked that day.
+      for (const [projectId, projHours] of day.byProject) {
+        const share = day.total > 0 ? projHours / day.total : 0
+        bump(projectId, projHours, round2(gross * share))
+      }
+    }
+  }
+
+  return [...totals.values()].sort((a, b) => b.cost - a.cost || b.hours - a.hours)
+}
+
 export function aggregatePayroll(
   rows: TimesheetRow[],
   holidays: Set<string>,
