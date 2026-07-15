@@ -7,6 +7,9 @@ import { useAuth } from '@/store/auth';
 import { Ionicons } from '@expo/vector-icons';
 import {
   clockOut,
+  autoClockOut,
+  isSessionExpired,
+  AUTO_CLOCK_OUT_HOURS,
   fetchActiveSession,
   fetchHomeSummary,
   fetchRecentTimesheets,
@@ -51,6 +54,7 @@ export default function Home() {
   const [otReason, setOtReason] = useState('');
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoOutRef = useRef(false); // guards against double auto-clock-out
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -62,6 +66,25 @@ export default function Home() {
         fetchUnreadCount(profile.id),
         fetchUnreadMessageCount(profile.id),
       ]);
+
+      // Forgot to clock out? If a session has run past the standard day, close
+      // it automatically (capped at exactly 8h) and reload so the UI reflects it.
+      if (session && isSessionExpired(session) && !autoOutRef.current) {
+        autoOutRef.current = true;
+        try {
+          await autoClockOut(session);
+          await cancelClockOutReminder();
+          Alert.alert(
+            'Automatically clocked out',
+            `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged an ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working past that, let your supervisor know.`,
+          );
+        } finally {
+          autoOutRef.current = false;
+        }
+        await load();
+        return;
+      }
+
       setSummary(s);
       setRecent(r);
       setActiveSession(session);
@@ -78,11 +101,16 @@ export default function Home() {
   useEffect(() => {
     if (activeSession) {
       timerRef.current = setInterval(() => {
+        // If it crosses the 8h mark while the app is open, auto clock out.
+        if (isSessionExpired(activeSession)) {
+          load();
+          return;
+        }
         setElapsed(elapsedLabel(activeSession.clocked_in_at));
       }, 30_000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [activeSession]);
+  }, [activeSession, load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

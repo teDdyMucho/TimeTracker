@@ -365,17 +365,28 @@ export interface ClockOutInput {
   overtimeReason: string | null;
 }
 
-export async function clockOut(input: ClockOutInput): Promise<void> {
-  const clockOutAt = new Date().toISOString();
-  const msWorked = new Date(clockOutAt).getTime() - new Date(input.clockedInAt).getTime();
-  const hoursRaw = msWorked / 3_600_000;
-  // True elapsed time, rounded to the nearest minute (min ~1 min so it's never 0).
-  const hours = Math.max(0.02, Math.min(24, Math.round(hoursRaw * 60) / 60));
+/** Standard working day. A forgotten session is auto-closed at this many hours. */
+export const AUTO_CLOCK_OUT_HOURS = 8;
 
+/**
+ * Shared write for closing a session: stamps clocked_out_at, creates the
+ * timesheet with the given hours, and raises an overtime request if flagged.
+ */
+async function writeClockOut(
+  input: ClockOutInput,
+  clockOutAtISO: string,
+  hours: number,
+  auto: boolean,
+): Promise<void> {
   const { error: sessionErr } = await supabase
     .from('clock_sessions')
-    .update({ clocked_out_at: clockOutAt, overtime_requested: input.overtimeRequested, overtime_reason: input.overtimeReason })
-    .eq('id', input.sessionId);
+    .update({
+      clocked_out_at: clockOutAtISO,
+      overtime_requested: input.overtimeRequested,
+      overtime_reason: input.overtimeReason,
+    })
+    .eq('id', input.sessionId)
+    .is('clocked_out_at', null); // guard: don't overwrite an already-closed session
   if (sessionErr) throw sessionErr;
 
   const { data: ts, error: tsErr } = await supabase
@@ -404,5 +415,59 @@ export async function clockOut(input: ClockOutInput): Promise<void> {
       status: 'pending',
     });
   }
+
+  // Notify the employee (and admin, via the record) that we auto-closed it.
+  if (auto) {
+    await supabase.from('notifications').insert({
+      profile_id: input.userId,
+      type: 'auto_clock_out',
+      title: 'Automatically clocked out',
+      body: `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged an ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working, tell your supervisor.`,
+    });
+  }
+}
+
+export async function clockOut(input: ClockOutInput): Promise<void> {
+  const clockOutAt = new Date().toISOString();
+  const msWorked = new Date(clockOutAt).getTime() - new Date(input.clockedInAt).getTime();
+  const hoursRaw = msWorked / 3_600_000;
+  // True elapsed time, rounded to the nearest minute (min ~1 min so it's never 0).
+  const hours = Math.max(0.02, Math.min(24, Math.round(hoursRaw * 60) / 60));
+  await writeClockOut(input, clockOutAt, hours, false);
+}
+
+/**
+ * Auto clock-out for a forgotten session that has run past the standard day.
+ * The clock-out time is CAPPED at exactly clock-in + 8h (not "now"), so a
+ * session left open for 20 hours still only logs an 8-hour shift. Overtime is
+ * never auto-requested — the worker didn't confirm it.
+ */
+export async function autoClockOut(session: ClockSession): Promise<void> {
+  const cappedOutAt = new Date(
+    new Date(session.clocked_in_at).getTime() + AUTO_CLOCK_OUT_HOURS * 3_600_000,
+  ).toISOString();
+
+  await writeClockOut(
+    {
+      sessionId: session.id,
+      userId: session.profile_id,
+      businessEntityId: session.business_entity_id,
+      projectId: session.project_id,
+      workLocation: session.work_location,
+      workDate: session.work_date,
+      clockedInAt: session.clocked_in_at,
+      overtimeRequested: false,
+      overtimeReason: null,
+    },
+    cappedOutAt,
+    AUTO_CLOCK_OUT_HOURS,
+    true,
+  );
+}
+
+/** True if a session has been open for at least the auto clock-out threshold. */
+export function isSessionExpired(session: ClockSession): boolean {
+  const elapsedMs = Date.now() - new Date(session.clocked_in_at).getTime();
+  return elapsedMs >= AUTO_CLOCK_OUT_HOURS * 3_600_000;
 }
 
