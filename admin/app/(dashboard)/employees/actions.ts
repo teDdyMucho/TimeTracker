@@ -80,8 +80,20 @@ export async function updateEmployeeAction(
   const employment_type = formData.get('employment_type') as string
   const entityIds = formData.getAll('entity_ids') as string[]
   const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
+  const newPassword = (formData.get('new_password') as string | null)?.trim() ?? ''
 
   const adminClient = createAdminClient()
+
+  // Optional admin password reset — no current password required. The service-role
+  // admin client can set any user's password directly via the Auth admin API.
+  if (newPassword) {
+    if (newPassword.length < 6) return 'New password must be at least 6 characters.'
+    const { error: pwErr } = await adminClient.auth.admin.updateUserById(id, {
+      password: newPassword,
+    })
+    if (pwErr) return pwErr.message
+  }
+
   const { error } = await adminClient
     .from('profiles')
     .update({ role, employment_type, business_access: entityIds })

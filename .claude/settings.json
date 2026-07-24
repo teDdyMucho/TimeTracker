@@ -34,7 +34,9 @@
       "Bash(grep -E \"\\\\\"expo\\\\\"|\\\\\"react-native\\\\\"\" package.json)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(Object.keys\\(p.scripts||{}\\).join\\(', '\\)\\)\")",
       "Bash(git stash *)",
-      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('expo:', \\(p.dependencies||{}\\).expo\\); console.log\\('expo-updates:', \\(p.dependencies||{}\\)['expo-updates'] || 'NOT INSTALLED'\\); console.log\\('eas-cli:', \\(p.devDependencies||{}\\)['eas-cli'] || 'not in devDeps \\(use npx\\)'\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('expo:', \\(p.dependencies||{}\\).expo\\); console.log\\('expo-updates:', \\(p.dependencies||{}\\)['expo-updates'] || 'NOT INSTALLED'\\); console.log\\('eas-cli:', \\(p.devDependencies||{}\\)['eas-cli'] || 'not in devDeps \\(use npx\\)'\\)\")",
+      "Bash(git log *)",
+      "Bash(node -e \"const e=require\\('./eas.json'\\); console.log\\('preview profile:', JSON.stringify\\(e.build.preview.android, null, 2\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\AKT\\Desktop"
