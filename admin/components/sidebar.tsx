@@ -7,6 +7,7 @@ import {
   Banknote,
   Briefcase,
   ChevronDown,
+  Download,
   Landmark,
   LayoutGrid,
   LogOut,
@@ -28,6 +29,7 @@ const NAV = [
   { href: '/overtime',   label: 'Overtime',   icon: Timer, badge: true },
   { href: '/reports',    label: 'Reports',    icon: BarChart3 },
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
+  { href: '/downloads',  label: 'Get the App', icon: Download },
 ]
 
 // Pure-black monochrome sidebar palette

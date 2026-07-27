@@ -30,12 +30,21 @@ export async function middleware(request: NextRequest) {
   // Allow the sign-out route through without any checks
   if (pathname.startsWith('/auth/signout')) return response
 
-  if (!user && pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Public routes that never require login (workers use these to install the app).
+  const PUBLIC_PATHS = ['/login', '/install']
+  const isPublic =
+    PUBLIC_PATHS.includes(pathname) || pathname === '/Timevera.apk'
+  if (isPublic) {
+    // Still bounce a logged-in admin off the login screen, but let everyone
+    // (signed in or not) reach /install and the APK download.
+    if (user && pathname === '/login') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    return response
   }
 
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   if (user) {
