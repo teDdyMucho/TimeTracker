@@ -10,9 +10,12 @@ import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-r
  *   https://drive.google.com/uc?export=download&id=FILE_ID
  */
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
-const ANDROID_APK_URL = 'REPLACE_WITH_GOOGLE_DRIVE_LINK'
+// Google Drive direct-download for the APK. Large files (>25 MB) need the
+// `confirm=t` form to skip Drive's virus-scan interstitial and download directly.
+const ANDROID_APK_FILE_ID = '1MjKveSdaU-4UzDfaITyhadigzcpE-NpE'
+const ANDROID_APK_URL = `https://drive.usercontent.google.com/download?id=${ANDROID_APK_FILE_ID}&export=download&confirm=t`
 
-const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH_GOOGLE_DRIVE_LINK')
+const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH')
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
@@ -78,7 +81,8 @@ function LinkCard({
         <CopyButton value={url} />
         <a
           href={isPlaceholder ? undefined : url}
-          {...(platform === 'android' ? { download: 'Timevera.apk' } : { target: '_blank', rel: 'noreferrer' })}
+          target="_blank"
+          rel="noreferrer"
           aria-disabled={isPlaceholder}
           className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold border transition-colors whitespace-nowrap ${
             isPlaceholder ? 'opacity-40 pointer-events-none' : 'hover:bg-stone'
