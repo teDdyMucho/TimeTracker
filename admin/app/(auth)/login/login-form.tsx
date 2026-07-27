@@ -1,7 +1,7 @@
 'use client'
 import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Download } from 'lucide-react'
 import { signInAction } from './actions'
 import SuccessSplash from './success-splash'
 
@@ -108,6 +108,21 @@ export default function LoginForm({ initialError }: { initialError: string | nul
       >
         <span className="font-semibold text-white">Need access?</span>{' '}
         Contact your administrator to set up an account.
+      </div>
+
+      {/* Big download button — sends workers straight to the public install page */}
+      <div className="pt-2">
+        <p className="text-center text-xs mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          Are you a worker? Get the mobile app:
+        </p>
+        <a
+          href="/install"
+          className="w-full flex items-center justify-center gap-2.5 rounded-xl py-3.5 text-sm font-bold transition-all duration-200 hover:opacity-95 hover:shadow-lg active:scale-[0.98]"
+          style={{ background: '#FFFFFF', color: '#1C1A16', boxShadow: '0 8px 24px -8px rgba(0,0,0,0.5)' }}
+        >
+          <Download size={18} />
+          Download the App
+        </a>
       </div>
     </form>
   )

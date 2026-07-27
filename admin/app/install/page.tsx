@@ -19,7 +19,7 @@ export default function InstallPage() {
       {/* Brand */}
       <div className="mb-8 flex flex-col items-center text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/Timevera-Web-logo.png" alt="Timevera" className="h-12 w-auto object-contain mb-5" />
+        <img src="/Timevera-Web-logo.png" alt="Timevera" className="h-24 sm:h-28 w-auto object-contain mb-6" />
         <h1 className="text-2xl font-bold text-ink tracking-tight">Install Timevera</h1>
         <p className="text-muted text-sm mt-1.5 max-w-md">
           Choose your phone below to download and install the Timevera time-tracking app.
