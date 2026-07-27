@@ -3,14 +3,16 @@ import { useState } from 'react'
 import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-react'
 
 /**
- * The Android APK is served statically from the admin app's public folder
- * (admin/public/Timevera.apk). To update it, replace that file with a new build
- * and redeploy. `?v=` cache-busts so workers always get the latest.
+ * The Android APK is hosted externally (Google Drive) because it's too large
+ * for git/Netlify. Paste the Google Drive DIRECT-download link below.
+ * How to make one: upload the .apk to Drive → Share → "Anyone with the link" →
+ * copy the file ID from the share URL → use:
+ *   https://drive.google.com/uc?export=download&id=FILE_ID
  */
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
-const ANDROID_APK_URL = '/Timevera.apk?v=2026-07-27'
+const ANDROID_APK_URL = 'REPLACE_WITH_GOOGLE_DRIVE_LINK'
 
-const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH_APK_LINK')
+const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH_GOOGLE_DRIVE_LINK')
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)

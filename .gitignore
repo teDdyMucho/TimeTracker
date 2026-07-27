@@ -10,6 +10,11 @@ build/
 out/
 *.tsbuildinfo
 
+# app binaries (too large for git — host on Google Drive / external storage)
+*.apk
+*.aab
+*.ipa
+
 # expo
 .expo/
 .expo-shared/
