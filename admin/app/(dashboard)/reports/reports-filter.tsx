@@ -1,5 +1,6 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
+import { FileText } from 'lucide-react'
 import Dropdown from '@/components/dropdown'
 
 export default function ReportsFilter({
@@ -68,6 +69,21 @@ export default function ReportsFilter({
           options={[{ value: '', label: 'All employees' }, ...employees.map((e) => ({ value: e.id, label: e.name }))]}
         />
       </div>
+
+      {/* Per-employee fortnightly timesheet PDF — needs a specific employee. */}
+      {employee ? (
+        <a
+          href={`/api/reports/timesheet?employee=${employee}&from=${from}&to=${to}`}
+          className="inline-flex items-center gap-2 h-[38px] px-4 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-all active:scale-95 self-end"
+          style={{ background: '#1C1A16' }}
+        >
+          <FileText size={15} /> Timesheet PDF
+        </a>
+      ) : (
+        <span className="text-xs text-muted self-end pb-2 max-w-[200px]">
+          Pick an employee to download their fortnightly timesheet PDF.
+        </span>
+      )}
     </div>
   )
 }

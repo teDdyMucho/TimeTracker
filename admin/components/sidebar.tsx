@@ -25,8 +25,8 @@ const NAV = [
   { href: '/entities',   label: 'Entities',   icon: Landmark },
   { href: '/projects',   label: 'Projects',   icon: Briefcase },
   { href: '/attendance', label: 'Attendance', icon: ScanLine },
-  { href: '/messages',   label: 'Messages',   icon: MessageSquare },
-  { href: '/overtime',   label: 'Overtime',   icon: Timer, badge: true },
+  { href: '/messages',   label: 'Messages',   icon: MessageSquare, badge: 'messages' as const },
+  { href: '/overtime',   label: 'Overtime',   icon: Timer, badge: 'overtime' as const },
   { href: '/reports',    label: 'Reports',    icon: BarChart3 },
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
   { href: '/downloads',  label: 'Get the App', icon: Download },
@@ -78,11 +78,12 @@ function SessionClock() {
 
 interface Props {
   pendingOvertimeCount: number
+  unreadMessages: number
   userName: string
   userEmail: string
 }
 
-export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: Props) {
+export default function Sidebar({ pendingOvertimeCount, unreadMessages, userName, userEmail }: Props) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -121,7 +122,9 @@ export default function Sidebar({ pendingOvertimeCount, userName, userEmail }: P
       <nav className="flex-1 px-3 py-1 space-y-1.5 overflow-y-auto">
         {NAV.map(({ href, label, icon: Icon, badge }) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
-          const badgeCount = badge ? pendingOvertimeCount : 0
+          const badgeCount =
+            badge === 'overtime' ? pendingOvertimeCount :
+            badge === 'messages' ? unreadMessages : 0
 
           return (
             <Link
