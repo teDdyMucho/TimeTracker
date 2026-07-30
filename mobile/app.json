@@ -2,7 +2,7 @@
   "expo": {
     "name": "Timevera",
     "slug": "timevera-timesheets",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "scheme": "timevera",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.timevera.timesheets",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Timevera uses Face ID to securely unlock the app and sign you in.",
         "NSCameraUsageDescription": "Timevera uses the camera to take a photo when you clock in, verifying your attendance on site.",
