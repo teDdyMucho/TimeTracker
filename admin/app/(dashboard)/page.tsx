@@ -1,4 +1,4 @@
-import { createClient, createAdminClient } from '@/lib/server'
+import { createClient } from '@/lib/server'
 import Link from 'next/link'
 import { formatHours } from '@/lib/format'
 import { ArrowRight, Briefcase, Clock } from 'lucide-react'
@@ -27,7 +27,6 @@ export default async function DashboardPage({
   searchParams: Promise<{ week?: string }>
 }) {
   const supabase    = await createClient()
-  const adminClient = createAdminClient()
   const params      = await searchParams
 
   const today         = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
@@ -49,11 +48,12 @@ export default async function DashboardPage({
     return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const [profileRes, employeesRes, projectsRes, newProjectsRes, overtimeRes, weekTimesheetsRes, lastWeekRes, recentRes] =
+  // Run the auth check in parallel with the count queries that don't need it,
+  // instead of awaiting it first (which blocked all other queries behind one
+  // sequential round-trip). The greeting name comes from getUser() below.
+  const [userRes, employeesRes, projectsRes, newProjectsRes, overtimeRes, weekTimesheetsRes, lastWeekRes, recentRes] =
     await Promise.all([
-      adminClient.from('profiles').select('name').eq('id', user?.id ?? '').maybeSingle(),
+      supabase.auth.getUser(),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').neq('role', 'admin'),
       supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active').gte('created_at', since7),
@@ -71,7 +71,11 @@ export default async function DashboardPage({
         .limit(6),
     ])
 
-  const firstName      = (profileRes.data?.name ?? 'Admin').split(' ')[0]
+  // Greeting name from the auth user's metadata (set at signup) — avoids an
+  // extra profiles round-trip just to say "Welcome back, <name>".
+  const user           = userRes.data.user
+  const metaName       = (user?.user_metadata?.name as string | undefined) ?? user?.email ?? 'Admin'
+  const firstName      = metaName.split(/[ @]/)[0]
   const weekTimesheets = (weekTimesheetsRes.data ?? []) as any[]
   const recent         = (recentRes.data ?? []) as any[]
   const weekHours      = weekTimesheets.reduce((s, r) => s + Number(r.hours), 0)
@@ -211,7 +215,7 @@ export default async function DashboardPage({
 
           {/* Notifications + account menu */}
           <HeaderActions
-            userName={profileRes.data?.name ?? 'Admin'}
+            userName={metaName}
             userEmail={user?.email ?? ''}
             pendingCount={pendingCount}
           />
