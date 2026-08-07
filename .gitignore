@@ -46,3 +46,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Firebase service account keys (secrets — never commit)
+*firebase-adminsdk*.json
+google-services.json
