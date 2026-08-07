@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
@@ -17,4 +18,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+});
+
+// React Native does not run timers reliably while backgrounded, so Supabase's
+// token auto-refresh stalls overnight and the session appears to "reset" (the
+// user is logged out / shown the default state next morning). The official fix:
+// pause auto-refresh in the background and resume it (which refreshes the token)
+// whenever the app returns to the foreground.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') supabase.auth.startAutoRefresh();
+  else supabase.auth.stopAutoRefresh();
 });

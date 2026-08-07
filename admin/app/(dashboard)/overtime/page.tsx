@@ -17,7 +17,7 @@ export default async function OvertimePage({
   const view: 'pending' | 'reviewed' = params.view === 'reviewed' ? 'reviewed' : 'pending'
   // Overtime date filter is based on the linked timesheet's work_date.
   // Default to all days (no param). 'all' is treated the same as empty.
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
   const dateSel = params.date ?? ''
   const date = dateSel === 'all' ? '' : dateSel
 

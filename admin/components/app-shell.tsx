@@ -7,12 +7,13 @@ import Sidebar from './sidebar'
 interface Props {
   pendingOvertimeCount: number
   unreadMessages: number
+  pendingLeaveCount: number
   userName: string
   userEmail: string
   children: React.ReactNode
 }
 
-export default function AppShell({ pendingOvertimeCount, unreadMessages, userName, userEmail, children }: Props) {
+export default function AppShell({ pendingOvertimeCount, unreadMessages, pendingLeaveCount, userName, userEmail, children }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -39,6 +40,7 @@ export default function AppShell({ pendingOvertimeCount, unreadMessages, userNam
         <Sidebar
           pendingOvertimeCount={pendingOvertimeCount}
           unreadMessages={unreadMessages}
+          pendingLeaveCount={pendingLeaveCount}
           userName={userName}
           userEmail={userEmail}
         />

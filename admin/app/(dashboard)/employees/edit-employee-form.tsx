@@ -96,6 +96,7 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
                 { value: 'part_time', label: 'Part time' },
                 { value: 'casual', label: 'Casual' },
                 { value: 'contractor', label: 'Contractor' },
+                { value: 'labour_hire', label: 'Labour Hire' },
               ]}
             />
           </div>

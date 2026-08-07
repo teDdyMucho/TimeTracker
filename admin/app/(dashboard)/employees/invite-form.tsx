@@ -181,6 +181,7 @@ export default function InviteEmployeeForm({
                 { value: 'part_time', label: 'Part time' },
                 { value: 'casual', label: 'Casual' },
                 { value: 'contractor', label: 'Contractor' },
+                { value: 'labour_hire', label: 'Labour Hire' },
               ]}
             />
           </div>

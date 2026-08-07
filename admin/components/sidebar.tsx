@@ -6,6 +6,7 @@ import {
   BarChart3,
   Banknote,
   Briefcase,
+  CalendarDays,
   ChevronDown,
   Download,
   Landmark,
@@ -27,6 +28,7 @@ const NAV = [
   { href: '/attendance', label: 'Attendance', icon: ScanLine },
   { href: '/messages',   label: 'Messages',   icon: MessageSquare, badge: 'messages' as const },
   { href: '/overtime',   label: 'Overtime',   icon: Timer, badge: 'overtime' as const },
+  { href: '/leave',      label: 'Leave',      icon: CalendarDays, badge: 'leave' as const },
   { href: '/reports',    label: 'Reports',    icon: BarChart3 },
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
   { href: '/downloads',  label: 'Get the App', icon: Download },
@@ -79,11 +81,12 @@ function SessionClock() {
 interface Props {
   pendingOvertimeCount: number
   unreadMessages: number
+  pendingLeaveCount: number
   userName: string
   userEmail: string
 }
 
-export default function Sidebar({ pendingOvertimeCount, unreadMessages, userName, userEmail }: Props) {
+export default function Sidebar({ pendingOvertimeCount, unreadMessages, pendingLeaveCount, userName, userEmail }: Props) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -124,7 +127,8 @@ export default function Sidebar({ pendingOvertimeCount, unreadMessages, userName
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
           const badgeCount =
             badge === 'overtime' ? pendingOvertimeCount :
-            badge === 'messages' ? unreadMessages : 0
+            badge === 'messages' ? unreadMessages :
+            badge === 'leave' ? pendingLeaveCount : 0
 
           return (
             <Link

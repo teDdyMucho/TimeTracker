@@ -267,6 +267,16 @@ export default function Home() {
               disabled={clockingOut || (overtime && otReason.trim().length === 0)}
               onPress={handleClockOut}
             />
+
+            {/* Switch to a different project without clocking out for the day */}
+            <Pressable
+              onPress={() => router.push('/switch-project')}
+              className="flex-row items-center justify-center gap-2 mt-3 py-3 rounded-2xl bg-white"
+              style={{ borderWidth: 1, borderColor: LINE }}
+            >
+              <Ionicons name="swap-horizontal-outline" size={18} color={INK} />
+              <Text className="font-semibold text-ink">Switch Project</Text>
+            </Pressable>
           </Card>
         ) : (
           /* ── NOT CLOCKED IN ─────────────────────────────────────── */
@@ -277,6 +287,22 @@ export default function Home() {
             />
           </View>
         )}
+
+        {/* Quick action — Request Leave */}
+        <Pressable
+          onPress={() => router.push('/leave')}
+          className="flex-row items-center gap-3 bg-white rounded-2xl px-4 py-3.5 mb-4"
+          style={{ borderWidth: 1, borderColor: LINE }}
+        >
+          <View className="items-center justify-center" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(28,26,22,0.08)' }}>
+            <Ionicons name="calendar-outline" size={20} color={INK} />
+          </View>
+          <View className="flex-1">
+            <Text className="font-semibold text-ink">Request Leave</Text>
+            <Text className="text-muted text-xs">Annual, sick, personal or unpaid</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={MUTED} />
+        </Pressable>
 
         {/* Recent timesheets */}
         <View className="flex-row justify-between items-center mt-2 mb-2">

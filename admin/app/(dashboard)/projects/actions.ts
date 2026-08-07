@@ -19,13 +19,16 @@ export async function createProjectAction(
   return null
 }
 
-export async function toggleProjectStatusAction(formData: FormData) {
+export async function toggleProjectStatusAction(formData: FormData): Promise<void> {
   const id = formData.get('id') as string
   const current = formData.get('current_status') as string
   const adminClient = createAdminClient()
-  await adminClient
+  // entity_status enum is ('active', 'archived') — 'inactive' is NOT valid and
+  // silently failed the update, so Archive/Restore appeared to do nothing.
+  const { error } = await adminClient
     .from('projects')
-    .update({ status: current === 'active' ? 'inactive' : 'active' })
+    .update({ status: current === 'active' ? 'archived' : 'active' })
     .eq('id', id)
+  if (error) console.error('[toggleProjectStatus]', error.message)
   revalidatePath('/projects')
 }

@@ -12,13 +12,13 @@ export const dynamic = 'force-dynamic'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-AU', {
-    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit', hour12: true,
   })
 }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-AU', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
@@ -62,15 +62,21 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; employee?: string; entity?: string }>
+  searchParams: Promise<{ date?: string; from?: string; to?: string; employee?: string; entity?: string }>
 }) {
   const admin = createAdminClient()
   const params = await searchParams
-  // Use the server's local date (matches how work_date is recorded), not a forced timezone.
-  const today = new Date().toLocaleDateString('en-CA')
-  // Default to TODAY when no param is given. Use ?date=all to see every day.
+  // "Today" in AEST (Australia/Brisbane) — the server runs in UTC on Netlify, so
+  // without a timezone the date could be a day off for Australian users.
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  // Date range takes priority when both from & to are set (client request:
+  // filter attendance by a selected period + generate a timesheet report).
+  const fromDate = params.from ?? ''
+  const toDate = params.to ?? ''
+  const hasRange = !!(fromDate && toDate)
+  // Single-date mode: default to TODAY when no param is given. ?date=all = every day.
   // `selection` is what the filter UI reflects ('all' or a specific date);
-  // `date` is the actual SQL filter ('' = no filter = all days).
+  // `date` is the actual SQL filter ('' = no filter).
   const selection = params.date ?? today
   const date = selection === 'all' ? '' : selection
   const employeeId = params.employee ?? ''
@@ -99,7 +105,11 @@ export default async function AttendancePage({
     .order('clocked_in_at', { ascending: false })
     .limit(200)
 
-  if (date) query = query.eq('work_date', date)
+  if (hasRange) {
+    query = query.gte('work_date', fromDate).lte('work_date', toDate)
+  } else if (date) {
+    query = query.eq('work_date', date)
+  }
   if (employeeId) query = query.eq('profile_id', employeeId)
   if (entityId) query = query.eq('business_entity_id', entityId)
 
@@ -130,7 +140,9 @@ export default async function AttendancePage({
       <PageHeader
         title="Attendance"
         subtitle={
-          selection === 'all'
+          hasRange
+            ? `${sorted.length} session${sorted.length !== 1 ? 's' : ''} · ${formatDate(fromDate)} – ${formatDate(toDate)}`
+            : selection === 'all'
             ? `${active.length} currently on the clock · auto-refreshes every 30s`
             : `${sorted.length} session${sorted.length !== 1 ? 's' : ''} on ${formatDate(date)}`
         }
@@ -142,6 +154,8 @@ export default async function AttendancePage({
       <AttendanceFilter
         date={selection}
         today={today}
+        from={fromDate}
+        to={toDate}
         employees={employees}
         companies={companies}
         employeeId={employeeId}

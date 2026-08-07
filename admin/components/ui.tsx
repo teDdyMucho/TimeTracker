@@ -118,9 +118,10 @@ const BADGE_STYLES: Record<string, string> = {
   none:       'bg-stone      text-faint',
   admin:      'bg-violet-50  text-violet-700',
   employee:   'bg-sky-50     text-sky-700',
-  full_time:  'bg-brand/10   text-brand',
-  part_time:  'bg-indigo-50  text-indigo-600',
-  contractor: 'bg-orange-50  text-orange-700',
+  full_time:   'bg-brand/10   text-brand',
+  part_time:   'bg-indigo-50  text-indigo-600',
+  contractor:  'bg-orange-50  text-orange-700',
+  labour_hire: 'bg-teal-50    text-teal-700',
 }
 
 export function Badge({ status }: { status: string }) {

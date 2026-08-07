@@ -317,6 +317,52 @@ export async function markMessagesRead(userId: string): Promise<void> {
     .eq('profile_id', userId).eq('sender_role', 'admin').eq('read', false);
 }
 
+// ─── Leave requests ───────────────────────────────────────────────────────────
+
+export type LeaveType = 'annual' | 'sick' | 'personal' | 'unpaid';
+
+export interface LeaveRequest {
+  id: string;
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  reason: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
+export interface SubmitLeaveInput {
+  userId: string;
+  leaveType: LeaveType;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  reason: string | null;
+}
+
+/** Employee submits a leave request (goes to admin as 'pending'). */
+export async function submitLeave(input: SubmitLeaveInput): Promise<void> {
+  const { error } = await supabase.from('leave_requests').insert({
+    profile_id: input.userId,
+    leave_type: input.leaveType,
+    start_date: input.startDate,
+    end_date: input.endDate,
+    reason: input.reason,
+    status: 'pending',
+  });
+  if (error) throw error;
+}
+
+/** All of the signed-in employee's leave requests (newest first). */
+export async function fetchMyLeave(userId: string): Promise<LeaveRequest[]> {
+  const { data, error } = await supabase
+    .from('leave_requests')
+    .select('id, leave_type, start_date, end_date, reason, status, created_at')
+    .eq('profile_id', userId)
+    .order('start_date', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as LeaveRequest[];
+}
+
 /** Update editable fields on the signed-in user's own profile. */
 export async function updateMyProfile(
   userId: string,
@@ -365,8 +411,12 @@ export interface ClockOutInput {
   overtimeReason: string | null;
 }
 
-/** Standard working day. A forgotten session is auto-closed at this many hours. */
-export const AUTO_CLOCK_OUT_HOURS = 8;
+/**
+ * A forgotten clock-in is auto-closed after this many hours (client set this to
+ * 12h to cover longer construction shifts — was 8h). A session left open longer
+ * than this is capped to a 12-hour shift so payroll never gets a bogus long day.
+ */
+export const AUTO_CLOCK_OUT_HOURS = 12;
 
 /**
  * Shared write for closing a session: stamps clocked_out_at, creates the
@@ -469,5 +519,49 @@ export async function autoClockOut(session: ClockSession): Promise<void> {
 export function isSessionExpired(session: ClockSession): boolean {
   const elapsedMs = Date.now() - new Date(session.clocked_in_at).getTime();
   return elapsedMs >= AUTO_CLOCK_OUT_HOURS * 3_600_000;
+}
+
+export interface SwitchProjectInput {
+  session: ClockSession;      // the currently-active session to close
+  newBusinessEntityId: string;
+  newProjectId: string;
+  newWorkLocation: WorkLocation;
+}
+
+/**
+ * Switch to a different project within the same workday without leaving site.
+ * Closes the current session now (logging its hours to the old project), then
+ * opens a fresh session for the new project — reusing the same location and
+ * selfie, so the worker doesn't re-verify. Result: two timesheet segments for
+ * the day, each against the correct project.
+ */
+export async function switchProject(input: SwitchProjectInput): Promise<void> {
+  const s = input.session;
+
+  // 1. Close the current session normally (this also writes its timesheet).
+  await clockOut({
+    sessionId: s.id,
+    userId: s.profile_id,
+    businessEntityId: s.business_entity_id,
+    projectId: s.project_id,
+    workLocation: s.work_location,
+    workDate: s.work_date,
+    clockedInAt: s.clocked_in_at,
+    overtimeRequested: false,
+    overtimeReason: null,
+  });
+
+  // 2. Clock into the new project, carrying over the existing location + selfie.
+  await clockIn({
+    userId: s.profile_id,
+    businessEntityId: input.newBusinessEntityId,
+    projectId: input.newProjectId,
+    workLocation: input.newWorkLocation,
+    workDate: todayISO(),
+    lat: s.clock_in_lat,
+    lng: s.clock_in_lng,
+    selfieUrl: s.selfie_url,
+    address: null,
+  });
 }
 

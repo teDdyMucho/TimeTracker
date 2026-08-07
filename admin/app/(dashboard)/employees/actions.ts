@@ -54,12 +54,15 @@ export async function createEmployeeAction(
   return null
 }
 
-export async function toggleEmployeeStatusAction(formData: FormData) {
+export async function toggleEmployeeStatusAction(formData: FormData): Promise<void> {
   const id = formData.get('id') as string
   const currentStatus = formData.get('current_status') as string
   const adminClient = createAdminClient()
-  const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
-  await adminClient.from('profiles').update({ status: newStatus }).eq('id', id)
+  // profiles.status uses the entity_status enum ('active', 'archived') — 'inactive'
+  // is NOT valid and silently failed, so Deactivate/Activate did nothing.
+  const newStatus = currentStatus === 'active' ? 'archived' : 'active'
+  const { error } = await adminClient.from('profiles').update({ status: newStatus }).eq('id', id)
+  if (error) console.error('[toggleEmployeeStatus]', error.message)
   revalidatePath('/employees')
 }
 

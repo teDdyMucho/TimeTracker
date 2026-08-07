@@ -1,5 +1,6 @@
 'use client'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { FileText } from 'lucide-react'
 import Dropdown from '@/components/dropdown'
 
 interface Option { id: string; name: string }
@@ -7,6 +8,8 @@ interface Option { id: string; name: string }
 export default function AttendanceFilter({
   date,
   today,
+  from,
+  to,
   employees,
   companies,
   employeeId,
@@ -14,6 +17,8 @@ export default function AttendanceFilter({
 }: {
   date: string
   today: string
+  from: string
+  to: string
   employees: Option[]
   companies: Option[]
   employeeId: string
@@ -32,10 +37,28 @@ export default function AttendanceFilter({
     router.push(qs ? `${pathname}?${qs}` : pathname)
   }
 
-  // Date buttons: '' = today (no param), 'all' = every day.
+  // Date buttons: '' = today (no param), 'all' = every day. Clears any range.
   function goDate(value: string) {
-    setParam('date', value)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('from')
+    params.delete('to')
+    if (value) params.set('date', value)
+    else params.delete('date')
+    const qs = params.toString()
+    router.push(qs ? `${pathname}?${qs}` : pathname)
   }
+
+  // Set one end of the date range; setting a range clears the single-date filter.
+  function setRange(key: 'from' | 'to', value: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('date')
+    if (value) params.set(key, value)
+    else params.delete(key)
+    const qs = params.toString()
+    router.push(qs ? `${pathname}?${qs}` : pathname)
+  }
+
+  const hasRange = !!(from && to)
 
   const btn = 'px-3.5 py-2 rounded-xl text-sm font-semibold border transition-all duration-150 active:scale-95 hover:opacity-90'
   const activeStyle = { background: '#1C1A16', color: '#fff', borderColor: '#1C1A16' }
@@ -55,12 +78,35 @@ export default function AttendanceFilter({
         />
       </div>
 
-      <button type="button" onClick={() => goDate(today)} className={btn} style={date === today ? activeStyle : idleStyle}>
+      <button type="button" onClick={() => goDate(today)} className={btn} style={date === today && !hasRange ? activeStyle : idleStyle}>
         Today
       </button>
-      <button type="button" onClick={() => goDate('all')} className={btn} style={date === 'all' ? activeStyle : idleStyle}>
+      <button type="button" onClick={() => goDate('all')} className={btn} style={date === 'all' && !hasRange ? activeStyle : idleStyle}>
         All days
       </button>
+
+      {/* Date range — filter attendance by a selected period */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-semibold text-muted uppercase tracking-widest">From</label>
+        <input
+          type="date"
+          value={from}
+          max={to || today}
+          onChange={(e) => setRange('from', e.target.value)}
+          className="border border-line rounded-xl px-3 py-2 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-semibold text-muted uppercase tracking-widest">To</label>
+        <input
+          type="date"
+          value={to}
+          min={from || undefined}
+          max={today}
+          onChange={(e) => setRange('to', e.target.value)}
+          className="border border-line rounded-xl px-3 py-2 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all"
+        />
+      </div>
 
       {/* Employee */}
       <div className="flex flex-col gap-1.5">
@@ -83,6 +129,22 @@ export default function AttendanceFilter({
           options={[{ value: '', label: 'All companies' }, ...companies.map((c) => ({ value: c.id, label: c.name }))]}
         />
       </div>
+
+      {/* Daily timesheet report — needs an employee + a date range */}
+      {employeeId && hasRange && (
+        <a
+          href={`/api/reports/timesheet?employee=${employeeId}&from=${from}&to=${to}`}
+          className="inline-flex items-center gap-2 h-[38px] px-4 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-all active:scale-95 self-end"
+          style={{ background: '#1C1A16' }}
+        >
+          <FileText size={15} /> Timesheet Report
+        </a>
+      )}
+      {hasRange && !employeeId && (
+        <span className="text-xs text-muted self-end pb-2 max-w-[180px]">
+          Pick an employee to generate their timesheet report for this period.
+        </span>
+      )}
 
       {/* Clear filters — only when an employee/company filter is active */}
       {(employeeId || entityId) && (
