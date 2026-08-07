@@ -47,6 +47,7 @@ Thumbs.db
 .vscode/
 *.log
 
-# Firebase service account keys (secrets — never commit)
+# Firebase service account keys are real secrets — never commit them.
+# (google-services.json is NOT secret: it's public FCM app config embedded in
+#  every build, and EAS needs it tracked in git to build Android push.)
 *firebase-adminsdk*.json
-google-services.json

@@ -5,6 +5,6 @@
 expo-env.d.ts
 # @end expo-cli
 
-# Firebase — Android push (FCM). Contains project keys; not committed.
-# Required at EAS build time (referenced by app.json → android.googleServicesFile).
-google-services.json
+# Firebase service account keys are real secrets — never commit.
+# (google-services.json is public FCM config and MUST be tracked so EAS can build.)
+*firebase-adminsdk*.json

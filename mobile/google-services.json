@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "699186094814",
+    "project_id": "timevera-baf99",
+    "storage_bucket": "timevera-baf99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699186094814:android:d8401081614596469cd84f",
+        "android_client_info": {
+          "package_name": "com.timevera.timesheets"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPI6ECVf9WW2pKsamZcuF363Rb62xIK0M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
