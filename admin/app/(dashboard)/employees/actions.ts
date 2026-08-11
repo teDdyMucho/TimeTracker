@@ -2,6 +2,43 @@
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
 
+/**
+ * Email the new employee their login details via the Outlook edge function.
+ * Best-effort: never throws — a mail hiccup must not fail account creation.
+ */
+async function sendInviteEmail(input: { to: string; name: string; email: string; password: string }): Promise<boolean> {
+  try {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const secret = process.env.INVITE_SHARED_SECRET
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!base || !serviceKey) return false
+
+    const res = await fetch(`${base}/functions/v1/send-employee-invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+        ...(secret ? { 'x-invite-secret': secret } : {}),
+      },
+      body: JSON.stringify({
+        to: input.to,
+        name: input.name,
+        email: input.email,
+        password: input.password,
+        loginUrl: 'https://timevera.netlify.app/install',
+      }),
+    })
+    if (!res.ok) {
+      console.error('[sendInviteEmail]', res.status, await res.text())
+      return false
+    }
+    return true
+  } catch (e) {
+    console.error('[sendInviteEmail]', e)
+    return false
+  }
+}
+
 export async function createEmployeeAction(
   _prevState: string | null,
   formData: FormData,
@@ -49,6 +86,9 @@ export async function createEmployeeAction(
       await adminClient.from('pay_rates').insert({ profile_id: userId, hourly_rate: rate })
     }
   }
+
+  // Email the employee their login details via Outlook (best-effort).
+  await sendInviteEmail({ to: email, name, email, password })
 
   revalidatePath('/employees')
   return null

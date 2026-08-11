@@ -50,6 +50,18 @@ const TYPE_OPTIONS = [
   { value: 'site', label: 'Site' },
   { value: 'factory', label: 'Factory' },
 ]
+const LEAVE_TYPE_OPTIONS = [
+  { value: 'annual', label: 'Annual Leave' },
+  { value: 'sick', label: 'Sick Leave' },
+  { value: 'personal', label: 'Personal Leave' },
+  { value: 'unpaid', label: 'Unpaid Leave' },
+]
+
+function todayLocal(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 
 export default function AttendanceForm({
   employees,
@@ -90,6 +102,13 @@ export default function AttendanceForm({
   const [clockOut, setClockOut] = useState(
     edit?.clocked_out_at ? isoToLocalInput(edit.clocked_out_at) : '',
   )
+
+  // Leave mode (add only) — mark an employee on leave instead of a work session.
+  const [onLeave, setOnLeave] = useState(false)
+  const [leaveType, setLeaveType] = useState('annual')
+  const [leaveStart, setLeaveStart] = useState(todayLocal())
+  const [leaveEnd, setLeaveEnd] = useState(todayLocal())
+  const [leaveReason, setLeaveReason] = useState('')
 
   useEffect(() => {
     if (prevPendingRef.current && !pending && !serverError) {
@@ -137,10 +156,10 @@ export default function AttendanceForm({
         <div className="glass-panel rounded-2xl p-8 w-full max-w-sm text-center">
           <CheckCircle size={56} className="text-brand mx-auto mb-4" />
           <h2 className="text-xl font-bold text-ink mb-2">
-            {isEdit ? 'Attendance updated!' : 'Attendance added!'}
+            {isEdit ? 'Attendance updated!' : onLeave ? 'Leave added!' : 'Attendance added!'}
           </h2>
           <p className="text-muted text-sm mb-6">
-            The record has been saved successfully.
+            {onLeave ? 'The leave was recorded and auto-approved.' : 'The record has been saved successfully.'}
           </p>
           <Button label="Done" className="w-full" onClick={handleClose} />
         </div>
@@ -165,6 +184,15 @@ export default function AttendanceForm({
 
         <form
           action={(fd) => {
+            if (!isEdit && onLeave) {
+              // Leave entry — send leave fields, skip the clock/project data.
+              fd.set('entry_type', 'leave')
+              fd.set('leave_type', leaveType)
+              fd.set('leave_start', leaveStart)
+              fd.set('leave_end', leaveEnd)
+              fd.set('leave_reason', leaveReason)
+              return formAction(fd)
+            }
             // Convert the local wall-clock inputs to ISO + derive the work date
             // before the values reach the server action.
             fd.set('clocked_in_at', localInputToIso(clockIn))
@@ -202,65 +230,126 @@ export default function AttendanceForm({
             </div>
           )}
 
-          <div>
-            <span className={labelCls}>Company</span>
-            <Dropdown
-              value={companyId}
-              onChange={onCompanyChange}
-              placeholder="Choose company…"
-              options={companies.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </div>
-
-          <div>
-            <span className={labelCls}>Project</span>
-            <Dropdown
-              name="project_id"
-              value={projectId}
-              onChange={setProjectId}
-              placeholder={companyId ? 'Choose project…' : 'Choose a company first'}
-              options={companyProjects.map((p) => ({ value: p.id, label: p.name }))}
-            />
-            {companyId && companyProjects.length === 0 && (
-              <p className="text-xs text-muted mt-1.5">No projects for this company.</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Clock in</label>
+          {/* On-leave toggle (add mode only) — marks the employee on leave for the day. */}
+          {!isEdit && (
+            <label className="flex items-center justify-between bg-white rounded-xl px-4 py-3 cursor-pointer" style={{ border: '1px solid #ECEAE4' }}>
+              <span className="text-sm font-semibold text-ink">On leave (auto-approved)</span>
               <input
-                type="datetime-local"
-                value={clockIn}
-                onChange={(e) => setClockIn(e.target.value)}
-                required
-                disabled={pending}
-                className={inputCls}
+                type="checkbox"
+                checked={onLeave}
+                onChange={(e) => setOnLeave(e.target.checked)}
+                className="w-4 h-4 accent-brand"
               />
-            </div>
-            <div>
-              <label className={labelCls}>Clock out</label>
-              <input
-                type="datetime-local"
-                value={clockOut}
-                onChange={(e) => setClockOut(e.target.value)}
-                disabled={pending}
-                className={inputCls}
-              />
-              <p className="text-[10px] text-muted mt-1">Leave blank if still on the clock.</p>
-            </div>
-          </div>
+            </label>
+          )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className={labelCls}>Work type</span>
-              <Dropdown name="work_location" value={workType} onChange={setWorkType} options={TYPE_OPTIONS} />
-            </div>
-            <div>
-              <span className={labelCls}>Status</span>
-              <Dropdown name="review_status" value={review} onChange={setReview} options={REVIEW_OPTIONS} />
-            </div>
-          </div>
+          {onLeave ? (
+            /* ── LEAVE FIELDS ─────────────────────────────────────── */
+            <>
+              <div>
+                <span className={labelCls}>Leave type</span>
+                <Dropdown value={leaveType} onChange={setLeaveType} options={LEAVE_TYPE_OPTIONS} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>From</label>
+                  <input
+                    type="date"
+                    value={leaveStart}
+                    max={leaveEnd || undefined}
+                    onChange={(e) => { setLeaveStart(e.target.value); if (e.target.value > leaveEnd) setLeaveEnd(e.target.value) }}
+                    disabled={pending}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>To</label>
+                  <input
+                    type="date"
+                    value={leaveEnd}
+                    min={leaveStart || undefined}
+                    onChange={(e) => setLeaveEnd(e.target.value)}
+                    disabled={pending}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Reason (optional)</label>
+                <input
+                  type="text"
+                  value={leaveReason}
+                  onChange={(e) => setLeaveReason(e.target.value)}
+                  placeholder="e.g. Sick, family matter…"
+                  disabled={pending}
+                  className={inputCls}
+                />
+              </div>
+            </>
+          ) : (
+            /* ── ATTENDANCE FIELDS ────────────────────────────────── */
+            <>
+              <div>
+                <span className={labelCls}>Company</span>
+                <Dropdown
+                  value={companyId}
+                  onChange={onCompanyChange}
+                  placeholder="Choose company…"
+                  options={companies.map((c) => ({ value: c.id, label: c.name }))}
+                />
+              </div>
+
+              <div>
+                <span className={labelCls}>Project</span>
+                <Dropdown
+                  name="project_id"
+                  value={projectId}
+                  onChange={setProjectId}
+                  placeholder={companyId ? 'Choose project…' : 'Choose a company first'}
+                  options={companyProjects.map((p) => ({ value: p.id, label: p.name }))}
+                />
+                {companyId && companyProjects.length === 0 && (
+                  <p className="text-xs text-muted mt-1.5">No projects for this company.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Clock in</label>
+                  <input
+                    type="datetime-local"
+                    value={clockIn}
+                    onChange={(e) => setClockIn(e.target.value)}
+                    required={!onLeave}
+                    disabled={pending}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Clock out</label>
+                  <input
+                    type="datetime-local"
+                    value={clockOut}
+                    onChange={(e) => setClockOut(e.target.value)}
+                    disabled={pending}
+                    className={inputCls}
+                  />
+                  <p className="text-[10px] text-muted mt-1">Leave blank if still on the clock.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className={labelCls}>Work type</span>
+                  <Dropdown name="work_location" value={workType} onChange={setWorkType} options={TYPE_OPTIONS} />
+                </div>
+                <div>
+                  <span className={labelCls}>Status</span>
+                  <Dropdown name="review_status" value={review} onChange={setReview} options={REVIEW_OPTIONS} />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
@@ -275,6 +364,8 @@ export default function AttendanceForm({
                 </>
               ) : isEdit ? (
                 'Save changes'
+              ) : onLeave ? (
+                'Add leave'
               ) : (
                 'Add attendance'
               )}

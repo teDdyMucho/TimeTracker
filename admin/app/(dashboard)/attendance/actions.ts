@@ -78,6 +78,36 @@ export async function addAttendanceAction(
   const admin = createAdminClient()
 
   const profileId = formData.get('profile_id') as string
+
+  // ── Leave entry: admin marks an employee on leave for a day/range. ──────────
+  // Creates an auto-approved leave record instead of a clock session.
+  if (formData.get('entry_type') === 'leave') {
+    const leaveType = (formData.get('leave_type') as string) || 'annual'
+    const startDate = formData.get('leave_start') as string
+    const endDate = (formData.get('leave_end') as string) || startDate
+    const reason = (formData.get('leave_reason') as string)?.trim() || null
+
+    if (!profileId) return 'Please choose an employee.'
+    if (!startDate) return 'Please set the leave date.'
+    if (endDate < startDate) return 'Leave end date must be on or after the start date.'
+
+    const { error } = await admin.from('leave_requests').insert({
+      profile_id: profileId,
+      leave_type: leaveType,
+      start_date: startDate,
+      end_date: endDate,
+      reason,
+      status: 'approved',            // admin-entered leave is auto-approved
+      decided_at: new Date().toISOString(),
+    })
+    if (error) return error.message
+
+    revalidatePath('/attendance')
+    revalidatePath('/leave')
+    revalidatePath('/')
+    return null
+  }
+
   const projectId = formData.get('project_id') as string
   const clockedInAt = formData.get('clocked_in_at') as string
   const clockedOutAt = (formData.get('clocked_out_at') as string) || null
