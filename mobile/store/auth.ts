@@ -31,10 +31,28 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ session, profile, initializing: false });
     });
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      const profile = session ? await fetchProfile(session.user.id) : null;
-      set({ session, profile });
-      if (session) registerPush(session.user.id);
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      // No session (signed out / expired) → clear everything.
+      if (!session) {
+        set({ session: null, profile: null });
+        return;
+      }
+
+      // On a token refresh, the session is the same user — DON'T wipe the
+      // profile if the refetch fails (e.g. slow network the next morning). That
+      // was the "Welcome back, there / T avatar" bug. Keep the existing profile
+      // and only replace it when the refetch actually returns one.
+      set({ session });
+      const fresh = await fetchProfile(session.user.id);
+      if (fresh) {
+        set({ profile: fresh });
+      } else if (event === 'SIGNED_IN') {
+        // A real new sign-in with no profile row — nothing to keep.
+        set({ profile: null });
+      }
+      // else (TOKEN_REFRESHED / USER_UPDATED with a failed fetch): keep old profile.
+
+      registerPush(session.user.id);
     });
   },
 
@@ -63,6 +81,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const { session } = get();
     if (!session) return;
     const profile = await fetchProfile(session.user.id);
-    set({ profile });
+    // Only replace on success — never wipe a good profile if the fetch failed.
+    if (profile) set({ profile });
   },
 }));

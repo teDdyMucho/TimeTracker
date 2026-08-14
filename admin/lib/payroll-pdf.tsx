@@ -46,7 +46,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   logoRow: { flexDirection: 'row', alignItems: 'center' },
   logoBuildOne: { height: 34, width: 136, objectFit: 'contain' },
-  logoArko: { height: 34, width: 96, objectFit: 'contain', marginLeft: 12 },
+  // ARKO logo is light-coloured — sit it on a black rounded panel so it reads.
+  arkoBox: { marginLeft: 12, backgroundColor: BLACK, borderRadius: 4, paddingVertical: 5, paddingHorizontal: 8 },
+  logoArko: { height: 26, width: 88, objectFit: 'contain' },
   headRight: { alignItems: 'flex-end' },
   docTitle: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: BLACK },
   meta: { fontSize: 9, color: MUTED, marginTop: 2 },
@@ -91,8 +93,12 @@ export function PayrollPdf({ buildOneLogo, arkoLogo, heading, meta, generatedAt,
           <View style={styles.logoRow}>
             {/* eslint-disable-next-line jsx-a11y/alt-text */}
             {buildOneLogo ? <Image src={buildOneLogo} style={styles.logoBuildOne} /> : null}
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            {arkoLogo ? <Image src={arkoLogo} style={styles.logoArko} /> : null}
+            {arkoLogo ? (
+              <View style={styles.arkoBox}>
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                <Image src={arkoLogo} style={styles.logoArko} />
+              </View>
+            ) : null}
           </View>
           <View style={styles.headRight}>
             <Text style={styles.docTitle}>{heading}</Text>

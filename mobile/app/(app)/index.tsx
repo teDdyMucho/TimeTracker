@@ -40,6 +40,15 @@ function elapsedLabel(since: string): string {
 export default function Home() {
   const router = useRouter();
   const profile = useAuth((s) => s.profile);
+  const session = useAuth((s) => s.session);
+  const refreshProfile = useAuth((s) => s.refreshProfile);
+
+  // Safety net: if we have a session but the profile didn't load (e.g. the
+  // refetch failed overnight → "Welcome back, there"), pull it again on mount
+  // instead of showing the empty/"T" state.
+  useEffect(() => {
+    if (session && !profile) refreshProfile();
+  }, [session, profile, refreshProfile]);
 
   const [summary, setSummary] = useState<HomeSummary>({ todayHours: 0, weekHours: 0, pendingOvertime: 0 });
   const [recent, setRecent] = useState<Timesheet[]>([]);
