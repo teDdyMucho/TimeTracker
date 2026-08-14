@@ -95,14 +95,19 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Load the logo as a data URI.
-  let logoSrc = ''
-  try {
-    const buf = await readFile(path.join(process.cwd(), 'public', 'Timevera-Web-logo.png'))
-    logoSrc = `data:image/png;base64,${buf.toString('base64')}`
-  } catch {
-    logoSrc = ''
+  // Load the Build One + ARKO logos as data URIs (react-pdf needs an inline source).
+  const loadLogo = async (file: string): Promise<string> => {
+    try {
+      const buf = await readFile(path.join(process.cwd(), 'public', file))
+      return `data:image/png;base64,${buf.toString('base64')}`
+    } catch {
+      return ''
+    }
   }
+  const [buildOneLogo, arkoLogo] = await Promise.all([
+    loadLogo('buildone.png'),
+    loadLogo('Arko logo.png'),
+  ])
 
   const generatedAt = new Date().toLocaleString('en-AU', {
     timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -110,7 +115,8 @@ export async function GET(req: NextRequest) {
 
   const buffer = await renderToBuffer(
     TimesheetPdf({
-      logoSrc,
+      buildOneLogo,
+      arkoLogo,
       employeeName: profile?.name ?? 'Employee',
       employeeEmail: profile?.email ?? '',
       entityName,

@@ -21,7 +21,8 @@ export interface TimesheetRow {
 }
 
 export interface TimesheetPdfProps {
-  logoSrc: string
+  buildOneLogo: string  // data URI
+  arkoLogo: string      // data URI
   employeeName: string
   employeeEmail: string
   entityName: string
@@ -33,7 +34,9 @@ export interface TimesheetPdfProps {
 const styles = StyleSheet.create({
   page: { paddingTop: 36, paddingBottom: 52, paddingHorizontal: 34, fontSize: 8.5, color: INK, fontFamily: 'Helvetica' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  logo: { width: 200, height: 56, objectFit: 'contain' },
+  logoRow: { flexDirection: 'row', alignItems: 'center' },
+  logoBuildOne: { height: 34, width: 136, objectFit: 'contain' },
+  logoArko: { height: 34, width: 96, objectFit: 'contain', marginLeft: 12 },
   headRight: { alignItems: 'flex-end' },
   docTitle: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: BLACK },
   meta: { fontSize: 8.5, color: MUTED, marginTop: 2 },
@@ -77,7 +80,7 @@ const styles = StyleSheet.create({
 })
 
 export function TimesheetPdf({
-  logoSrc, employeeName, employeeEmail, entityName, periodLabel, generatedAt, rows,
+  buildOneLogo, arkoLogo, employeeName, employeeEmail, entityName, periodLabel, generatedAt, rows,
 }: TimesheetPdfProps) {
   const totalReg = rows.reduce((s, r) => s + r.regularHours, 0)
   const totalOt = rows.reduce((s, r) => s + r.overtimeHours, 0)
@@ -86,10 +89,14 @@ export function TimesheetPdf({
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        {/* Header */}
+        {/* Header — Build One + ARKO logos side by side */}
         <View style={styles.header}>
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          {logoSrc ? <Image src={logoSrc} style={styles.logo} /> : <View />}
+          <View style={styles.logoRow}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            {buildOneLogo ? <Image src={buildOneLogo} style={styles.logoBuildOne} /> : null}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            {arkoLogo ? <Image src={arkoLogo} style={styles.logoArko} /> : null}
+          </View>
           <View style={styles.headRight}>
             <Text style={styles.docTitle}>Fortnightly Timesheet</Text>
             <Text style={styles.meta}>{entityName} · {periodLabel}</Text>

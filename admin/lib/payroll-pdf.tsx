@@ -32,7 +32,8 @@ export interface PdfSection {
 }
 
 export interface PayrollPdfProps {
-  logoSrc: string            // data URI or absolute URL
+  buildOneLogo: string       // data URI
+  arkoLogo: string           // data URI
   heading: string            // e.g. "Payroll Summary"
   meta: string               // e.g. "ARKO Joinery · 12 Jun – 25 Jun 2026"
   generatedAt: string
@@ -43,7 +44,9 @@ export interface PayrollPdfProps {
 const styles = StyleSheet.create({
   page: { paddingTop: 40, paddingBottom: 56, paddingHorizontal: 40, fontSize: 9, color: INK, fontFamily: 'Helvetica' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-  logo: { width: 150, height: 38, objectFit: 'contain' },
+  logoRow: { flexDirection: 'row', alignItems: 'center' },
+  logoBuildOne: { height: 34, width: 136, objectFit: 'contain' },
+  logoArko: { height: 34, width: 96, objectFit: 'contain', marginLeft: 12 },
   headRight: { alignItems: 'flex-end' },
   docTitle: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: BLACK },
   meta: { fontSize: 9, color: MUTED, marginTop: 2 },
@@ -73,7 +76,7 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 24, left: 40, right: 40, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7.5, color: MUTED, borderTopWidth: 0.5, borderTopColor: LINE, paddingTop: 6 },
 })
 
-export function PayrollPdf({ logoSrc, heading, meta, generatedAt, sections, showEntityColumn = false }: PayrollPdfProps) {
+export function PayrollPdf({ buildOneLogo, arkoLogo, heading, meta, generatedAt, sections, showEntityColumn = false }: PayrollPdfProps) {
   // Which bands appear anywhere → only those columns
   const allEntries = sections.flatMap((s) => s.entries)
   const activeBands = PAY_BANDS.filter((b) => allEntries.some((e) => (e.bandHours?.[b] ?? 0) > 0))
@@ -83,10 +86,14 @@ export function PayrollPdf({ logoSrc, heading, meta, generatedAt, sections, show
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
+        {/* Header — Build One + ARKO logos side by side */}
         <View style={styles.header}>
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image src={logoSrc} style={styles.logo} />
+          <View style={styles.logoRow}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            {buildOneLogo ? <Image src={buildOneLogo} style={styles.logoBuildOne} /> : null}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            {arkoLogo ? <Image src={arkoLogo} style={styles.logoArko} /> : null}
+          </View>
           <View style={styles.headRight}>
             <Text style={styles.docTitle}>{heading}</Text>
             <Text style={styles.meta}>{meta}</Text>
