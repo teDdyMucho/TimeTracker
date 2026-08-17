@@ -1,37 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'node:crypto'
-import { createClient } from '@/lib/server'
-import { XERO_AUTH_URL } from '@/lib/xero'
+import { createClient, createAdminClient } from '@/lib/server'
+import { getCustomConnectionTenantId } from '@/lib/xero'
 
 export const runtime = 'nodejs'
 
+/**
+ * "Connect Xero" for a Custom Connection.
+ *
+ * There is no interactive login/redirect: once an admin has authorised the
+ * Custom Connection in Xero, this route fetches the authorised organisation's
+ * tenant id (via client_credentials) and links it to the chosen entity.
+ */
 export async function GET(req: NextRequest) {
-  // Must be a signed-in admin
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', req.url))
 
   const entityId = req.nextUrl.searchParams.get('entity') ?? ''
+  const back = (params: string) => NextResponse.redirect(new URL(`/entities?${params}`, req.url))
 
-  // CSRF protection: random nonce, stored in an httpOnly cookie + echoed in `state`.
-  // We also pack the target entity id into the state so the callback knows where to attach.
-  const nonce = randomUUID()
-  const state = `${nonce}.${entityId}`
+  if (!entityId) return back('xero=error&msg=missing_entity')
 
-  const authUrl = new URL(XERO_AUTH_URL)
-  authUrl.searchParams.set('response_type', 'code')
-  authUrl.searchParams.set('client_id', process.env.XERO_CLIENT_ID!)
-  authUrl.searchParams.set('redirect_uri', process.env.XERO_REDIRECT_URI!)
-  authUrl.searchParams.set('scope', process.env.XERO_SCOPES!)
-  authUrl.searchParams.set('state', state)
+  try {
+    const tenantId = await getCustomConnectionTenantId()
 
-  const res = NextResponse.redirect(authUrl.toString())
-  res.cookies.set('xero_oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 600,
-    path: '/',
-  })
-  return res
+    const admin = createAdminClient()
+    await admin.from('business_entities').update({ xero_tenant_id: tenantId }).eq('id', entityId)
+
+    return back('xero=connected')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'connect_failed'
+    // Most likely the Custom Connection hasn't been authorised in Xero yet.
+    return back(`xero=error&msg=${encodeURIComponent(msg.slice(0, 140))}`)
+  }
 }

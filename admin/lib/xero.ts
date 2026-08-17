@@ -12,14 +12,19 @@ export function xeroBasicAuth(): string {
 
 interface XeroTokenResponse {
   access_token: string
-  refresh_token: string
+  refresh_token?: string
   expires_in: number
   token_type: string
   scope: string
 }
 
-/** Exchange an authorization code for tokens. */
-export async function exchangeCodeForTokens(code: string): Promise<XeroTokenResponse> {
+/**
+ * Custom Connection token (machine-to-machine, client_credentials grant).
+ * The app is a Xero *Custom Connection*, so there is no user login / redirect:
+ * once an admin (Robbie) has authorised it once in Xero, the app fetches a
+ * fresh access token on demand with its client id + secret. No refresh token.
+ */
+export async function getCustomConnectionToken(): Promise<XeroTokenResponse> {
   const res = await fetch(XERO_TOKEN_URL, {
     method: 'POST',
     headers: {
@@ -27,12 +32,11 @@ export async function exchangeCodeForTokens(code: string): Promise<XeroTokenResp
       Authorization: `Basic ${xeroBasicAuth()}`,
     },
     body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: process.env.XERO_REDIRECT_URI!,
+      grant_type: 'client_credentials',
+      scope: process.env.XERO_SCOPES ?? '',
     }),
   })
-  if (!res.ok) throw new Error(`Xero token exchange failed (${res.status}): ${await res.text()}`)
+  if (!res.ok) throw new Error(`Xero token request failed (${res.status}): ${await res.text()}`)
   return res.json()
 }
 
@@ -46,45 +50,23 @@ export async function fetchXeroConnections(accessToken: string) {
 }
 
 /**
- * Returns a valid access token for a tenant, refreshing it if it's within ~2 min of expiry.
- * Updates the stored tokens on refresh. Use this for all Xero API calls (e.g. payroll export).
+ * Returns a valid Xero access token. For a Custom Connection there is nothing to
+ * refresh — we just request a fresh short-lived token via client_credentials.
+ * (Tokens last ~30 min; fetching a new one per operation is fine and simplest.)
  */
-export async function getValidXeroToken(tenantId: string): Promise<string> {
-  const admin = createAdminClient()
-  const { data: conn, error } = await admin
-    .from('xero_connections')
-    .select('access_token, refresh_token, expires_at')
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
-
-  if (error || !conn) throw new Error('This Xero organisation is not connected.')
-
-  const expiresAt = new Date(conn.expires_at).getTime()
-  if (Date.now() < expiresAt - 120_000) return conn.access_token
-
-  // Refresh
-  const res = await fetch(XERO_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${xeroBasicAuth()}`,
-    },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: conn.refresh_token,
-    }),
-  })
-  if (!res.ok) throw new Error(`Xero token refresh failed (${res.status}). Reconnect the organisation.`)
-  const token: XeroTokenResponse = await res.json()
-
-  await admin
-    .from('xero_connections')
-    .update({
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
-      expires_at: new Date(Date.now() + (token.expires_in - 60) * 1000).toISOString(),
-    })
-    .eq('tenant_id', tenantId)
-
+export async function getValidXeroToken(_tenantId?: string): Promise<string> {
+  const token = await getCustomConnectionToken()
   return token.access_token
+}
+
+/**
+ * The tenant (organisation) id for the Custom Connection. A Custom Connection is
+ * bound to exactly one org, so we read it from /connections with a fresh token.
+ * Cached lookups can store this, but it's cheap to fetch on demand.
+ */
+export async function getCustomConnectionTenantId(): Promise<string> {
+  const { access_token } = await getCustomConnectionToken()
+  const conns = await fetchXeroConnections(access_token)
+  if (!conns.length) throw new Error('Xero Custom Connection has no authorised organisation yet.')
+  return conns[0].tenantId
 }

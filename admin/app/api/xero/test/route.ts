@@ -65,11 +65,11 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const org       = await xeroGet('https://api.xero.com/api.xro/2.0/Organisations', token, tenantId)
+  // Only payroll scopes are granted (payroll.employees.read + payroll.settings.read),
+  // so we don't call the accounting Organisations endpoint here.
   const employees = await xeroGet('https://api.xero.com/payroll.xro/1.0/Employees', token, tenantId)
   const payItems  = await xeroGet('https://api.xero.com/payroll.xro/1.0/PayItems', token, tenantId)
 
-  const orgBody = org.body as any
   const empBody = employees.body as any
   const piBody  = payItems.body as any
 
@@ -92,15 +92,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     {
-      ok: org.ok && employees.ok && payItems.ok,
+      ok: employees.ok && payItems.ok,
       tenantId,
       connectedOrg: entityName,
       tokenRefresh: 'ok — token valid / refreshed successfully',
-      organisation: {
-        status: org.status,
-        name: org.ok ? orgBody?.Organisations?.[0]?.Name : undefined,
-        error: org.ok ? undefined : orgBody,
-      },
       payrollEmployees: {
         status: employees.status,
         count: emps?.length,
