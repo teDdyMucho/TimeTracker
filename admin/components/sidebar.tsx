@@ -11,6 +11,7 @@ import {
   Download,
   Landmark,
   LayoutGrid,
+  Link2,
   LogOut,
   MessageSquare,
   ScanLine,
@@ -31,6 +32,7 @@ const NAV = [
   { href: '/leave',      label: 'Leave',      icon: CalendarDays, badge: 'leave' as const },
   { href: '/reports',    label: 'Reports',    icon: BarChart3 },
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
+  { href: '/xero',       label: 'Xero',       icon: Link2 },
   { href: '/downloads',  label: 'Get the App', icon: Download },
 ]
 

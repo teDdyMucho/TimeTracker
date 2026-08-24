@@ -40,6 +40,38 @@ export async function getCustomConnectionToken(): Promise<XeroTokenResponse> {
   return res.json()
 }
 
+/** GET a Xero API endpoint with a valid token for the given tenant. */
+async function xeroApiGet(url: string, token: string, tenantId: string): Promise<any> {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, 'Xero-tenant-id': tenantId, Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`Xero GET ${url} failed (${res.status}): ${(await res.text()).slice(0, 200)}`)
+  return res.json()
+}
+
+export interface XeroEmployee { name: string; email: string | null; status: string | null }
+export interface XeroEarningsRate { name: string; earningsType: string | null; rateType: string | null }
+
+/** Read the payroll employees for a tenant (payroll.employees.read). */
+export async function fetchXeroEmployees(token: string, tenantId: string): Promise<XeroEmployee[]> {
+  const body = await xeroApiGet('https://api.xero.com/payroll.xro/1.0/Employees', token, tenantId)
+  return (body?.Employees ?? []).map((e: any) => ({
+    name: `${e.FirstName ?? ''} ${e.LastName ?? ''}`.trim(),
+    email: e.Email ?? null,
+    status: e.Status ?? null,
+  }))
+}
+
+/** Read the payroll earnings rates for a tenant (payroll.settings.read). */
+export async function fetchXeroEarningsRates(token: string, tenantId: string): Promise<XeroEarningsRate[]> {
+  const body = await xeroApiGet('https://api.xero.com/payroll.xro/1.0/PayItems', token, tenantId)
+  return (body?.PayItems?.EarningsRates ?? []).map((r: any) => ({
+    name: r.Name,
+    earningsType: r.EarningsType ?? null,
+    rateType: r.RateType ?? null,
+  }))
+}
+
 /** Get the list of orgs (tenants) this token can access. */
 export async function fetchXeroConnections(accessToken: string) {
   const res = await fetch(XERO_CONN_URL, {
