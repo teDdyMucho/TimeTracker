@@ -9,6 +9,7 @@ import PayrollDownload from './payroll-download'
 import ProjectTotalsFilter from './project-totals-filter'
 import ProjectTotals from './project-totals'
 import PayrollTabs from './payroll-tabs'
+import PushToXeroButton from './push-to-xero'
 import type { BusinessEntity } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -145,6 +146,9 @@ export default async function PayrollPage({
                       >
                         <Download size={12} /> PDF
                       </a>
+
+                      {/* Push approved timesheets to Xero */}
+                      <PushToXeroButton runId={r.id} />
 
                       {r.status === 'draft' && (
                         <form action={updatePayrollStatusAction}>
