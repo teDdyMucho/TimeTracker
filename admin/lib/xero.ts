@@ -134,6 +134,46 @@ export async function postXeroLeave(
   return { ok: res.ok, status: res.status, body }
 }
 
+export interface XeroTrackingOption { id: string; name: string }
+export interface XeroTimesheetTracking {
+  categoryId: string | null           // the payroll timesheet tracking category (null = no tracking required)
+  options: XeroTrackingOption[]        // available "Job" options
+}
+
+/**
+ * Find out whether payroll timesheets require a tracking item ("Job"), and get
+ * the available options. Reads Payroll Settings (payroll.settings.read) for the
+ * category, then the Accounting TrackingCategory (accounting.settings.read) for
+ * its options. Returns categoryId=null when no timesheet tracking is configured.
+ */
+export async function fetchTimesheetTracking(token: string, tenantId: string): Promise<XeroTimesheetTracking> {
+  const settings = await xeroApiGet('https://api.xero.com/payroll.xro/1.0/Settings', token, tenantId)
+  const cat = settings?.Settings?.TimesheetCategories
+  const categoryId: string | null = cat?.TrackingCategoryID ?? null
+  if (!categoryId) return { categoryId: null, options: [] }
+
+  try {
+    const acct = await xeroApiGet(`https://api.xero.com/api.xro/2.0/TrackingCategories/${categoryId}`, token, tenantId)
+    const options = (acct?.TrackingCategories?.[0]?.Options ?? [])
+      .filter((o: any) => o.Status === 'ACTIVE')
+      .map((o: any) => ({ id: o.TrackingOptionID, name: o.Name }))
+    return { categoryId, options }
+  } catch {
+    // accounting.settings.read not granted, or lookup failed
+    return { categoryId, options: [] }
+  }
+}
+
+/** Match a Timevera project name to a Xero tracking option ("Job") by name. */
+export function matchTrackingOptionId(projectName: string, options: XeroTrackingOption[]): string | null {
+  if (options.length === 0) return null
+  const n = projectName.trim().toLowerCase()
+  const exact = options.find((o) => o.name.trim().toLowerCase() === n)
+  if (exact) return exact.id
+  const partial = options.find((o) => o.name.toLowerCase().includes(n) || n.includes(o.name.toLowerCase()))
+  return partial?.id ?? null
+}
+
 /**
  * Match a Timevera pay band to a Xero earnings rate by name (rate names differ
  * per org). Returns the EarningsRateID or null if no reasonable match is found.
@@ -159,29 +199,33 @@ export function matchEarningsRateId(band: string, rates: XeroEarningsRate[]): st
 }
 
 /**
- * POST an APPROVED timesheet to Xero (payroll.timesheets scope).
- * Once approved, Xero auto-populates the matching draft pay run's payslips.
+ * POST a DRAFT timesheet to Xero (payroll.timesheets scope).
+ * It appears in Xero as a draft for the client to review & approve; once THEY
+ * approve it there, Xero auto-populates the matching pay run's payslips.
  */
-export interface XeroTimesheetLine { earningsRateId: string; numberOfUnits: number[] }
+export interface XeroTimesheetLine { earningsRateId: string; numberOfUnits: number[]; trackingItemId?: string | null }
 export async function postXeroTimesheet(
   token: string,
   tenantId: string,
   input: { employeeId: string; startDate: string; endDate: string; lines: XeroTimesheetLine[] },
 ): Promise<{ ok: boolean; status: number; body: any }> {
-  const payload = {
-    Timesheets: [
-      {
-        EmployeeID: input.employeeId,
-        StartDate: input.startDate,
-        EndDate: input.endDate,
-        Status: 'APPROVED',
-        TimesheetLines: input.lines.map((l) => ({
-          EarningsRateID: l.earningsRateId,
-          NumberOfUnits: l.numberOfUnits,
-        })),
-      },
-    ],
-  }
+  // Xero AU Timesheets expects a JSON ARRAY at the top level, not an object.
+  const payload = [
+    {
+      EmployeeID: input.employeeId,
+      StartDate: input.startDate,
+      EndDate: input.endDate,
+      // DRAFT so the client reviews & approves the timesheet in Xero before it
+      // flows into a pay run (they explicitly wanted the approval step in Xero).
+      Status: 'DRAFT',
+      TimesheetLines: input.lines.map((l) => ({
+        EarningsRateID: l.earningsRateId,
+        NumberOfUnits: l.numberOfUnits,
+        // Only include TrackingItemID when the org's payroll requires job tracking.
+        ...(l.trackingItemId ? { TrackingItemID: l.trackingItemId } : {}),
+      })),
+    },
+  ]
   const res = await fetch('https://api.xero.com/payroll.xro/1.0/Timesheets', {
     method: 'POST',
     headers: {

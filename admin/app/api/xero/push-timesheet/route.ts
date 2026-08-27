@@ -6,6 +6,7 @@ import {
   fetchXeroEmployees,
   fetchXeroEarningsRates,
   fetchXeroLeaveTypes,
+  fetchTimesheetTracking,
   matchEarningsRateId,
   matchLeaveTypeId,
   postXeroTimesheet,
@@ -82,18 +83,35 @@ export async function POST(req: NextRequest) {
   const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
   const employees = aggregatePayroll((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig)
 
-  // 2. Pull Xero employees + earnings rates.
+  // 2. Pull Xero employees + earnings rates + (if required) job tracking.
   const token = await getValidXeroToken(entity.xero_tenant_id)
-  const [xeroEmployees, xeroRates] = await Promise.all([
+  const [xeroEmployees, xeroRates, tracking] = await Promise.all([
     fetchXeroEmployees(token, entity.xero_tenant_id),
     fetchXeroEarningsRates(token, entity.xero_tenant_id),
+    fetchTimesheetTracking(token, entity.xero_tenant_id),
   ])
+
+  // If the org requires timesheet job tracking, we must attach a TrackingItemID.
+  // We use the first available "Job" option as the default (aggregation loses the
+  // per-project split). If tracking is required but no option is available (scope
+  // missing), we report a clear error instead of a cryptic Xero one.
+  const trackingRequired = !!tracking.categoryId
+  const defaultTrackingId = tracking.options[0]?.id ?? null
 
   const byEmail = new Map(xeroEmployees.filter((e) => e.email).map((e) => [e.email!.toLowerCase(), e]))
   const byName = new Map(xeroEmployees.map((e) => [e.name.toLowerCase(), e]))
   const nDays = daysInPeriod(from, to)
 
   const results: any[] = []
+
+  // If tracking is required but we couldn't load any job options, stop early
+  // with a clear message (usually the accounting.settings.read scope is missing).
+  if (trackingRequired && !defaultTrackingId) {
+    return NextResponse.json({
+      error: 'tracking_required',
+      hint: 'This Xero org requires a job/tracking item on timesheets, but no tracking options are available. Add the accounting.settings.read scope (and re-authorise), or disable timesheet tracking in Xero payroll settings.',
+    }, { status: 400 })
+  }
 
   for (const emp of employees) {
     const xe = (emp.email && byEmail.get(emp.email.toLowerCase())) || byName.get(emp.name.toLowerCase())
@@ -113,7 +131,7 @@ export async function POST(req: NextRequest) {
       // NumberOfUnits is a per-day array; place the total on the last day.
       const units = new Array(nDays).fill(0)
       units[nDays - 1] = Math.round(hours * 100) / 100
-      lines.push({ earningsRateId: rateId, numberOfUnits: units })
+      lines.push({ earningsRateId: rateId, numberOfUnits: units, trackingItemId: trackingRequired ? defaultTrackingId : undefined })
     }
 
     if (lines.length === 0) {
@@ -175,7 +193,7 @@ export async function POST(req: NextRequest) {
     leavePushed,
     leaveTotal: leaveResults.length,
     note: pushed > 0 || leavePushed > 0
-      ? 'Sent to Xero. Run payroll in Xero for this period — hours and leave will appear on the payslips.'
+      ? 'Sent to Xero as drafts. Review and approve the timesheets in Xero, then run payroll — hours and leave will appear on the payslips.'
       : 'Nothing pushed. See per-employee reasons below.',
     results,
     leaveResults,

@@ -42,8 +42,9 @@ export default function PushToXeroButton({ runId }: { runId: string }) {
           <div className="glass-panel rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-ink mb-2">Push timesheets to Xero?</h3>
             <p className="text-sm text-muted mb-5">
-              This sends each employee&rsquo;s approved <strong>worked hours</strong> and any approved <strong>leave</strong> to Xero
-              for this period. Run payroll in Xero afterwards and they will appear on the payslips. Nothing is posted to a pay run automatically.
+              This sends each employee&rsquo;s <strong>worked hours</strong> and any approved <strong>leave</strong> to Xero
+              for this period. The timesheets arrive as <strong>drafts</strong> — your team reviews and approves them in Xero,
+              then runs payroll and the hours &amp; leave appear on the payslips. Nothing is approved or posted automatically.
             </p>
             <div className="flex gap-3">
               <button
