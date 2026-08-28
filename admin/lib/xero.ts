@@ -25,6 +25,10 @@ interface XeroTokenResponse {
  * fresh access token on demand with its client id + secret. No refresh token.
  */
 export async function getCustomConnectionToken(): Promise<XeroTokenResponse> {
+  // For a Xero Custom Connection the granted scopes are fixed at authorisation
+  // time and come back with the token automatically. Passing an explicit `scope`
+  // param makes Xero reject it ("invalid_scope") unless it matches exactly — so
+  // we deliberately do NOT send one.
   const res = await fetch(XERO_TOKEN_URL, {
     method: 'POST',
     headers: {
@@ -33,7 +37,6 @@ export async function getCustomConnectionToken(): Promise<XeroTokenResponse> {
     },
     body: new URLSearchParams({
       grant_type: 'client_credentials',
-      scope: process.env.XERO_SCOPES ?? '',
     }),
   })
   if (!res.ok) throw new Error(`Xero token request failed (${res.status}): ${await res.text()}`)
@@ -142,25 +145,29 @@ export interface XeroTimesheetTracking {
 
 /**
  * Find out whether payroll timesheets require a tracking item ("Job"), and get
- * the available options. Reads Payroll Settings (payroll.settings.read) for the
- * category, then the Accounting TrackingCategory (accounting.settings.read) for
- * its options. Returns categoryId=null when no timesheet tracking is configured.
+ * the available options.
+ *
+ * NOTE: Payroll `Settings.TimesheetCategories` is unreliable — Build One's org
+ * returns no category there yet still rejects timesheet lines without a
+ * TrackingItemID ("TrackingItemID is required for each timesheet line"), because
+ * individual employees have a tracking category on their pay template. So we
+ * read the ACTIVE tracking categories straight from the Accounting API
+ * (accounting.settings.read) and treat the first one (the "Job" category) as the
+ * required timesheet tracking. Returns categoryId=null only when the org has no
+ * active tracking category at all.
  */
 export async function fetchTimesheetTracking(token: string, tenantId: string): Promise<XeroTimesheetTracking> {
-  const settings = await xeroApiGet('https://api.xero.com/payroll.xro/1.0/Settings', token, tenantId)
-  const cat = settings?.Settings?.TimesheetCategories
-  const categoryId: string | null = cat?.TrackingCategoryID ?? null
-  if (!categoryId) return { categoryId: null, options: [] }
-
   try {
-    const acct = await xeroApiGet(`https://api.xero.com/api.xro/2.0/TrackingCategories/${categoryId}`, token, tenantId)
-    const options = (acct?.TrackingCategories?.[0]?.Options ?? [])
+    const acct = await xeroApiGet('https://api.xero.com/api.xro/2.0/TrackingCategories', token, tenantId)
+    const cat = (acct?.TrackingCategories ?? []).find((c: any) => c.Status === 'ACTIVE')
+    if (!cat) return { categoryId: null, options: [] }
+    const options = (cat.Options ?? [])
       .filter((o: any) => o.Status === 'ACTIVE')
       .map((o: any) => ({ id: o.TrackingOptionID, name: o.Name }))
-    return { categoryId, options }
+    return { categoryId: cat.TrackingCategoryID, options }
   } catch {
-    // accounting.settings.read not granted, or lookup failed
-    return { categoryId, options: [] }
+    // accounting.settings.read not granted, or lookup failed — assume no tracking.
+    return { categoryId: null, options: [] }
   }
 }
 
