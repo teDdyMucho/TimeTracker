@@ -2,28 +2,26 @@
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
 
-/**
- * Email the new employee their login details via the Outlook edge function.
- * Best-effort: never throws — a mail hiccup must not fail account creation.
- */
-async function sendInviteEmail(input: { to: string; name: string; email: string; password: string }): Promise<boolean> {
-  try {
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const secret = process.env.INVITE_SHARED_SECRET
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!base || !serviceKey) return false
+// Webhook that emails the new employee their login details (LeadConnector /
+// GoHighLevel). Overridable via env; falls back to the configured hook.
+const INVITE_WEBHOOK_URL =
+  process.env.INVITE_WEBHOOK_URL ??
+  'https://services.leadconnectorhq.com/hooks/UINzfFP22ldM8Tg7KjAy/webhook-trigger/40236970-a1b1-4974-8f5d-86f5b89cf04d'
 
-    const res = await fetch(`${base}/functions/v1/send-employee-invite`, {
+/**
+ * Send the new employee their login details to the invite webhook, which emails
+ * them. Best-effort: never throws — a webhook hiccup must not fail account
+ * creation. Posts exactly Name / Email / password (the fields the automation
+ * expects), plus the app install link.
+ */
+async function sendInviteEmail(input: { name: string; email: string; password: string }): Promise<boolean> {
+  try {
+    const res = await fetch(INVITE_WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${serviceKey}`,
-        ...(secret ? { 'x-invite-secret': secret } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: input.to,
-        name: input.name,
-        email: input.email,
+        Name: input.name,
+        Email: input.email,
         password: input.password,
         loginUrl: 'https://timevera.netlify.app/install',
       }),
@@ -87,8 +85,8 @@ export async function createEmployeeAction(
     }
   }
 
-  // Email the employee their login details via Outlook (best-effort).
-  await sendInviteEmail({ to: email, name, email, password })
+  // Send the employee their login details via the invite webhook (best-effort).
+  await sendInviteEmail({ name, email, password })
 
   revalidatePath('/employees')
   return null
