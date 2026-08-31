@@ -14,7 +14,19 @@ export default function PushToXeroButton({ runId }: { runId: string }) {
     setState('pushing')
     try {
       const res = await fetch(`/api/xero/push-timesheet?run=${runId}`, { method: 'POST' })
-      setResult(await res.json())
+      // Parse defensively: a crashed/timed-out route can return an empty body,
+      // which res.json() rejects with "Unexpected end of JSON input".
+      const text = await res.text()
+      let data: any
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = { error: `Server returned an unexpected response (${res.status}). ${text.slice(0, 300)}` }
+      }
+      if (!res.ok && !data.error) {
+        data.error = data.hint ?? `Push failed (${res.status}).`
+      }
+      setResult(data)
     } catch (e) {
       setResult({ error: e instanceof Error ? e.message : 'Push failed.' })
     } finally {
