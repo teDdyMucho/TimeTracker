@@ -52,7 +52,13 @@ async function xeroApiGet(url: string, token: string, tenantId: string): Promise
   return res.json()
 }
 
-export interface XeroEmployee { id: string; name: string; email: string | null; status: string | null }
+export interface XeroEmployee {
+  id: string
+  name: string
+  email: string | null
+  status: string | null
+  payrollCalendarId: string | null   // which pay calendar this employee is on
+}
 export interface XeroEarningsRate { id: string; name: string; earningsType: string | null; rateType: string | null }
 
 /** Read the payroll employees for a tenant (payroll.employees.read). */
@@ -63,7 +69,20 @@ export async function fetchXeroEmployees(token: string, tenantId: string): Promi
     name: `${e.FirstName ?? ''} ${e.LastName ?? ''}`.trim(),
     email: e.Email ?? null,
     status: e.Status ?? null,
+    // The list endpoint may omit PayrollCalendarID; callers can fall back to the
+    // single active calendar. Present on the detail endpoint if needed.
+    payrollCalendarId: e.PayrollCalendarID ?? null,
   }))
+}
+
+/** Read one employee's full record (includes PayrollCalendarID). */
+export async function fetchXeroEmployeeCalendarId(token: string, tenantId: string, employeeId: string): Promise<string | null> {
+  try {
+    const body = await xeroApiGet(`https://api.xero.com/payroll.xro/1.0/Employees/${employeeId}`, token, tenantId)
+    return body?.Employees?.[0]?.PayrollCalendarID ?? null
+  } catch {
+    return null
+  }
 }
 
 /** Read the payroll earnings rates for a tenant (payroll.settings.read). */
@@ -169,6 +188,95 @@ export async function fetchTimesheetTracking(token: string, tenantId: string): P
     // accounting.settings.read not granted, or lookup failed — assume no tracking.
     return { categoryId: null, options: [] }
   }
+}
+
+export interface XeroPayCalendar {
+  id: string
+  name: string
+  type: string          // e.g. "FORTNIGHTLY", "WEEKLY", "MONTHLY"
+  startDate: string     // ISO date of a period start (anchor)
+}
+
+const DAY_MS = 86_400_000
+function periodLengthDays(type: string): number | null {
+  switch (type) {
+    case 'WEEKLY': return 7
+    case 'FORTNIGHTLY': return 14
+    default: return null   // monthly/quarterly handled separately (not aligned here)
+  }
+}
+
+/** Align a date range to ONE known calendar's fixed-length period. */
+export function alignToOneCalendar(
+  from: string,
+  to: string,
+  cal: XeroPayCalendar,
+): { from: string; to: string } | null {
+  const len = periodLengthDays(cal.type)
+  if (!len) return null
+  const anchor = new Date(cal.startDate + 'T00:00:00Z').getTime()
+  const fromMs = new Date(from + 'T00:00:00Z').getTime()
+  const periodsBefore = Math.floor((fromMs - anchor) / (len * DAY_MS))
+  const startMs = anchor + periodsBefore * len * DAY_MS
+  const endMs = startMs + (len - 1) * DAY_MS
+  return { from: new Date(startMs).toISOString().slice(0, 10), to: new Date(endMs).toISOString().slice(0, 10) }
+}
+
+/** Parse a Xero "/Date(1234567890000+0000)/" string to an ISO date (YYYY-MM-DD). */
+function parseXeroDate(s: string | null | undefined): string | null {
+  if (!s) return null
+  const m = s.match(/\/Date\((\d+)/)
+  if (!m) return null
+  return new Date(parseInt(m[1], 10)).toISOString().slice(0, 10)
+}
+
+/** Read the org's pay calendars (payroll.settings.read) — used to align periods. */
+export async function fetchXeroPayCalendars(token: string, tenantId: string): Promise<XeroPayCalendar[]> {
+  const body = await xeroApiGet('https://api.xero.com/payroll.xro/1.0/PayrollCalendars', token, tenantId)
+  return (body?.PayrollCalendars ?? []).map((c: any) => ({
+    id: c.PayrollCalendarID,
+    name: c.Name,
+    type: c.CalendarType,
+    startDate: parseXeroDate(c.StartDate) ?? '',
+  })).filter((c: XeroPayCalendar) => c.startDate)
+}
+
+/**
+ * Snap a payroll period to the Xero pay calendar it best matches, so Xero
+ * accepts the timesheet. Xero rejects a timesheet ("validation exception" /
+ * "Provided period doesn't correspond with a pay period") unless its dates line
+ * up exactly with one of the org's pay-calendar periods.
+ *
+ * We take the calendar whose fixed-length period (weekly/fortnightly) contains
+ * the given `from` date and return that period's exact start/end. If no
+ * fixed-length calendar matches, we return the original dates unchanged.
+ */
+export function alignPeriodToCalendar(
+  from: string,
+  to: string,
+  calendars: XeroPayCalendar[],
+): { from: string; to: string; calendar: XeroPayCalendar | null } {
+  const fromMs = new Date(from + 'T00:00:00Z').getTime()
+  let best: { from: string; to: string; calendar: XeroPayCalendar; overlap: number } | null = null
+
+  for (const cal of calendars) {
+    const len = periodLengthDays(cal.type)
+    if (!len) continue
+    const anchor = new Date(cal.startDate + 'T00:00:00Z').getTime()
+    // Find the period start on/just before `from`.
+    const periodsBefore = Math.floor((fromMs - anchor) / (len * DAY_MS))
+    const startMs = anchor + periodsBefore * len * DAY_MS
+    const endMs = startMs + (len - 1) * DAY_MS
+    const pStart = new Date(startMs).toISOString().slice(0, 10)
+    const pEnd = new Date(endMs).toISOString().slice(0, 10)
+    // Prefer the calendar whose period overlaps the requested [from,to] the most.
+    const toMs = new Date(to + 'T00:00:00Z').getTime()
+    const overlap = Math.min(endMs, toMs) - Math.max(startMs, fromMs)
+    if (!best || overlap > best.overlap) best = { from: pStart, to: pEnd, calendar: cal, overlap }
+  }
+
+  if (!best) return { from, to, calendar: null }
+  return { from: best.from, to: best.to, calendar: best.calendar }
 }
 
 /** Match a Timevera project name to a Xero tracking option ("Job") by name. */

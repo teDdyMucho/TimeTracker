@@ -7,6 +7,9 @@ import {
   fetchXeroEarningsRates,
   fetchXeroLeaveTypes,
   fetchTimesheetTracking,
+  fetchXeroPayCalendars,
+  fetchXeroEmployeeCalendarId,
+  alignToOneCalendar,
   matchEarningsRateId,
   matchLeaveTypeId,
   postXeroTimesheet,
@@ -83,13 +86,22 @@ export async function POST(req: NextRequest) {
   const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
   const employees = aggregatePayroll((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig)
 
-  // 2. Pull Xero employees + earnings rates + (if required) job tracking.
+  // 2. Pull Xero employees + earnings rates + (if required) job tracking + calendars.
   const token = await getValidXeroToken(entity.xero_tenant_id)
-  const [xeroEmployees, xeroRates, tracking] = await Promise.all([
+  const [xeroEmployees, xeroRates, tracking, calendars] = await Promise.all([
     fetchXeroEmployees(token, entity.xero_tenant_id),
     fetchXeroEarningsRates(token, entity.xero_tenant_id),
     fetchTimesheetTracking(token, entity.xero_tenant_id),
+    fetchXeroPayCalendars(token, entity.xero_tenant_id),
   ])
+
+  // Xero only accepts a timesheet whose dates align exactly with the employee's
+  // pay-calendar period. Our pay run's period may not (it can start mid-week), so
+  // we snap the timesheet window to that calendar per employee (below). The org
+  // may have several calendars; a single one is the common fallback.
+  const calendarById = new Map(calendars.map((c) => [c.id, c]))
+  const soleCalendar = calendars.length === 1 ? calendars[0] : null
+  const calIdCache = new Map<string, string | null>()
 
   // If the org requires timesheet job tracking, we must attach a TrackingItemID.
   // We use the first available "Job" option as the default (aggregation loses the
@@ -100,9 +112,10 @@ export async function POST(req: NextRequest) {
 
   const byEmail = new Map(xeroEmployees.filter((e) => e.email).map((e) => [e.email!.toLowerCase(), e]))
   const byName = new Map(xeroEmployees.map((e) => [e.name.toLowerCase(), e]))
-  const nDays = daysInPeriod(from, to)
 
   const results: any[] = []
+  let lastXeroFrom = from
+  let lastXeroTo = to
 
   // If tracking is required but we couldn't load any job options, stop early
   // with a clear message (usually the accounting.settings.read scope is missing).
@@ -119,6 +132,22 @@ export async function POST(req: NextRequest) {
       results.push({ employee: emp.name, ok: false, reason: 'No matching Xero employee (check name/email).' })
       continue
     }
+
+    // Snap the timesheet window to THIS employee's pay calendar (Xero rejects a
+    // timesheet whose dates don't match the employee's calendar period exactly).
+    let calId = xe.payrollCalendarId
+    if (!calId && calIdCache.has(xe.id)) calId = calIdCache.get(xe.id) ?? null
+    if (!calId) {
+      calId = await fetchXeroEmployeeCalendarId(token, entity.xero_tenant_id, xe.id)
+      calIdCache.set(xe.id, calId)
+    }
+    const cal = (calId && calendarById.get(calId)) || soleCalendar
+    const aligned = cal ? alignToOneCalendar(from, to, cal) : null
+    const xeroFrom = aligned?.from ?? from
+    const xeroTo = aligned?.to ?? to
+    lastXeroFrom = xeroFrom
+    lastXeroTo = xeroTo
+    const nDays = daysInPeriod(xeroFrom, xeroTo)
 
     // Build one timesheet line per band that has hours + a matching Xero rate.
     const lines = []
@@ -140,7 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     const res = await postXeroTimesheet(token, entity.xero_tenant_id, {
-      employeeId: xe.id, startDate: from, endDate: to, lines,
+      employeeId: xe.id, startDate: xeroFrom, endDate: xeroTo, lines,
     })
     results.push({
       employee: emp.name,
@@ -188,6 +217,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     entity: entity.name,
     period: { from, to },
+    xeroPeriod: { from: lastXeroFrom, to: lastXeroTo },
     pushed,
     total: results.length,
     leavePushed,
