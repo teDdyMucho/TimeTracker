@@ -54,7 +54,8 @@ export default function ProjectsClient({
           All
         </button>
         {entities.map((e) => {
-          const count = projects.filter((p) => p.business_entity_id === e.id).length
+          // Tab count shows ACTIVE projects only (per requirement).
+          const count = projects.filter((p) => p.business_entity_id === e.id && p.status === 'active').length
           const active = activeId === e.id
           return (
             <button
