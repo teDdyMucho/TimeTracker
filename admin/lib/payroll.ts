@@ -216,3 +216,52 @@ export function aggregatePayroll(
   }
   return result.sort((a, b) => a.name.localeCompare(b.name))
 }
+
+export interface EmployeeDayBands {
+  profileId: string
+  name: string
+  email: string | null
+  /** band → (work_date → hours on that date). Only bands/dates with hours appear. */
+  byBand: Record<PayBand, Record<string, number>>
+  totalHours: number
+}
+
+/**
+ * Like aggregatePayroll, but keeps each band's hours split BY DATE, so the Xero
+ * timesheet can place hours on the actual day worked (not lumped on the last
+ * day). The OT ladder still applies per day (overtime is a function of that
+ * day's total hours).
+ */
+export function aggregatePayrollByDay(
+  rows: TimesheetRow[],
+  holidays: Set<string>,
+  cfg: PayConfig,
+): EmployeeDayBands[] {
+  const byEmpDay = new Map<string, Map<string, number>>()
+  const meta = new Map<string, { name: string; email: string | null }>()
+
+  for (const r of rows) {
+    if (!r.profile_id) continue
+    meta.set(r.profile_id, { name: r.profiles?.name ?? 'Unknown', email: r.profiles?.email ?? null })
+    const days = byEmpDay.get(r.profile_id) ?? new Map<string, number>()
+    days.set(r.work_date, round2((days.get(r.work_date) ?? 0) + Number(r.hours)))
+    byEmpDay.set(r.profile_id, days)
+  }
+
+  const result: EmployeeDayBands[] = []
+  for (const [pid, days] of byEmpDay) {
+    const byBand = Object.fromEntries(PAY_BANDS.map((b) => [b, {} as Record<string, number>])) as Record<PayBand, Record<string, number>>
+    let total = 0
+    for (const [date, hours] of days) {
+      const dt = classifyDay(date, holidays.has(date))
+      const split = splitDayHours(hours, dt, cfg)
+      for (const [band, h] of Object.entries(split)) {
+        byBand[band as PayBand][date] = round2((byBand[band as PayBand][date] ?? 0) + (h as number))
+      }
+      total = round2(total + hours)
+    }
+    const m = meta.get(pid)!
+    result.push({ profileId: pid, name: m.name, email: m.email, byBand, totalHours: total })
+  }
+  return result.sort((a, b) => a.name.localeCompare(b.name))
+}

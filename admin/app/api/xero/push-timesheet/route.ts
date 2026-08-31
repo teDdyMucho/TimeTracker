@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/server'
-import { aggregatePayroll, PAY_BANDS, type PayConfig } from '@/lib/payroll'
+import { aggregatePayrollByDay, PAY_BANDS, type PayConfig } from '@/lib/payroll'
 import {
   getValidXeroToken,
   fetchXeroEmployees,
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
   const { data: holRows } = await admin
     .from('public_holidays').select('date').gte('date', from).lte('date', to)
   const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
-  const employees = aggregatePayroll((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig)
+  const employees = aggregatePayrollByDay((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig)
 
   // 2. Pull Xero employees + earnings rates + (if required) job tracking + calendars.
   const token = await getValidXeroToken(entity.xero_tenant_id)
@@ -148,18 +148,32 @@ export async function POST(req: NextRequest) {
     lastXeroFrom = xeroFrom
     lastXeroTo = xeroTo
     const nDays = daysInPeriod(xeroFrom, xeroTo)
+    // Index each aligned-period date (YYYY-MM-DD) → its slot in NumberOfUnits.
+    const startMs = new Date(xeroFrom + 'T00:00:00Z').getTime()
+    const dayIndex = (date: string) =>
+      Math.round((new Date(date + 'T00:00:00Z').getTime() - startMs) / 86_400_000)
 
-    // Build one timesheet line per band that has hours + a matching Xero rate.
+    // Build one timesheet line per band that has hours + a matching Xero rate,
+    // placing each day's hours on its actual day within the aligned period.
     const lines = []
     const unmapped: string[] = []
     for (const band of PAY_BANDS) {
-      const hours = emp.bandHours[band] ?? 0
-      if (hours <= 0) continue
+      const perDay = emp.byBand[band] ?? {}
+      const bandTotal = Object.values(perDay).reduce((a, b) => a + b, 0)
+      if (bandTotal <= 0) continue
       const rateId = matchEarningsRateId(band, xeroRates)
       if (!rateId) { unmapped.push(band); continue }
-      // NumberOfUnits is a per-day array; place the total on the last day.
+      // NumberOfUnits is a per-day array over the aligned period.
       const units = new Array(nDays).fill(0)
-      units[nDays - 1] = Math.round(hours * 100) / 100
+      let placed = 0
+      for (const [date, h] of Object.entries(perDay)) {
+        const i = dayIndex(date)
+        if (i >= 0 && i < nDays) { units[i] = Math.round((units[i] + h) * 100) / 100; placed += h }
+      }
+      // Any hours whose date fell outside the aligned window go on the last day,
+      // so the total is never lost (edge case: run period vs. calendar mismatch).
+      const leftover = Math.round((bandTotal - placed) * 100) / 100
+      if (leftover > 0) units[nDays - 1] = Math.round((units[nDays - 1] + leftover) * 100) / 100
       lines.push({ earningsRateId: rateId, numberOfUnits: units, trackingItemId: trackingRequired ? defaultTrackingId : undefined })
     }
 
