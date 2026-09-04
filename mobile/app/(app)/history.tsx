@@ -93,7 +93,11 @@ export default function History() {
 
                     {/* Details */}
                     <View className="flex-1 pr-2">
-                      <Text className="text-ink font-semibold">
+                      {/* Specific project name (falls back gracefully if missing) */}
+                      <Text className="text-ink font-semibold" numberOfLines={1}>
+                        {t.projects?.name ?? 'No project'}
+                      </Text>
+                      <Text className="text-muted text-xs mt-0.5">
                         {t.work_location === 'site' ? 'On Site' : 'Factory'}
                       </Text>
                       <Text className="text-muted text-xs capitalize mt-0.5">

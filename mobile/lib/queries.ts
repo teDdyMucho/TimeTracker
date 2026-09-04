@@ -58,7 +58,8 @@ export async function fetchTimesheetsBetween(
 export async function fetchRecentTimesheets(userId: string, limit = 20): Promise<Timesheet[]> {
   const { data, error } = await supabase
     .from('timesheets')
-    .select('*')
+    // Join the project so each time log can show the specific project name.
+    .select('*, projects(name)')
     .eq('profile_id', userId)
     .order('work_date', { ascending: false })
     .order('created_at', { ascending: false })

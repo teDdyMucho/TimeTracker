@@ -332,10 +332,13 @@ export default function Home() {
                 <View className="flex-row justify-between items-center">
                   <View className="flex-1 pr-3">
                     <Text className="font-semibold text-ink" numberOfLines={1}>
-                      {friendlyDate(t.work_date)}
+                      {t.projects?.name ?? 'No project'}
                     </Text>
-                    <Text className="text-muted text-sm capitalize">
-                      {t.work_location === 'site' ? 'On Site' : 'Factory'} &middot;{' '}
+                    <Text className="text-muted text-sm">
+                      {friendlyDate(t.work_date)} &middot;{' '}
+                      {t.work_location === 'site' ? 'On Site' : 'Factory'}
+                    </Text>
+                    <Text className="text-muted text-xs capitalize mt-0.5">
                       {t.overtime_status !== 'none' ? `OT ${t.overtime_status}` : t.status}
                     </Text>
                   </View>

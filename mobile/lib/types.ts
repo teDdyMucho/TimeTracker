@@ -43,6 +43,8 @@ export interface Timesheet {
   overtime_status: OvertimeStatus;
   status: TimesheetStatus;
   created_at: string;
+  /** Joined from the projects table (fetchRecentTimesheets) for display. */
+  projects?: { name: string | null } | null;
 }
 
 /** A single project/location/hours line in the entry form. */
