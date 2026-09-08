@@ -12,7 +12,7 @@ import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-r
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
 // Google Drive direct-download for the APK. Large files (>25 MB) need the
 // `confirm=t` form to skip Drive's virus-scan interstitial and download directly.
-const ANDROID_APK_FILE_ID = '1MjKveSdaU-4UzDfaITyhadigzcpE-NpE'
+const ANDROID_APK_FILE_ID = '1TT4Fw44peMK2UL9bbMHak94_Ju_fF6Vk'
 const ANDROID_APK_URL = `https://drive.usercontent.google.com/download?id=${ANDROID_APK_FILE_ID}&export=download&confirm=t`
 
 const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH')
