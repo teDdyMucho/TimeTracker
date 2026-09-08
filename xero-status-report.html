@@ -1,0 +1,347 @@
+<title>Timevera × Xero Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --ground: #F7F5F1;
+    --surface: #FFFFFF;
+    --surface-2: #F1EDE6;
+    --ink: #1C1A16;
+    --ink-soft: #565049;
+    --ink-faint: #8A8177;
+    --line: #E3DCD1;
+    --bronze: #9A7A4E;
+    --bronze-deep: #7C5F38;
+    --xero: #13B5EA;
+    --good: #3E8E5A;
+    --good-bg: #E6F0E9;
+    --warn: #B07A24;
+    --warn-bg: #F7EFDD;
+    --shadow: 0 1px 2px rgba(28,26,22,.04), 0 6px 20px rgba(28,26,22,.06);
+    --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ground: #17150F;
+      --surface: #201D16;
+      --surface-2: #2A261D;
+      --ink: #F3EEE4;
+      --ink-soft: #C3BAA9;
+      --ink-faint: #928878;
+      --line: #362F24;
+      --bronze: #C9A876;
+      --bronze-deep: #E0C398;
+      --xero: #4CC7F0;
+      --good: #6FBE8A;
+      --good-bg: #1E2E22;
+      --warn: #D9AD5B;
+      --warn-bg: #2E2612;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #17150F;
+    --surface: #201D16;
+    --surface-2: #2A261D;
+    --ink: #F3EEE4;
+    --ink-soft: #C3BAA9;
+    --ink-faint: #928878;
+    --line: #362F24;
+    --bronze: #C9A876;
+    --bronze-deep: #E0C398;
+    --xero: #4CC7F0;
+    --good: #6FBE8A;
+    --good-bg: #1E2E22;
+    --warn: #D9AD5B;
+    --warn-bg: #2E2612;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+
+  /* ---- Masthead ---- */
+  .eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--bronze-deep); margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 5vw, 44px);
+    line-height: 1.08; letter-spacing: -.01em; margin: 0 0 16px; text-wrap: balance;
+  }
+  .lede { font-size: 17px; color: var(--ink-soft); margin: 0; max-width: 60ch; }
+
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 24px;
+    padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-faint);
+  }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---- Status banner ---- */
+  .banner {
+    margin: 36px 0 44px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow); overflow: hidden;
+    display: grid; grid-template-columns: 6px 1fr;
+  }
+  .banner-rail { background: var(--good); }
+  .banner-body { padding: 22px 26px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+    background: var(--good-bg); color: var(--good);
+    font-weight: 600; font-size: 14px; padding: 7px 14px; border-radius: 999px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .banner-text { font-size: 15px; color: var(--ink-soft); }
+  .banner-text b { color: var(--ink); font-weight: 600; }
+
+  /* ---- Section ---- */
+  h2 {
+    font-family: var(--serif); font-weight: 500; font-size: 23px; letter-spacing: -.01em;
+    margin: 0 0 6px;
+  }
+  .section-note { font-size: 14px; color: var(--ink-faint); margin: 0 0 20px; }
+  section { margin-bottom: 44px; }
+
+  /* ---- Feature list ---- */
+  .features { display: flex; flex-direction: column; gap: 12px; }
+  .feature {
+    display: grid; grid-template-columns: 26px 1fr auto; gap: 4px 14px; align-items: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .check {
+    grid-row: span 2; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%;
+    background: var(--good-bg); color: var(--good);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check svg { width: 14px; height: 14px; }
+  .feature h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .feature p { margin: 3px 0 0; grid-column: 2; font-size: 13.5px; color: var(--ink-soft); }
+  .pill {
+    grid-row: span 2; align-self: center; font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+    padding: 5px 11px; border-radius: 999px; background: var(--good-bg); color: var(--good);
+  }
+
+  /* ---- Verified strip ---- */
+  .verified {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .verified h3 { margin: 0 0 14px; font-size: 13px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--bronze-deep); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 20px 24px; }
+  .fact .n { font-family: var(--serif); font-size: 27px; font-weight: 500; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1; }
+  .fact .l { font-size: 12.5px; color: var(--ink-faint); margin-top: 5px; }
+
+  /* ---- Action callout (ARKO) ---- */
+  .action {
+    background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--line));
+    border-radius: 16px; padding: 26px 28px; box-shadow: var(--shadow);
+  }
+  .action-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .action-tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--warn); color: #fff; font-size: 12px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px;
+  }
+  :root[data-theme="dark"] .action-tag, :root:not([data-theme="light"]) .action-tag { color: #17150F; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .action-tag { color:#17150F; } }
+  .action h2 { margin: 0; color: var(--ink); }
+  .action p { color: var(--ink-soft); font-size: 15px; margin: 10px 0 0; }
+  .steps { margin: 18px 0 0; padding: 0; list-style: none; counter-reset: s; }
+  .steps li {
+    counter-increment: s; position: relative; padding: 8px 0 8px 40px; font-size: 14.5px;
+    color: var(--ink-soft); border-top: 1px solid color-mix(in srgb, var(--warn) 20%, transparent);
+  }
+  .steps li:first-child { border-top: none; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 7px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--warn); color: #fff; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  :root[data-theme="dark"] .steps li::before, :root:not([data-theme="light"]) .steps li::before { color:#17150F; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .steps li::before { color:#17150F; } }
+  .steps b { color: var(--ink); font-weight: 600; }
+  .scopes {
+    margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px;
+    color: var(--ink-soft); line-height: 1.9;
+  }
+  .scopes .k { color: var(--bronze-deep); }
+
+  footer {
+    margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-faint); display: flex; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+  }
+  footer b { color: var(--ink-soft); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Integration Status Report</p>
+    <h1>Build One is live on Xero</h1>
+    <p class="lede">The Timevera admin dashboard now sends timesheets and leave straight into Build One Design &amp; Construction's Xero payroll — and every feature raised in review is done.</p>
+    <div class="meta">
+      <span><b>Organisation</b> · Build One Design and Construction</span>
+      <span><b>Connection</b> · Xero Custom Connection</span>
+      <span><b>Date</b> · 1 September 2026</span>
+    </div>
+  </header>
+
+  <div class="banner">
+    <div class="banner-rail"></div>
+    <div class="banner-body">
+      <span class="status-badge"><span class="dot"></span>Connected</span>
+      <span class="banner-text">Authorised by <b>chris@buildonedesignconstruction.com.au</b>. Tested end-to-end — timesheets arrive in Xero as <b>drafts</b> for your team to review and approve before payroll.</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>The Xero integration</h2>
+    <p class="section-note">What the "Push to Xero" button does, verified against Build One's live org.</p>
+    <div class="features">
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Worked hours push to Xero</h3>
+        <span class="pill">Working</span>
+        <p>Each employee's hours land on the correct earnings rate (Ordinary, Overtime, and so on) and on the actual day worked.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Approved leave push to Xero</h3>
+        <span class="pill">Working</span>
+        <p>Approved leave for the period is sent alongside the hours and flows onto the payslip when payroll is run.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Sent as drafts for your approval</h3>
+        <span class="pill">By design</span>
+        <p>Nothing is posted automatically. Timesheets arrive as drafts — your accountant reviews and approves them in Xero, then runs payroll.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Job tracking attached automatically</h3>
+        <span class="pill">Working</span>
+        <p>The correct Job (Build One's tracking category) is attached to every line, as Xero requires.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Pay period aligns to Xero automatically</h3>
+        <span class="pill">Working</span>
+        <p>The timesheet window snaps to the employee's Xero pay calendar, so Xero accepts it every time.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Clear result for every employee</h3>
+        <span class="pill">Working</span>
+        <p>Anyone without a matching Xero employee is reported, not silently skipped — you always see exactly what pushed.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="verified">
+      <h3>Verified against Build One's Xero org</h3>
+      <div class="facts">
+        <div class="fact"><div class="n">6</div><div class="l">Active employees synced</div></div>
+        <div class="fact"><div class="n">20</div><div class="l">Earnings rates read</div></div>
+        <div class="fact"><div class="n">9</div><div class="l">Leave types mapped</div></div>
+        <div class="fact"><div class="n">8</div><div class="l">Jobs available for tracking</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The other concerns raised in review</h2>
+    <p class="section-note">All addressed and committed.</p>
+    <div class="features">
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Build One + ARKO logos on timesheet &amp; payslip PDFs</h3>
+        <span class="pill">Done</span>
+        <p>Both logos now appear on every generated PDF.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>New employee automatically emailed their login</h3>
+        <span class="pill">Done</span>
+        <p>Creating an account now sends the person their name, email and password automatically (via a reliable webhook, replacing the Microsoft mail error).</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Custom pay-run start &amp; end dates</h3>
+        <span class="pill">Done</span>
+        <p>You can set any period start and end date when generating a pay run.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Xero push error fixed</h3>
+        <span class="pill">Done</span>
+        <p>The "unexpected end of JSON" push error is resolved, with clear messages if anything ever goes wrong.</p>
+      </div>
+
+      <div class="feature">
+        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <h3>Projects tab shows active projects first</h3>
+        <span class="pill">Done</span>
+        <p>Active projects are listed first, and each tab's count now reflects active projects only.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="action">
+    <div class="action-head">
+      <span class="action-tag"><span class="dot"></span>Action needed</span>
+    </div>
+    <h2>ARKO Joinery still needs its own Xero invite</h2>
+    <p>A Xero Custom Connection links to <b>one organisation only</b>. Build One is connected and working. To run the same integration for <b>ARKO Joinery Pty Ltd</b>, we need a separate connection authorised on ARKO's Xero org — same one-time step Chris did for Build One.</p>
+
+    <ol class="steps">
+      <li>Someone with admin access to <b>ARKO Joinery's Xero</b> receives and accepts the Custom Connection invite.</li>
+      <li>They approve the <b>four scopes</b> below (identical to Build One's).</li>
+      <li>Xero issues a <b>Client Secret</b> for ARKO, which we add to the app — and ARKO's push works exactly like Build One's.</li>
+    </ol>
+
+    <div class="scopes">
+      <div><span class="k">payroll.employees</span> &nbsp;— read employees, write leave</div>
+      <div><span class="k">payroll.timesheets</span> &nbsp;— write worked hours</div>
+      <div><span class="k">payroll.settings.read</span> &nbsp;— read rates, leave types, calendar</div>
+      <div><span class="k">accounting.settings.read</span> &nbsp;— read job tracking</div>
+    </div>
+  </section>
+
+  <footer>
+    <span><b>Timevera</b> — Workforce time tracking</span>
+    <span>Prepared for Build One Design &amp; Construction · ARKO Joinery</span>
+  </footer>
+
+</div>
