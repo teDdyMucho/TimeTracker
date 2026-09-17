@@ -64,22 +64,42 @@ async function fetchProfileWithRetry(userId: string, attempts = 3): Promise<Prof
   return null;
 }
 
-/**
- * On a cold start with an expired token, getSession() refreshes it first. If
- * that refresh fails on a network error it reports "no session" even though the
- * saved login is still valid — which looked like a random sign-out. Only treat
- * it as signed out when there is no error; otherwise retry.
- */
-async function getSessionWithRetry(attempts = 3): Promise<Session | null> {
-  for (let i = 0; i < attempts; i++) {
-    const { data, error } = await supabase.auth.getSession();
-    if (data.session || !error) return data.session;
-    if (i < attempts - 1) await wait(1500 * (i + 1));
-  }
-  return null;
-}
+export const useAuth = create<AuthState>((set, get) => {
+  // One background profile sync per user at a time (init and the INITIAL_SESSION
+  // event both ask for one on startup).
+  const inflight = new Map<string, Promise<void>>();
 
-export const useAuth = create<AuthState>((set, get) => ({
+  /**
+   * Load the profile WITHOUT blocking the caller. auth-js awaits every
+   * onAuthStateChange callback, so retrying inside one would stall sign-in and
+   * token refresh for seconds. Results are dropped if the user signed out or
+   * switched account while the fetch was running.
+   */
+  const syncProfile = (userId: string): Promise<void> => {
+    const running = inflight.get(userId);
+    if (running) return running;
+
+    const task = (async () => {
+      const fresh = await fetchProfileWithRetry(userId);
+      if (get().session?.user.id !== userId) return; // stale: signed out / switched
+      if (fresh) {
+        set({ profile: fresh });
+        await writeCachedProfile(fresh);
+        return;
+      }
+      // Fetch failed — never wipe a good profile. Keep the one in memory if it
+      // belongs to this user, else fall back to the device cache.
+      const current = get().profile;
+      if (current?.id === userId) return;
+      const cached = await readCachedProfile(userId);
+      if (get().session?.user.id === userId) set({ profile: cached });
+    })().finally(() => inflight.delete(userId));
+
+    inflight.set(userId, task);
+    return task;
+  };
+
+  return {
   session: null,
   profile: null,
   initializing: true,
@@ -88,43 +108,48 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   init: () => {
     (async () => {
-      const session = await getSessionWithRetry();
+      // getSession() already retries a failed token refresh for ~30s, and a
+      // network failure does NOT delete the saved login: auth-js refreshes it
+      // once the connection is back and onAuthStateChange signs the worker
+      // straight back in. So no extra retry here.
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
       if (!session) {
         set({ session: null, profile: null, initializing: false });
         return;
       }
 
-      // Show the cached profile immediately, then refresh it in the background.
-      const cached = await readCachedProfile(session.user.id);
-      if (cached) set({ session, profile: cached, initializing: false });
+      const userId = session.user.id;
+      const cached = await readCachedProfile(userId);
+      if (cached) {
+        // Show the saved profile immediately; refresh it in the background.
+        set({ session, profile: cached, initializing: false });
+        void syncProfile(userId);
+        return;
+      }
 
-      const fresh = await fetchProfileWithRetry(session.user.id);
-      if (fresh) await writeCachedProfile(fresh);
-      set({ session, profile: fresh ?? cached, initializing: false });
+      // First launch on this device: one quick attempt, then keep trying in the
+      // background rather than holding the app on the splash.
+      const first = await fetchProfile(userId);
+      if (first) await writeCachedProfile(first);
+      set({ session, profile: first, initializing: false });
+      if (!first) void syncProfile(userId);
     })();
 
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       // No session (signed out / expired) → clear everything.
       if (!session) {
-        if (event === 'SIGNED_OUT') await clearCachedProfile();
+        if (event === 'SIGNED_OUT') void clearCachedProfile();
         set({ session: null, profile: null });
         return;
       }
 
-      set({ session });
       const userId = session.user.id;
-      const fresh = await fetchProfileWithRetry(userId);
-      if (fresh) {
-        set({ profile: fresh });
-        await writeCachedProfile(fresh);
-      } else {
-        // Fetch failed — never wipe a good profile. Keep the one in memory if it
-        // belongs to this user, else fall back to the device cache.
-        const current = get().profile;
-        const keep = current?.id === userId ? current : await readCachedProfile(userId);
-        set({ profile: keep });
-      }
+      // A different account signed in: don't show the previous worker's profile.
+      if (get().profile && get().profile?.id !== userId) set({ session, profile: null });
+      else set({ session });
 
+      void syncProfile(userId);
       registerPush(userId);
     });
   },
@@ -154,11 +179,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   refreshProfile: async () => {
     const { session } = get();
     if (!session) return;
-    const profile = await fetchProfileWithRetry(session.user.id);
-    // Only replace on success — never wipe a good profile if the fetch failed.
-    if (profile) {
-      set({ profile });
-      await writeCachedProfile(profile);
-    }
+    // Callers (e.g. Settings after changing the photo) need data from AFTER
+    // their write, so let any sync that started earlier finish, then fetch again.
+    const userId = session.user.id;
+    await inflight.get(userId);
+    // Same guarded path as startup: only replaces on success, never wipes.
+    await syncProfile(userId);
   },
-}));
+  };
+});
