@@ -50,6 +50,11 @@ export default function Home() {
     if (session && !profile) refreshProfile();
   }, [session, profile, refreshProfile]);
 
+  // Hours, sessions and clock-out are keyed by the signed-in user, NOT the
+  // profile row — so a profile that failed to load can't blank out the worker's
+  // hours or silently disable Clock Out.
+  const userId = session?.user.id ?? profile?.id ?? null;
+
   const [summary, setSummary] = useState<HomeSummary>({ todayHours: 0, weekHours: 0, pendingOvertime: 0 });
   const [recent, setRecent] = useState<Timesheet[]>([]);
   const [activeSession, setActiveSession] = useState<ClockSession | null>(null);
@@ -66,14 +71,14 @@ export default function Home() {
   const autoOutRef = useRef(false); // guards against double auto-clock-out
 
   const load = useCallback(async () => {
-    if (!profile) return;
+    if (!userId) return;
     try {
       const [s, r, session, unreadCount, unreadMsgCount] = await Promise.all([
-        fetchHomeSummary(profile.id),
-        fetchRecentTimesheets(profile.id, 10),
-        fetchActiveSession(profile.id),
-        fetchUnreadCount(profile.id),
-        fetchUnreadMessageCount(profile.id),
+        fetchHomeSummary(userId),
+        fetchRecentTimesheets(userId, 10),
+        fetchActiveSession(userId),
+        fetchUnreadCount(userId),
+        fetchUnreadMessageCount(userId),
       ]);
 
       // Forgot to clock out? If a session has run past the standard day, close
@@ -103,7 +108,7 @@ export default function Home() {
     } catch (e) {
       console.warn('[home] load', e);
     }
-  }, [profile]);
+  }, [userId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -123,17 +128,19 @@ export default function Home() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Pull-to-refresh also recovers a profile that failed to load.
+    if (!profile) await refreshProfile();
     await load();
     setRefreshing(false);
-  }, [load]);
+  }, [load, profile, refreshProfile]);
 
   const handleClockOut = useCallback(async () => {
-    if (!profile || !activeSession) return;
+    if (!userId || !activeSession) return;
     setClockingOut(true);
     try {
       await clockOut({
         sessionId: activeSession.id,
-        userId: profile.id,
+        userId,
         businessEntityId: activeSession.business_entity_id,
         projectId: activeSession.project_id,
         workLocation: activeSession.work_location,
@@ -152,7 +159,7 @@ export default function Home() {
     } finally {
       setClockingOut(false);
     }
-  }, [profile, activeSession, overtime, otReason, load]);
+  }, [userId, activeSession, overtime, otReason, load]);
 
   const firstName = profile?.name?.split(' ')[0] ?? 'there';
 
