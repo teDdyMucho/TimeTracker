@@ -10,10 +10,13 @@ import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-r
  *   https://drive.google.com/uc?export=download&id=FILE_ID
  */
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
-// Google Drive direct-download for the APK. Large files (>25 MB) need the
-// `confirm=t` form to skip Drive's virus-scan interstitial and download directly.
-const ANDROID_APK_FILE_ID = '1TT4Fw44peMK2UL9bbMHak94_Ju_fF6Vk'
-const ANDROID_APK_URL = `https://drive.usercontent.google.com/download?id=${ANDROID_APK_FILE_ID}&export=download&confirm=t`
+// v1.0.5 APK, served straight from the EAS build (build 3a9aba85, commit 6855066).
+// NOTE: EAS artifacts EXPIRE — this one on 2026-10-01. Before then, upload the
+// .apk to Google Drive and switch back to the Drive form, which doesn't expire:
+//   https://drive.usercontent.google.com/download?id=FILE_ID&export=download&confirm=t
+// (`confirm=t` skips Drive's virus-scan interstitial for files over 25 MB.)
+// Previous Drive copy (v1.0.4): 1TT4Fw44peMK2UL9bbMHak94_Ju_fF6Vk
+const ANDROID_APK_URL = 'https://expo.dev/artifacts/eas/qe_kRC4uRQcvdG5maJpmwceZ0IqmBpazXzYY2nqgXQ0.apk'
 
 const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH')
 
