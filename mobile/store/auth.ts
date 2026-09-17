@@ -26,6 +26,9 @@ const PROFILE_CACHE_KEY = 'timevera.profile';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Longest the startup screen may wait for the saved login to be restored. */
+const STARTUP_TIMEOUT_MS = 35_000;
+
 async function readCachedProfile(userId: string): Promise<Profile | null> {
   try {
     const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
@@ -108,32 +111,44 @@ export const useAuth = create<AuthState>((set, get) => {
 
   init: () => {
     (async () => {
-      // getSession() already retries a failed token refresh for ~30s, and a
-      // network failure does NOT delete the saved login: auth-js refreshes it
-      // once the connection is back and onAuthStateChange signs the worker
-      // straight back in. So no extra retry here.
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      if (!session) {
-        set({ session: null, profile: null, initializing: false });
-        return;
-      }
+      try {
+        // getSession() already retries a failed token refresh for ~30s, and a
+        // network failure does NOT delete the saved login: auth-js refreshes it
+        // once the connection is back and onAuthStateChange signs the worker
+        // straight back in. So no extra retry here — only a ceiling, because a
+        // hung request on a dead connection has no timeout of its own.
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          wait(STARTUP_TIMEOUT_MS).then(() => null),
+        ]);
+        const session = result?.data.session ?? null;
+        if (!session) {
+          set({ session: null, profile: null });
+          return;
+        }
 
-      const userId = session.user.id;
-      const cached = await readCachedProfile(userId);
-      if (cached) {
-        // Show the saved profile immediately; refresh it in the background.
-        set({ session, profile: cached, initializing: false });
-        void syncProfile(userId);
-        return;
-      }
+        const userId = session.user.id;
+        const cached = await readCachedProfile(userId);
+        if (cached) {
+          // Show the saved profile immediately; refresh it in the background.
+          set({ session, profile: cached, initializing: false });
+          void syncProfile(userId);
+          return;
+        }
 
-      // First launch on this device: one quick attempt, then keep trying in the
-      // background rather than holding the app on the splash.
-      const first = await fetchProfile(userId);
-      if (first) await writeCachedProfile(first);
-      set({ session, profile: first, initializing: false });
-      if (!first) void syncProfile(userId);
+        // First launch on this device: one quick attempt, then keep trying in
+        // the background rather than holding the app on the startup screen.
+        const first = await Promise.race([fetchProfile(userId), wait(8000).then(() => null)]);
+        if (first) await writeCachedProfile(first);
+        set({ session, profile: first });
+        if (!first) void syncProfile(userId);
+      } catch (e) {
+        console.warn('[auth] init', e);
+      } finally {
+        // The startup screen covers the app while this is true — it must ALWAYS
+        // clear, whatever happened above.
+        set({ initializing: false });
+      }
     })();
 
     supabase.auth.onAuthStateChange((event, session) => {
