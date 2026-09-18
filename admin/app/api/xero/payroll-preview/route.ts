@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
 
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, profiles(name, email)')
+    .select('profile_id, work_date, hours, profiles(name, email, flat_rate)')
     .eq('business_entity_id', entity.id)
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)
@@ -75,7 +75,11 @@ export async function GET(req: NextRequest) {
     .lte('date', periodEnd)
 
   const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
-  const employees = aggregatePayroll((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig)
+  // Flat-rate workers: all hours on the ordinary band (no loadings).
+  const flatRateIds = new Set(
+    ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
+  )
+  const employees = aggregatePayroll((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig, flatRateIds)
 
   return NextResponse.json({
     entity: entity.name,

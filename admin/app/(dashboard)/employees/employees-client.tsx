@@ -16,6 +16,7 @@ interface Profile {
   business_access: string[]
   status: string
   hourly_rate?: number | null
+  flat_rate?: boolean
 }
 
 interface Props {
@@ -111,6 +112,14 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                     {p.hourly_rate != null
                       ? `$${Number(p.hourly_rate).toFixed(2)}/hr`
                       : <span className="text-slate-300 font-normal">Not set</span>}
+                    {p.flat_rate && (
+                      <span
+                        title="Flat rate — no overtime, weekend or public-holiday loading"
+                        className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted align-middle"
+                      >
+                        Flat
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 pr-4 text-muted text-xs">
                     {entitiesLabel(p, entityMap)}

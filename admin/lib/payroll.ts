@@ -92,6 +92,22 @@ export function splitDayHours(totalHours: number, dayType: DayType, cfg: PayConf
   return { [dayType]: round2(totalHours) }
 }
 
+/**
+ * Band one day's hours for ONE employee. Flat-rate workers are paid the same
+ * hourly rate regardless of hours or day, so all their time goes to the
+ * ordinary band — no overtime, weekend or public-holiday loading.
+ */
+function splitDayForEmployee(
+  totalHours: number,
+  dateISO: string,
+  holidays: Set<string>,
+  cfg: PayConfig,
+  isFlatRate: boolean,
+): Partial<Record<PayBand, number>> {
+  if (isFlatRate) return totalHours > 0 ? { regular: round2(totalHours) } : {}
+  return splitDayHours(totalHours, classifyDay(dateISO, holidays.has(dateISO)), cfg)
+}
+
 export interface TimesheetRow {
   profile_id: string
   work_date: string
@@ -140,6 +156,8 @@ export function aggregateByProject(
   holidays: Set<string>,
   cfg: PayConfig,
   rateFor: (profileId: string) => number,
+  /** Profile ids paid a flat rate — all their hours go to the ordinary band. */
+  flatRateIds: Set<string> = new Set(),
 ): ProjectTotal[] {
   // profile → day → { total, byProject: project → hours }
   const byEmpDay = new Map<string, Map<string, { total: number; byProject: Map<string, number> }>>()
@@ -166,8 +184,7 @@ export function aggregateByProject(
     const rate = rateFor(pid)
     for (const [date, day] of days) {
       // Band the whole day → total dollar cost for the day.
-      const dt = classifyDay(date, holidays.has(date))
-      const split = splitDayHours(day.total, dt, cfg)
+      const split = splitDayForEmployee(day.total, date, holidays, cfg, flatRateIds.has(pid))
       const bandHours = Object.fromEntries(PAY_BANDS.map((b) => [b, 0])) as Record<PayBand, number>
       for (const [band, h] of Object.entries(split)) bandHours[band as PayBand] = h as number
       const { gross } = grossPay(bandHours, rate, cfg)
@@ -187,6 +204,8 @@ export function aggregatePayroll(
   rows: TimesheetRow[],
   holidays: Set<string>,
   cfg: PayConfig,
+  /** Profile ids paid a flat rate — all their hours go to the ordinary band. */
+  flatRateIds: Set<string> = new Set(),
 ): EmployeeBands[] {
   const byEmpDay = new Map<string, Map<string, number>>()
   const meta = new Map<string, { name: string; email: string | null }>()
@@ -203,9 +222,9 @@ export function aggregatePayroll(
   for (const [pid, days] of byEmpDay) {
     const bandHours = Object.fromEntries(PAY_BANDS.map((b) => [b, 0])) as Record<PayBand, number>
     let total = 0
+    const flat = flatRateIds.has(pid)
     for (const [date, hours] of days) {
-      const dt = classifyDay(date, holidays.has(date))
-      const split = splitDayHours(hours, dt, cfg)
+      const split = splitDayForEmployee(hours, date, holidays, cfg, flat)
       for (const [band, h] of Object.entries(split)) {
         bandHours[band as PayBand] = round2(bandHours[band as PayBand] + (h as number))
       }
@@ -236,6 +255,8 @@ export function aggregatePayrollByDay(
   rows: TimesheetRow[],
   holidays: Set<string>,
   cfg: PayConfig,
+  /** Profile ids paid a flat rate — all their hours go to the ordinary band. */
+  flatRateIds: Set<string> = new Set(),
 ): EmployeeDayBands[] {
   const byEmpDay = new Map<string, Map<string, number>>()
   const meta = new Map<string, { name: string; email: string | null }>()
@@ -252,9 +273,9 @@ export function aggregatePayrollByDay(
   for (const [pid, days] of byEmpDay) {
     const byBand = Object.fromEntries(PAY_BANDS.map((b) => [b, {} as Record<string, number>])) as Record<PayBand, Record<string, number>>
     let total = 0
+    const flat = flatRateIds.has(pid)
     for (const [date, hours] of days) {
-      const dt = classifyDay(date, holidays.has(date))
-      const split = splitDayHours(hours, dt, cfg)
+      const split = splitDayForEmployee(hours, date, holidays, cfg, flat)
       for (const [band, h] of Object.entries(split)) {
         byBand[band as PayBand][date] = round2((byBand[band as PayBand][date] ?? 0) + (h as number))
       }

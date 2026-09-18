@@ -45,17 +45,21 @@ export default async function ProjectTotals({
   if (entityId) tsQuery = tsQuery.eq('business_entity_id', entityId)
   if (projectId) tsQuery = tsQuery.eq('project_id', projectId)
 
-  const [tsRes, holRes, entRes, rateRes] = await Promise.all([
+  const [tsRes, holRes, entRes, rateRes, flatRes] = await Promise.all([
     tsQuery,
     admin.from('public_holidays').select('date').gte('date', from).lte('date', to),
     admin.from('business_entities').select('id, pay_config'),
     admin.from('pay_rates').select('profile_id, hourly_rate, effective_from').order('effective_from', { ascending: false }),
+    admin.from('profiles').select('id').eq('flat_rate', true),
   ])
 
   const rows = (tsRes.data ?? []) as {
     profile_id: string; project_id: string; business_entity_id: string; work_date: string; hours: number
   }[]
   const holidays = new Set((holRes.data ?? []).map((h: any) => h.date as string))
+  // Flat-rate workers are paid one rate for every hour, so their project cost
+  // carries no overtime/weekend loading.
+  const flatRateIds = new Set(((flatRes.data ?? []) as any[]).map((p) => p.id as string))
 
   // Latest rate per employee.
   const rateMap: Record<string, number> = {}
@@ -79,7 +83,7 @@ export default async function ProjectTotals({
   for (const [eid, eRows] of rowsByEntity) {
     const cfg = configByEntity[eid]
     if (!cfg) continue
-    const parts = aggregateByProject(eRows, holidays, cfg, (pid) => rateMap[pid] ?? 0)
+    const parts = aggregateByProject(eRows, holidays, cfg, (pid) => rateMap[pid] ?? 0, flatRateIds)
     for (const p of parts) {
       const cur = merged.get(p.projectId) ?? { projectId: p.projectId, hours: 0, cost: 0 }
       cur.hours += p.hours

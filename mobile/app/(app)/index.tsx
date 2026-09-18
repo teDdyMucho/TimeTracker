@@ -81,8 +81,8 @@ export default function Home() {
         fetchUnreadMessageCount(userId),
       ]);
 
-      // Forgot to clock out? If a session has run past the standard day, close
-      // it automatically (capped at exactly 8h) and reload so the UI reflects it.
+      // Forgot to clock out? If a session has run past the auto clock-out limit,
+      // close it automatically (capped at exactly that many hours) and reload.
       if (session && isSessionExpired(session) && !autoOutRef.current) {
         autoOutRef.current = true;
         try {
@@ -90,7 +90,7 @@ export default function Home() {
           await cancelClockOutReminder();
           Alert.alert(
             'Automatically clocked out',
-            `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged an ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working past that, let your supervisor know.`,
+            `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged a ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working past that, let your supervisor know.`,
           );
         } finally {
           autoOutRef.current = false;
@@ -115,7 +115,7 @@ export default function Home() {
   useEffect(() => {
     if (activeSession) {
       timerRef.current = setInterval(() => {
-        // If it crosses the 8h mark while the app is open, auto clock out.
+        // If it crosses the limit while the app is open, auto clock out.
         if (isSessionExpired(activeSession)) {
           load();
           return;

@@ -413,11 +413,12 @@ export interface ClockOutInput {
 }
 
 /**
- * A forgotten clock-in is auto-closed after this many hours (client set this to
- * 12h to cover longer construction shifts — was 8h). A session left open longer
- * than this is capped to a 12-hour shift so payroll never gets a bogus long day.
+ * A forgotten clock-in is auto-closed after this many hours (client raised this
+ * 8h → 12h → 16h to cover long construction shifts). A session left open longer
+ * than this is capped to a 16-hour shift so payroll never gets a bogus long day.
+ * Keep in step with auto_clock_out_stale_sessions() in the 0018 migration.
  */
-export const AUTO_CLOCK_OUT_HOURS = 12;
+export const AUTO_CLOCK_OUT_HOURS = 16;
 
 /**
  * Shared write for closing a session: stamps clocked_out_at, creates the
@@ -473,7 +474,7 @@ async function writeClockOut(
       profile_id: input.userId,
       type: 'auto_clock_out',
       title: 'Automatically clocked out',
-      body: `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged an ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working, tell your supervisor.`,
+      body: `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged a ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working, tell your supervisor.`,
     });
   }
 }
@@ -488,10 +489,10 @@ export async function clockOut(input: ClockOutInput): Promise<void> {
 }
 
 /**
- * Auto clock-out for a forgotten session that has run past the standard day.
- * The clock-out time is CAPPED at exactly clock-in + 8h (not "now"), so a
- * session left open for 20 hours still only logs an 8-hour shift. Overtime is
- * never auto-requested — the worker didn't confirm it.
+ * Auto clock-out for a forgotten session that has run past the limit. The
+ * clock-out time is CAPPED at exactly clock-in + AUTO_CLOCK_OUT_HOURS (not
+ * "now"), so a session left open for 30 hours still only logs one 16-hour
+ * shift. Overtime is never auto-requested — the worker didn't confirm it.
  */
 export async function autoClockOut(session: ClockSession): Promise<void> {
   const cappedOutAt = new Date(

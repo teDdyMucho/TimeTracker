@@ -14,6 +14,7 @@ interface Props {
     employment_type: string
     business_access: string[]
     hourly_rate?: number | null
+    flat_rate?: boolean
   }
   entities: BusinessEntity[]
   onClose: () => void
@@ -24,6 +25,7 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
   const [selectedEntities, setSelectedEntities] = useState<string[]>(employee.business_access)
   const [role, setRole] = useState(employee.role)
   const [employmentType, setEmploymentType] = useState(employee.employment_type)
+  const [flatRate, setFlatRate] = useState(employee.flat_rate ?? false)
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const prevPendingRef = useRef(false)
@@ -112,6 +114,26 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
             defaultValue={employee.hourly_rate != null ? String(employee.hourly_rate) : ''}
             disabled={pending}
           />
+
+          {/* Flat rate: paid the same rate for every hour — no overtime, weekend
+              or public-holiday loading anywhere in payroll or the Xero push. */}
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="flat_rate"
+              checked={flatRate}
+              onChange={(e) => setFlatRate(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-brand cursor-pointer"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">Flat rate — no overtime</span>
+              <span className="block text-xs text-muted mt-0.5">
+                Every hour is paid at the rate above. Overtime, weekend and public-holiday
+                rates are not applied.
+              </span>
+            </span>
+          </label>
 
           {/* Admin password reset — no current password needed. Leave blank to keep unchanged. */}
           <div>

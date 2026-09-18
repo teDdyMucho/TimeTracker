@@ -78,6 +78,8 @@ export async function createEmployeeAction(
 
   // Optional initial pay rate
   const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
+  // Unchecked checkboxes are absent from FormData, so absence means false.
+  const flat_rate = formData.get('flat_rate') === 'on'
   if (rateRaw) {
     const rate = Number(rateRaw)
     if (!Number.isNaN(rate) && rate >= 0) {
@@ -121,6 +123,8 @@ export async function updateEmployeeAction(
   const employment_type = formData.get('employment_type') as string
   const entityIds = formData.getAll('entity_ids') as string[]
   const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
+  // Unchecked checkboxes are absent from FormData, so absence means false.
+  const flat_rate = formData.get('flat_rate') === 'on'
   const newPassword = (formData.get('new_password') as string | null)?.trim() ?? ''
 
   const adminClient = createAdminClient()
@@ -137,7 +141,7 @@ export async function updateEmployeeAction(
 
   const { error } = await adminClient
     .from('profiles')
-    .update({ role, employment_type, business_access: entityIds })
+    .update({ role, employment_type, business_access: entityIds, flat_rate })
     .eq('id', id)
 
   if (error) return error.message
