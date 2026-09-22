@@ -19,7 +19,7 @@ import {
 } from '@/lib/queries';
 import { friendlyDate } from '@/lib/date';
 import { formatHours } from '@/lib/format';
-import { cancelClockOutReminder } from '@/lib/notify';
+import { cancelClockOutReminder, syncClockInReminders } from '@/lib/notify';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
 // Build One palette constants
@@ -111,6 +111,14 @@ export default function Home() {
   }, [userId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Keep the 6:50 / 7:10 morning clock-in reminders armed for the next two
+  // weeks. Cheap and idempotent, so it runs on every open. Skipped when the
+  // worker has turned notifications off, or while the profile hasn't loaded yet
+  // (we don't know their preference).
+  useEffect(() => {
+    if (profile && profile.notifications_enabled !== false) void syncClockInReminders();
+  }, [profile]);
 
   useEffect(() => {
     if (activeSession) {

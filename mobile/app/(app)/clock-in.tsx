@@ -21,7 +21,7 @@ import {
   uploadSelfie,
 } from '@/lib/queries';
 import { todayISO } from '@/lib/date';
-import { scheduleClockOutReminder } from '@/lib/notify';
+import { scheduleClockOutReminder, cancelTodayClockInReminders } from '@/lib/notify';
 import { Button, Card, Chip, Label } from '@/components/ui';
 import type { BusinessEntity, Project, WorkLocation } from '@/lib/types';
 
@@ -134,6 +134,8 @@ export default function ClockInScreen() {
         selfieUrl,
         address: address ?? null,
       });
+      // Clocked in — today's morning "have you clocked in?" alerts are moot.
+      await cancelTodayClockInReminders();
       // Schedule the 8-hour clock-out reminder (unless the user disabled notifications)
       if (profile.notifications_enabled !== false) {
         await scheduleClockOutReminder(new Date().toISOString());

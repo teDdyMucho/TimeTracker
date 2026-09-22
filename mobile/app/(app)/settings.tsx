@@ -11,6 +11,8 @@ import {
   cancelClockOutReminder,
   scheduleDailyTimesheetReminder,
   cancelDailyTimesheetReminder,
+  syncClockInReminders,
+  cancelAllClockInReminders,
 } from '@/lib/notify';
 import { isBiometricAvailable, getBiometricEnabled, setBiometricEnabled } from '@/lib/biometric';
 
@@ -109,9 +111,11 @@ export default function Settings() {
           return;
         }
         await scheduleDailyTimesheetReminder();
+        await syncClockInReminders();
       } else {
         await cancelClockOutReminder();
         await cancelDailyTimesheetReminder();
+        await cancelAllClockInReminders();
       }
       await updateMyProfile(profile.id, { notifications_enabled: value });
       await refreshProfile();
@@ -262,7 +266,7 @@ export default function Settings() {
         message="You'll need to sign in again to log your hours."
         confirmLabel="Sign out"
         destructive
-        onConfirm={() => { setSignOutOpen(false); signOut(); }}
+        onConfirm={() => { setSignOutOpen(false); void cancelAllClockInReminders(); signOut(); }}
         onClose={() => setSignOutOpen(false)}
       />
     </ScrollView>
