@@ -48,7 +48,7 @@ const REVIEW_OPTIONS = [
 ]
 const TYPE_OPTIONS = [
   { value: 'site', label: 'Site' },
-  { value: 'factory', label: 'Factory' },
+  { value: 'workshop', label: 'Factory' }, // DB enum is 'workshop'; the app labels it Factory
 ]
 const LEAVE_TYPE_OPTIONS = [
   { value: 'annual', label: 'Annual Leave' },

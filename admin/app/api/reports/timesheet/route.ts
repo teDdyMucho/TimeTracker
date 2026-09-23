@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       date: fmtDay(s.work_date),
       clockIn: fmtTime(s.clocked_in_at),
       clockOut: fmtTime(s.clocked_out_at),
-      location: s.work_location === 'site' ? 'Onsite' : s.work_location === 'factory' ? 'Offsite' : '—',
+      location: s.work_location === 'site' ? 'Onsite' : s.work_location === 'workshop' ? 'Offsite' : '—',
       project: s.projects?.name ?? '—',
       regularHours: regular,
       overtimeHours: overtime,
