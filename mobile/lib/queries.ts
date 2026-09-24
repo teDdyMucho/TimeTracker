@@ -430,7 +430,7 @@ async function writeClockOut(
   hours: number,
   auto: boolean,
 ): Promise<void> {
-  const { error: sessionErr } = await supabase
+  const { data: closed, error: sessionErr } = await supabase
     .from('clock_sessions')
     .update({
       clocked_out_at: clockOutAtISO,
@@ -438,8 +438,15 @@ async function writeClockOut(
       overtime_reason: input.overtimeReason,
     })
     .eq('id', input.sessionId)
-    .is('clocked_out_at', null); // guard: don't overwrite an already-closed session
+    .is('clocked_out_at', null) // guard: don't overwrite an already-closed session
+    .select('id');
   if (sessionErr) throw sessionErr;
+
+  // Only the call that actually closed the session may write its timesheet.
+  // A manual Clock Out and the auto clock-out (or two devices) can race; the
+  // guard above let only one close the session, but both used to insert a
+  // timesheet — one real shift became two (e.g. 13.63h + 12h on one day).
+  if (!closed || closed.length === 0) return;
 
   const { data: ts, error: tsErr } = await supabase
     .from('timesheets')
