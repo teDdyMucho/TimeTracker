@@ -46,13 +46,23 @@ export default async function ReportsPage({
   const payRates = payRatesRes.data ?? []
 
   // Hours by project
-  const byProject = new Map<string, { name: string; hours: number }>()
+  const byProject = new Map<string, { id: string; name: string; entityId: string; hours: number }>()
   for (const t of timesheets as any[]) {
     const key = t.project_id
-    const cur = byProject.get(key) ?? { name: t.projects?.name ?? key, hours: 0 }
+    const cur = byProject.get(key) ?? { id: key, name: t.projects?.name ?? key, entityId: t.business_entity_id, hours: 0 }
     byProject.set(key, { ...cur, hours: round2(cur.hours + Number(t.hours)) })
   }
-  const projectRows = Array.from(byProject.values()).sort((a, b) => b.hours - a.hours)
+  // Two companies can have a project with the same name (e.g. "Project
+  // Management/ Admin" in both ARKO and Build One) — label those with the company.
+  const entityName = new Map((entities as any[]).map((e) => [e.id, e.name as string]))
+  const nameCount = new Map<string, number>()
+  for (const r of byProject.values()) nameCount.set(r.name, (nameCount.get(r.name) ?? 0) + 1)
+  const projectRows = Array.from(byProject.values())
+    .map((r) => ({
+      ...r,
+      label: (nameCount.get(r.name) ?? 0) > 1 ? `${r.name} (${entityName.get(r.entityId) ?? 'unknown company'})` : r.name,
+    }))
+    .sort((a, b) => b.hours - a.hours)
 
   // Hours by location
   const locationHours = { site: 0, workshop: 0 }
@@ -136,8 +146,8 @@ export default async function ReportsPage({
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {projectRows.map((p) => (
-                  <tr key={p.name}>
-                    <td className="py-2.5 pr-4 font-medium">{p.name}</td>
+                  <tr key={p.id}>
+                    <td className="py-2.5 pr-4 font-medium">{p.label}</td>
                     <td className="py-2.5 text-right font-semibold">{formatHours(p.hours)}</td>
                     <td className="py-2.5 text-right text-muted">{pct(p.hours, totalHours)}</td>
                   </tr>

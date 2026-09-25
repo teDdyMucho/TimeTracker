@@ -60,7 +60,7 @@ export default async function DashboardPage({
       supabase.from('overtime_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase
         .from('timesheets')
-        .select('hours, work_date, profile_id, project_id, work_location, status, profiles(name), projects(name)')
+        .select('hours, work_date, profile_id, project_id, work_location, status, profiles(name), projects(name, business_entities(name))')
         .gte('work_date', weekStart)
         .lte('work_date', weekEndStr),
       supabase.from('timesheets').select('hours').gte('work_date', lwStart).lte('work_date', lwEnd),
@@ -120,14 +120,20 @@ export default async function DashboardPage({
   }]
 
   // Top projects
-  const projectMap = new Map<string, { name: string; hours: number }>()
+  const projectMap = new Map<string, { id: string; name: string; company: string; hours: number }>()
   for (const t of weekTimesheets) {
     if (!t.project_id) continue
     const name = t.projects?.name ?? 'Unknown'
-    const cur  = projectMap.get(t.project_id) ?? { name, hours: 0 }
+    const company = t.projects?.business_entities?.name ?? ''
+    const cur  = projectMap.get(t.project_id) ?? { id: t.project_id, name, company, hours: 0 }
     projectMap.set(t.project_id, { ...cur, hours: Math.round((cur.hours + Number(t.hours)) * 100) / 100 })
   }
-  const topProjects = Array.from(projectMap.values()).sort((a, b) => b.hours - a.hours).slice(0, 5)
+  // Same-named projects in different companies get the company appended.
+  const nameCount = new Map<string, number>()
+  for (const r of projectMap.values()) nameCount.set(r.name, (nameCount.get(r.name) ?? 0) + 1)
+  const topProjects = Array.from(projectMap.values())
+    .map((r) => ({ ...r, label: (nameCount.get(r.name) ?? 0) > 1 && r.company ? `${r.name} (${r.company})` : r.name }))
+    .sort((a, b) => b.hours - a.hours).slice(0, 5)
   const maxPH = topProjects[0]?.hours ?? 1
 
   const statusCounts = {
@@ -345,14 +351,14 @@ export default async function DashboardPage({
                 const color = PROJECT_COLORS[i % PROJECT_COLORS.length]
                 const pct   = Math.round((p.hours / maxPH) * 100)
                 return (
-                  <div key={p.name} className="flex items-center gap-3">
+                  <div key={p.id} className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: `${color}1A` }}>
                       <Briefcase size={16} style={{ color }} strokeWidth={2} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-semibold truncate pr-2" style={{ color: '#2D2A26' }}>{p.name}</span>
+                        <span className="text-sm font-semibold truncate pr-2" style={{ color: '#2D2A26' }}>{p.label}</span>
                         <span className="text-sm font-bold shrink-0 tabular-nums" style={{ color: '#2D2A26' }}>{formatHours(p.hours)}</span>
                       </div>
                       <div className="h-2 rounded-full overflow-hidden" style={{ background: '#F2F0EA' }}>
