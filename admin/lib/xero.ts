@@ -4,10 +4,28 @@ export const XERO_AUTH_URL  = 'https://login.xero.com/identity/connect/authorize
 export const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token'
 export const XERO_CONN_URL  = 'https://api.xero.com/connections'
 
-export function xeroBasicAuth(): string {
-  const id = process.env.XERO_CLIENT_ID!
-  const secret = process.env.XERO_CLIENT_SECRET!
-  return Buffer.from(`${id}:${secret}`).toString('base64')
+/**
+ * A Xero Custom Connection is bound to ONE organisation, so each company that
+ * pushes to Xero needs its own Xero app. Apps are read from env:
+ *   XERO_CLIENT_ID / XERO_CLIENT_SECRET                 → the default app (Build One)
+ *   XERO_CLIENT_ID_<NAME> / XERO_CLIENT_SECRET_<NAME>   → any further app, e.g. _ARKO
+ */
+export interface XeroApp { key: string; clientId: string; clientSecret: string }
+
+export function xeroApps(env: Record<string, string | undefined> = process.env): XeroApp[] {
+  const apps: XeroApp[] = []
+  for (const [k, v] of Object.entries(env)) {
+    const m = k.match(/^XERO_CLIENT_ID(?:_([A-Z0-9_]+))?$/)
+    if (!m || !v) continue
+    const suffix = m[1] ? `_${m[1]}` : ''
+    const secret = env[`XERO_CLIENT_SECRET${suffix}`]
+    if (secret) apps.push({ key: m[1] ?? 'DEFAULT', clientId: v.trim(), clientSecret: secret.trim() })
+  }
+  return apps
+}
+
+export function xeroBasicAuth(app: XeroApp = xeroApps()[0]): string {
+  return Buffer.from(`${app.clientId}:${app.clientSecret}`).toString('base64')
 }
 
 interface XeroTokenResponse {
@@ -24,7 +42,8 @@ interface XeroTokenResponse {
  * once an admin (Robbie) has authorised it once in Xero, the app fetches a
  * fresh access token on demand with its client id + secret. No refresh token.
  */
-export async function getCustomConnectionToken(): Promise<XeroTokenResponse> {
+export async function getCustomConnectionToken(app: XeroApp = xeroApps()[0]): Promise<XeroTokenResponse> {
+  if (!app) throw new Error('No Xero app configured (set XERO_CLIENT_ID / XERO_CLIENT_SECRET).')
   // For a Xero Custom Connection the granted scopes are fixed at authorisation
   // time and come back with the token automatically. Passing an explicit `scope`
   // param makes Xero reject it ("invalid_scope") unless it matches exactly — so
@@ -33,7 +52,7 @@ export async function getCustomConnectionToken(): Promise<XeroTokenResponse> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${xeroBasicAuth()}`,
+      Authorization: `Basic ${xeroBasicAuth(app)}`,
     },
     body: new URLSearchParams({
       grant_type: 'client_credentials',
@@ -366,24 +385,57 @@ export async function fetchXeroConnections(accessToken: string) {
   return res.json() as Promise<Array<{ id: string; tenantId: string; tenantType: string; tenantName: string }>>
 }
 
-/**
- * Returns a valid Xero access token. For a Custom Connection there is nothing to
- * refresh — we just request a fresh short-lived token via client_credentials.
- * (Tokens last ~30 min; fetching a new one per operation is fine and simplest.)
- */
-export async function getValidXeroToken(_tenantId?: string): Promise<string> {
-  const token = await getCustomConnectionToken()
-  return token.access_token
+export interface XeroOrgConnection { app: XeroApp; tenantId: string; tenantName: string; token: string }
+
+/** Every organisation authorised on any configured Xero app, with a fresh token for it. */
+export async function listXeroConnections(apps: XeroApp[] = xeroApps()): Promise<XeroOrgConnection[]> {
+  const out: XeroOrgConnection[] = []
+  for (const app of apps) {
+    try {
+      const { access_token } = await getCustomConnectionToken(app)
+      const conns = await fetchXeroConnections(access_token)
+      for (const c of conns) out.push({ app, tenantId: c.tenantId, tenantName: c.tenantName, token: access_token })
+    } catch (e) {
+      console.warn(`[xero] app ${app.key} unavailable:`, e instanceof Error ? e.message : e)
+    }
+  }
+  return out
 }
 
 /**
- * The tenant (organisation) id for the Custom Connection. A Custom Connection is
- * bound to exactly one org, so we read it from /connections with a fresh token.
- * Cached lookups can store this, but it's cheap to fetch on demand.
+ * A valid access token for the given organisation, from whichever Xero app is
+ * authorised on it. Tokens last ~30 min; fetching per operation is fine.
  */
-export async function getCustomConnectionTenantId(): Promise<string> {
-  const { access_token } = await getCustomConnectionToken()
-  const conns = await fetchXeroConnections(access_token)
-  if (!conns.length) throw new Error('Xero Custom Connection has no authorised organisation yet.')
-  return conns[0].tenantId
+export async function getValidXeroToken(tenantId: string): Promise<string> {
+  const conns = await listXeroConnections()
+  const hit = conns.find((c) => c.tenantId === tenantId)
+  if (hit) return hit.token
+  const available = conns.map((c) => c.tenantName).join(', ') || 'none'
+  throw new Error(
+    `No authorised Xero app is connected to this organisation (tenant ${tenantId}). ` +
+    `Organisations currently authorised: ${available}. Re-authorise the app in Xero, then Reconnect this entity.`,
+  )
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * Pick the authorised Xero organisation that belongs to a company, by name
+ * ("ARKO Joinery" ↔ "ARKO Joinery Pty Ltd", "Build One" ↔ "Build One Design and
+ * Construction"). Refuses to guess: no match or several matches is an error,
+ * because linking a company to the wrong org would push its payroll there.
+ */
+export function matchOrgForEntity(entityName: string, conns: XeroOrgConnection[]): XeroOrgConnection {
+  const e = norm(entityName)
+  const hits = conns.filter((c) => {
+    const t = norm(c.tenantName)
+    return t === e || t.startsWith(e + ' ') || e.startsWith(t + ' ')
+  })
+  const unique = [...new Map(hits.map((h) => [h.tenantId, h])).values()]
+  if (unique.length === 1) return unique[0]
+  const available = conns.map((c) => c.tenantName).join(', ') || 'none'
+  if (unique.length === 0) {
+    throw new Error(`No authorised Xero organisation matches "${entityName}". Authorised: ${available}.`)
+  }
+  throw new Error(`Several Xero organisations match "${entityName}": ${unique.map((u) => u.tenantName).join(', ')}.`)
 }

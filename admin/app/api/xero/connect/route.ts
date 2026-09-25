@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/server'
-import { getCustomConnectionTenantId } from '@/lib/xero'
+import { listXeroConnections, matchOrgForEntity } from '@/lib/xero'
 
 export const runtime = 'nodejs'
 
 /**
  * "Connect Xero" for a Custom Connection.
  *
- * There is no interactive login/redirect: once an admin has authorised the
- * Custom Connection in Xero, this route fetches the authorised organisation's
- * tenant id (via client_credentials) and links it to the chosen entity.
+ * There is no interactive login/redirect: once an admin has authorised a
+ * Custom Connection in Xero, this route finds the authorised organisation whose
+ * name matches the entity (across every configured Xero app — one per company)
+ * and links its tenant id to the entity.
  */
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -22,10 +23,13 @@ export async function GET(req: NextRequest) {
   if (!entityId) return back('xero=error&msg=missing_entity')
 
   try {
-    const tenantId = await getCustomConnectionTenantId()
-
     const admin = createAdminClient()
-    await admin.from('business_entities').update({ xero_tenant_id: tenantId }).eq('id', entityId)
+    const { data: entity } = await admin.from('business_entities').select('name').eq('id', entityId).maybeSingle()
+    if (!entity) return back('xero=error&msg=entity_not_found')
+
+    const org = matchOrgForEntity(entity.name, await listXeroConnections())
+    const { error } = await admin.from('business_entities').update({ xero_tenant_id: org.tenantId }).eq('id', entityId)
+    if (error) throw error
 
     return back('xero=connected')
   } catch (e) {
