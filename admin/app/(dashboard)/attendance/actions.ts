@@ -1,7 +1,6 @@
 'use server'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
-import { sendPushToProfile } from '@/lib/push'
 
 /**
  * Approving/rejecting an attendance record (a clock_sessions row) also updates
@@ -43,8 +42,7 @@ async function setReview(sessionId: string, decision: 'approved' | 'rejected'): 
       title,
       body,
     })
-    // Push to the phone (works on an EAS build; no-op without a token).
-    await sendPushToProfile(admin, session.profile_id, { title, body, data: { type: 'attendance' } })
+    // (The DB trigger on notifications pushes this to the phone.)
   }
 
   revalidatePath('/attendance')

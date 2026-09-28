@@ -1,7 +1,6 @@
 'use server'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
-import { sendPushToProfile } from '@/lib/push'
 
 const LEAVE_LABELS: Record<string, string> = {
   annual: 'Annual Leave',
@@ -33,7 +32,6 @@ async function decideLeave(id: string, decision: 'approved' | 'rejected') {
       title,
       body,
     })
-    await sendPushToProfile(admin, req.profile_id, { title, body, data: { type: 'leave' } })
   }
 
   revalidatePath('/leave')

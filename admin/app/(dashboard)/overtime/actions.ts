@@ -2,7 +2,6 @@
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
 import { formatHours } from '@/lib/format'
-import { sendPushToProfile } from '@/lib/push'
 
 async function decideOvertime(
   id: string,
@@ -42,7 +41,6 @@ async function decideOvertime(
       title,
       body,
     })
-    await sendPushToProfile(admin, ts.profile_id, { title, body, data: { type: 'overtime' } })
   }
 
   revalidatePath('/overtime')

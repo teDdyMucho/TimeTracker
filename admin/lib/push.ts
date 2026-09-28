@@ -33,7 +33,7 @@ export async function sendPushToProfile(
     if (!token || data?.notifications_enabled === false) return
     if (!token.startsWith('ExponentPushToken') && !token.startsWith('ExpoPushToken')) return
 
-    await fetch(EXPO_PUSH_URL, {
+    const res = await fetch(EXPO_PUSH_URL, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -50,6 +50,9 @@ export async function sendPushToProfile(
         channelId: 'default',
       }),
     })
+    const ticket = await res.json().catch(() => null)
+    const err = ticket?.data?.details?.error ?? ticket?.data?.message
+    if (err) console.warn('[push] expo rejected:', err)
   } catch (e) {
     console.warn('[push] send skipped:', e)
   }
