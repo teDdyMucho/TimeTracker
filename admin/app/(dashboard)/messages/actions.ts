@@ -1,7 +1,6 @@
 'use server'
 import { createAdminClient, createClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
-import { sendPushToProfile } from '@/lib/push'
 
 /** Admin sends a message to an employee's thread. */
 export async function sendMessageAction(formData: FormData): Promise<void> {
@@ -25,12 +24,8 @@ export async function sendMessageAction(formData: FormData): Promise<void> {
   await admin.from('messages').update({ read: true })
     .eq('profile_id', profileId).eq('sender_role', 'employee')
 
-  // Push to the employee's phone + it lands in their in-app messages.
-  await sendPushToProfile(admin, profileId, {
-    title: 'New message from Admin',
-    body: body.length > 120 ? body.slice(0, 117) + '…' : body,
-    data: { type: 'message' },
-  })
+  // (A DB trigger on messages notifies the worker and pushes to their phone,
+  //  so a reply sent from anywhere — not just here — reaches them.)
 
   revalidatePath('/messages')
   revalidatePath(`/messages/${profileId}`)
