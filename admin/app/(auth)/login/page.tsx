@@ -6,6 +6,7 @@ import buildoneLogo from '../../../lib/buildone-logo.png'
 
 const ERROR_MESSAGES: Record<string, string> = {
   not_admin: 'This portal is for admin accounts only. Please sign in with an admin account.',
+  deactivated: 'This account has been deactivated. Contact your administrator.',
 }
 
 const FEATURES = [

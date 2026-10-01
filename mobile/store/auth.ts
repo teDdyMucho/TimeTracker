@@ -85,6 +85,14 @@ export const useAuth = create<AuthState>((set, get) => {
     const task = (async () => {
       const fresh = await fetchProfileWithRetry(userId);
       if (get().session?.user.id !== userId) return; // stale: signed out / switched
+      // Deactivated in the dashboard: sign out rather than leave them in an app
+      // where the database silently rejects every action.
+      if (fresh && fresh.status && fresh.status !== 'active') {
+        await clearCachedProfile();
+        set({ session: null, profile: null });
+        await supabase.auth.signOut().catch(() => {});
+        return;
+      }
       if (fresh) {
         set({ profile: fresh });
         await writeCachedProfile(fresh);
@@ -129,6 +137,13 @@ export const useAuth = create<AuthState>((set, get) => {
 
         const userId = session.user.id;
         const cached = await readCachedProfile(userId);
+        // Deactivated while the app was closed: don't restore them from cache.
+        if (cached && cached.status && cached.status !== 'active') {
+          await clearCachedProfile();
+          set({ session: null, profile: null });
+          await supabase.auth.signOut().catch(() => {});
+          return;
+        }
         if (cached) {
           // Show the saved profile immediately; refresh it in the background.
           set({ session, profile: cached, initializing: false });

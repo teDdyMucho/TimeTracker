@@ -50,9 +50,16 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, status')
       .eq('id', user.id)
       .single()
+
+    // A deactivated account must not keep a live dashboard session either.
+    if (profile && profile.status !== 'active') {
+      return NextResponse.redirect(
+        new URL('/auth/signout?reason=deactivated', request.url),
+      )
+    }
 
     if (profile && profile.role !== 'admin') {
       // Sign out and redirect to login with a clear message

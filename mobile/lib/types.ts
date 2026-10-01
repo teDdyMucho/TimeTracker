@@ -8,6 +8,8 @@ export type OvertimeStatus = 'none' | 'pending' | 'approved' | 'rejected';
 export type TimesheetStatus = 'submitted' | 'approved' | 'rejected' | 'locked';
 
 export interface Profile {
+  /** 'active' | 'archived' — an archived worker is signed out on sight. */
+  status?: string;
   id: string;
   name: string;
   email: string;

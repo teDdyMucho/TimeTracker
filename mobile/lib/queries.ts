@@ -5,7 +5,7 @@ import { startOfWeek, todayISO } from './date';
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, email, role, business_access, expo_push_token, avatar_url, notifications_enabled')
+    .select('id, name, email, role, status, business_access, expo_push_token, avatar_url, notifications_enabled')
     .eq('id', userId)
     .single();
   if (error) {
