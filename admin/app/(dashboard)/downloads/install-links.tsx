@@ -10,14 +10,12 @@ import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-r
  *   https://drive.google.com/uc?export=download&id=FILE_ID
  */
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
-// v7.2 APK (morning clock-in reminders + 16h auto clock-out), served straight
-// from the EAS build (build bc94236c, commit a1dee6a).
-// NOTE: EAS artifacts EXPIRE — this one on 2026-10-06. Before then, upload the
-// .apk to Google Drive and switch back to the Drive form, which doesn't expire:
-//   https://drive.usercontent.google.com/download?id=FILE_ID&export=download&confirm=t
-// (`confirm=t` skips Drive's virus-scan interstitial for files over 25 MB.)
-// Previous Drive copy (v1.0.4): 1TT4Fw44peMK2UL9bbMHak94_Ju_fF6Vk
-const ANDROID_APK_URL = 'https://expo.dev/artifacts/eas/F2CHDkaOW_DKC_zr0JbXxouzxjRQ4hvCNdVzOdmAO3Q.apk'
+// v7.3 APK (morning reminders, 16h auto clock-out, duplicate-timesheet fix),
+// hosted on Google Drive so the link does not expire like an EAS artifact.
+// To update: upload the new .apk to Drive → Share → "Anyone with the link" →
+// put its file id below. (`confirm=t` skips Drive's scan page for files >25 MB.)
+const ANDROID_APK_FILE_ID = '1SISENMD9XCcv5Lg4znJDJdyvhOdSNWY2'
+const ANDROID_APK_URL = `https://drive.usercontent.google.com/download?id=${ANDROID_APK_FILE_ID}&export=download&confirm=t`
 
 const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH')
 
