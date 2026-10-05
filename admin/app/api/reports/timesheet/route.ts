@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       .eq('profile_id', employeeId)
       .gte('work_date', from)
       .lte('work_date', to)
-      .neq('review_status', 'rejected') // rejected attendance doesn't count
+      .eq('review_status', 'approved') // only approved attendance appears; pending is not yet payable
       .order('clocked_in_at', { ascending: true }),
   ])
 
