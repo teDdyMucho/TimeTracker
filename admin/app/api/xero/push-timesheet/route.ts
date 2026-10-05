@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     .select('profile_id, work_date, hours, profiles(name, email, flat_rate)')
     .eq('business_entity_id', entity.id)
     .gte('work_date', from).lte('work_date', to)
-    .in('status', ['submitted', 'approved'])
+    .eq('status', 'approved') // only approved attendance is paid
 
   const { data: holRows } = await admin
     .from('public_holidays').select('date').gte('date', from).lte('date', to)

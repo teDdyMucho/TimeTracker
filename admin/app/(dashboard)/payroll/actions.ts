@@ -36,17 +36,17 @@ export async function generatePayrollAction(
     .maybeSingle()
   if (!entity) return 'Entity not found.'
 
-  // Submitted/approved timesheets in the period
+  // Only APPROVED attendance is paid — pending review is excluded (client rule).
   const { data: tsRows } = await admin
     .from('timesheets')
     .select('profile_id, work_date, hours, profiles(name, email, flat_rate)')
     .eq('business_entity_id', businessEntityId)
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)
-    .in('status', ['submitted', 'approved'])
+    .eq('status', 'approved') // only approved attendance is paid
 
   if (!tsRows || tsRows.length === 0) {
-    return 'No submitted or approved timesheets found for this period. Ask employees to submit their hours first.'
+    return 'No approved attendance found for this period. Approve the attendance on the Attendance page first — only approved hours are paid.'
   }
 
   // Public holidays in range → drive day classification

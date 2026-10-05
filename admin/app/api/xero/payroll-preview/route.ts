@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     .eq('business_entity_id', entity.id)
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)
-    .in('status', ['submitted', 'approved'])
+    .eq('status', 'approved') // only approved attendance is paid
 
   const { data: holRows } = await admin
     .from('public_holidays')

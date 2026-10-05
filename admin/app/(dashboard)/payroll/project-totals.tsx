@@ -41,7 +41,7 @@ export default async function ProjectTotals({
     .select('profile_id, project_id, business_entity_id, work_date, hours')
     .gte('work_date', from)
     .lte('work_date', to)
-    .in('status', ['submitted', 'approved'])
+    .eq('status', 'approved') // only approved attendance is paid
   if (entityId) tsQuery = tsQuery.eq('business_entity_id', entityId)
   if (projectId) tsQuery = tsQuery.eq('project_id', projectId)
 
