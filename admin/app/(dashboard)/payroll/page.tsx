@@ -1,15 +1,16 @@
 import Link from 'next/link'
 import { createClient, createAdminClient } from '@/lib/server'
 import { Card, PageHeader, Badge } from '@/components/ui'
-import { updatePayrollStatusAction, deletePayrollRunAction } from './actions'
+import { updatePayrollStatusAction } from './actions'
 import NewPayrollRunForm from './new-run-form'
 import { formatHours } from '@/lib/format'
-import { Eye, Trash2, Download } from 'lucide-react'
+import { Eye, Download } from 'lucide-react'
 import PayrollDownload from './payroll-download'
 import ProjectTotalsFilter from './project-totals-filter'
 import ProjectTotals from './project-totals'
 import PayrollTabs from './payroll-tabs'
 import PushToXeroButton from './push-to-xero'
+import DeleteRunButton from './delete-run-button'
 import type { BusinessEntity } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -164,17 +165,14 @@ export default async function PayrollPage({
                         </form>
                       )}
 
-                      <form action={deletePayrollRunAction}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <button
-                          type="submit"
-                          title="Delete pay run"
-                          aria-label="Delete pay run"
-                          className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </form>
+                      <DeleteRunButton
+                        runId={r.id}
+                        entityName={ent?.name ?? 'This entity'}
+                        period={`${r.period_start} – ${r.period_end}`}
+                        employeeCount={empCount}
+                        status={r.status}
+                        synced={r.xero_sync_status === 'synced'}
+                      />
                     </div>
                   </td>
                 </tr>
