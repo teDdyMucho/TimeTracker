@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
   // 1. Aggregate our timesheet hours into per-employee pay bands.
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, profiles(name, email, flat_rate)')
+    .select('profile_id, work_date, hours, profiles!inner(name, email, flat_rate, status)')
+    .eq('profiles.status', 'active') // deactivated staff are never pushed
     .eq('business_entity_id', entity.id)
     .gte('work_date', from).lte('work_date', to)
     .eq('status', 'approved') // only approved attendance is paid

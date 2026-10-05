@@ -38,7 +38,8 @@ export default async function ProjectTotals({
   // Timesheets in range that count for pay (submitted or approved).
   let tsQuery = admin
     .from('timesheets')
-    .select('profile_id, project_id, business_entity_id, work_date, hours')
+    .select('profile_id, project_id, business_entity_id, work_date, hours, profiles!inner(status)')
+    .eq('profiles.status', 'active') // deactivated staff are never costed
     .gte('work_date', from)
     .lte('work_date', to)
     .eq('status', 'approved') // only approved attendance is paid

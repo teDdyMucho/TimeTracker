@@ -39,7 +39,8 @@ export async function generatePayrollAction(
   // Only APPROVED attendance is paid — pending review is excluded (client rule).
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, profiles(name, email, flat_rate)')
+    .select('profile_id, work_date, hours, profiles!inner(name, email, flat_rate, status)')
+    .eq('profiles.status', 'active') // deactivated staff are never paid
     .eq('business_entity_id', businessEntityId)
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)
