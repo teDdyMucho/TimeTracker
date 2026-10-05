@@ -132,10 +132,13 @@ export async function GET(req: NextRequest) {
   const fileName =
     `buildone-payroll-${(sections[0]?.title ?? 'all').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`
 
+  // ?view=1 opens the PDF in the browser; otherwise it downloads.
+  const inline = req.nextUrl.searchParams.get('view') === '1'
+
   return new Response(buffer as any, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${fileName}"`,
     },
   })
 }

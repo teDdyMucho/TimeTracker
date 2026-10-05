@@ -4,7 +4,7 @@ import { Card, PageHeader, Badge } from '@/components/ui'
 import { updatePayrollStatusAction, deletePayrollRunAction } from './actions'
 import NewPayrollRunForm from './new-run-form'
 import { formatHours } from '@/lib/format'
-import { ExternalLink, Trash2, Download } from 'lucide-react'
+import { Eye, Trash2, Download } from 'lucide-react'
 import PayrollDownload from './payroll-download'
 import ProjectTotalsFilter from './project-totals-filter'
 import ProjectTotals from './project-totals'
@@ -125,16 +125,16 @@ export default async function PayrollPage({
                         View salaries
                       </Link>
 
-                      {/* Preview export */}
+                      {/* Open this run's PDF in the browser */}
                       <a
-                        href={`/api/xero/payroll-preview?run=${r.id}`}
+                        href={`/api/payroll/pdf?run=${r.id}&view=1`}
                         target="_blank"
                         rel="noreferrer"
-                        title="Preview Xero export"
+                        title="View PDF"
                         className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
                         style={{ background: 'rgba(28,26,22,0.10)', color: '#000000' }}
                       >
-                        <ExternalLink size={12} /> Preview
+                        <Eye size={12} /> View PDF
                       </a>
 
                       {/* Download PDF for this run */}
@@ -197,7 +197,7 @@ export default async function PayrollPage({
       {anyConnected ? (
         <div className="rounded-2xl px-5 py-3.5 text-sm mb-6" style={{ background: 'rgba(28,26,22,0.10)', border: '1px solid rgba(28,26,22,0.22)', color: '#000000' }}>
           <strong>Xero is connected.</strong> Create a pay run to aggregate each employee&rsquo;s hours
-          into pay bands, then use <em>Preview export</em> to review exactly what will be sent to Xero.
+          into pay bands, then use <em>View PDF</em> to check the figures before sending them to Xero.
         </div>
       ) : (
         <div className="rounded-2xl px-5 py-3.5 text-sm mb-6" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
