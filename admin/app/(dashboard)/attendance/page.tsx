@@ -12,13 +12,13 @@ export const dynamic = 'force-dynamic'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-AU', {
-    timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: true,
   })
 }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-AU', {
-    timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric',
+    timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
@@ -66,9 +66,9 @@ export default async function AttendancePage({
 }) {
   const admin = createAdminClient()
   const params = await searchParams
-  // "Today" in AEST (Australia/Brisbane) — the server runs in UTC on Netlify, so
+  // "Today" on site (Australia/Melbourne, follows daylight saving) — the server runs in UTC on Netlify, so
   // without a timezone the date could be a day off for Australian users.
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
   // Date range takes priority when both from & to are set (client request:
   // filter attendance by a selected period + generate a timesheet report).
   const fromDate = params.from ?? ''

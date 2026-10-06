@@ -12,8 +12,8 @@ export default async function ReportsPage({
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
   const from = params.from ?? thirtyDaysAgo
   const to = params.to ?? today
 

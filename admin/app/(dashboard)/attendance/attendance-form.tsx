@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, Loader2, Plus, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui'
 import Dropdown from '@/components/dropdown'
 import { addAttendanceAction, editAttendanceAction } from './actions'
+import { isoToZonedInput, zonedInputToIso, todayInAppTz } from '@/lib/tz'
 
 export interface EmployeeOption { id: string; name: string }
 export interface ProjectOption { id: string; name: string; business_entity_id: string }
@@ -19,23 +20,12 @@ export interface EditSession {
   review_status: string
 }
 
-/**
- * Convert an ISO timestamp (UTC) to the `YYYY-MM-DDTHH:mm` string a
- * <input type="datetime-local"> expects, in the browser's LOCAL timezone.
- */
-function isoToLocalInput(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
+// Times in this form are SITE time (Melbourne), not the browser's own zone: an
+// admin in another country typing 7:00 AM means 7:00 AM on site. See lib/tz.ts.
+const isoToLocalInput = isoToZonedInput
+const localInputToIso = zonedInputToIso
 
-/** Local wall-clock input value → ISO (UTC) string for the DB. Empty → ''. */
-function localInputToIso(local: string): string {
-  if (!local) return ''
-  return new Date(local).toISOString()
-}
-
-/** Calendar day (local) of a datetime-local value → 'YYYY-MM-DD'. */
+/** Calendar day (site time) of a datetime-local value → 'YYYY-MM-DD'. */
 function localInputToDate(local: string): string {
   if (!local) return ''
   return local.slice(0, 10)
@@ -57,11 +47,7 @@ const LEAVE_TYPE_OPTIONS = [
   { value: 'unpaid', label: 'Unpaid Leave' },
 ]
 
-function todayLocal(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+const todayLocal = todayInAppTz
 
 export default function AttendanceForm({
   employees,

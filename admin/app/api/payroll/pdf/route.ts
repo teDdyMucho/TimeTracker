@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
   ])
 
   const generatedAt = new Date().toLocaleString('en-AU', {
-    timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
   })
 
   const buffer = await renderToBuffer(

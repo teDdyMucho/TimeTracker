@@ -18,7 +18,7 @@ const USER_COLORS    = ['#1C1A16', '#52525B', '#71717A', '#9CA3AF', '#A1A1AA', '
 function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + 'T00:00:00')
   d.setDate(d.getDate() + n)
-  return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
 }
 
 export default async function DashboardPage({
@@ -29,7 +29,7 @@ export default async function DashboardPage({
   const supabase    = await createClient()
   const params      = await searchParams
 
-  const today         = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  const today         = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
   const weekAnchor    = params.week && /^\d{4}-\d{2}-\d{2}$/.test(params.week) ? params.week : today
   const weekStart     = getWeekStart(weekAnchor)
   const weekEndStr    = addDays(weekStart, 6)
@@ -39,13 +39,13 @@ export default async function DashboardPage({
   const isCurrentWeek = weekStart === getWeekStart(today)
 
   const headerDate = new Date().toLocaleDateString('en-AU', {
-    timeZone: 'Australia/Brisbane', weekday: 'long', day: 'numeric', month: 'long',
+    timeZone: 'Australia/Melbourne', weekday: 'long', day: 'numeric', month: 'long',
   })
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart + 'T00:00:00')
     d.setDate(d.getDate() + i)
-    return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+    return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
   })
 
   // Run the auth check in parallel with the count queries that don't need it,
@@ -287,7 +287,7 @@ export default async function DashboardPage({
               {recent.map((t: any) => {
                 const initials = (t.profiles?.name ?? 'U')[0].toUpperCase()
                 const time = t.created_at
-                  ? new Date(t.created_at).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: 'numeric', minute: '2-digit', hour12: true })
+                  ? new Date(t.created_at).toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: 'numeric', minute: '2-digit', hour12: true })
                   : ''
                 return (
                   <div key={t.id} className="flex items-center gap-3 py-3 px-3 -mx-3 rounded-xl transition-colors hover:bg-[#FAF9F6]">
@@ -382,5 +382,5 @@ function getWeekStart(today: string): string {
   const day  = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
-  return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  return d.toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
 }

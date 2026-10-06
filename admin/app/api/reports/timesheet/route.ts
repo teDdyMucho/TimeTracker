@@ -20,7 +20,7 @@ const fmtRange = (from: string, to: string) => {
 }
 
 const fmtTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: 'numeric', minute: '2-digit', hour12: true }) : '—'
+  iso ? new Date(iso).toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: 'numeric', minute: '2-digit', hour12: true }) : '—'
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
   ])
 
   const generatedAt = new Date().toLocaleString('en-AU', {
-    timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
   })
 
   const buffer = await renderToBuffer(

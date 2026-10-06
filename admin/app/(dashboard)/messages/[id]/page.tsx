@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 function timeLabel(iso: string) {
   return new Date(iso).toLocaleString('en-AU', {
-    timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+    timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
   })
 }
 

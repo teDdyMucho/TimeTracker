@@ -53,8 +53,8 @@ function SessionClock() {
   useEffect(() => {
     const tick = () => {
       const now = new Date()
-      setTime(now.toLocaleTimeString('en-GB', { timeZone: 'Australia/Brisbane', hour12: false }))
-      setDate(now.toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', weekday: 'short', day: 'numeric', month: 'short' }))
+      setTime(now.toLocaleTimeString('en-GB', { timeZone: 'Australia/Melbourne', hour12: false }))
+      setDate(now.toLocaleDateString('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', day: 'numeric', month: 'short' }))
     }
     tick()
     const id = setInterval(tick, 1000)

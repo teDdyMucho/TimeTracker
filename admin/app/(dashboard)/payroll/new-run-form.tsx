@@ -17,9 +17,9 @@ export default function NewPayrollRunForm({ entities }: { entities: BusinessEnti
     prevPending.current = pending
   }, [pending, error])
 
-  // Default period: fortnightly ending today (Brisbane)
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-  const twoWeeksAgo = new Date(Date.now() - 13 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  // Default period: fortnightly ending today (site time, Melbourne)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+  const twoWeeksAgo = new Date(Date.now() - 13 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
 
   return (
     <>
