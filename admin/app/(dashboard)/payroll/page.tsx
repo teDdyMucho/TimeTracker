@@ -11,6 +11,7 @@ import ProjectTotals from './project-totals'
 import PayrollTabs from './payroll-tabs'
 import PushToXeroButton from './push-to-xero'
 import DeleteRunButton from './delete-run-button'
+import RecalculateRunButton from './recalculate-run-button'
 import type { BusinessEntity } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -148,6 +149,15 @@ export default async function PayrollPage({
                         <Download size={12} /> PDF
                       </a>
 
+                      {/* Refresh the snapshot with attendance approved since it was generated */}
+                      <RecalculateRunButton
+                        runId={r.id}
+                        entityName={ent?.name ?? 'This entity'}
+                        period={`${r.period_start} – ${r.period_end}`}
+                        status={r.status}
+                        synced={r.xero_sync_status === 'synced'}
+                      />
+
                       {/* Push approved timesheets to Xero */}
                       <PushToXeroButton runId={r.id} />
 
@@ -196,6 +206,7 @@ export default async function PayrollPage({
         <div className="rounded-2xl px-5 py-3.5 text-sm mb-6" style={{ background: 'rgba(28,26,22,0.10)', border: '1px solid rgba(28,26,22,0.22)', color: '#000000' }}>
           <strong>Xero is connected.</strong> Create a pay run to aggregate each employee&rsquo;s hours
           into pay bands, then use <em>View PDF</em> to check the figures before sending them to Xero.
+          Approved more attendance after creating a run? Click <em>Recalculate</em> on it to pull in the new hours.
         </div>
       ) : (
         <div className="rounded-2xl px-5 py-3.5 text-sm mb-6" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>

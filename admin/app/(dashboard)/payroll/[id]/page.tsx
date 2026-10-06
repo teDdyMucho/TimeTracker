@@ -5,6 +5,7 @@ import { Card, Badge } from '@/components/ui'
 import { PAY_BANDS, PAY_BAND_LABELS } from '@/lib/payroll'
 import { formatHours } from '@/lib/format'
 import { ArrowLeft, Download } from 'lucide-react'
+import RecalculateRunButton from '../recalculate-run-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const { data: run } = await admin
     .from('payroll_runs')
     .select(
-      'id, period_start, period_end, status, business_entity_id, business_entities(name), payroll_entries(profile_id, band_hours, gross_pay, profiles(name, email))',
+      'id, period_start, period_end, status, xero_sync_status, business_entity_id, business_entities(name), payroll_entries(profile_id, band_hours, gross_pay, profiles(name, email))',
     )
     .eq('id', id)
     .maybeSingle()
@@ -50,6 +51,13 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <RecalculateRunButton
+            runId={id}
+            entityName={entityName}
+            period={`${(run as any).period_start} – ${(run as any).period_end}`}
+            status={(run as any).status}
+            synced={(run as any).xero_sync_status === 'synced'}
+          />
           <a
             href={`/api/payroll/pdf?run=${id}`}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm"

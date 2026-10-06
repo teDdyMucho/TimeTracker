@@ -421,13 +421,12 @@ export interface ClockOutInput {
 export const AUTO_CLOCK_OUT_HOURS = 16;
 
 /**
- * Shared write for closing a session: stamps clocked_out_at, creates the
- * timesheet with the given hours, and raises an overtime request if flagged.
+ * Shared write for closing a session: stamps clocked_out_at (the DB then
+ * writes the timesheet) and raises an overtime request if flagged.
  */
 async function writeClockOut(
   input: ClockOutInput,
   clockOutAtISO: string,
-  hours: number,
   auto: boolean,
 ): Promise<void> {
   const { data: closed, error: sessionErr } = await supabase
@@ -442,29 +441,19 @@ async function writeClockOut(
     .select('id');
   if (sessionErr) throw sessionErr;
 
-  // Only the call that actually closed the session may write its timesheet.
-  // A manual Clock Out and the auto clock-out (or two devices) can race; the
-  // guard above let only one close the session, but both used to insert a
-  // timesheet — one real shift became two (e.g. 13.63h + 12h on one day).
+  // Only the call that actually closed the session carries on (a manual Clock
+  // Out and the auto clock-out, or two devices, can race — the guard above lets
+  // just one of them close it).
   if (!closed || closed.length === 0) return;
 
-  const { data: ts, error: tsErr } = await supabase
+  // The timesheet itself is written by the database (trg_session_sync_timesheet)
+  // the moment the session closes — one row per session, kept in step with any
+  // later edit or approval. Inserting our own here produced a duplicate.
+  const { data: ts } = await supabase
     .from('timesheets')
-    .insert({
-      profile_id: input.userId,
-      work_date: input.workDate,
-      business_entity_id: input.businessEntityId,
-      project_id: input.projectId,
-      work_location: input.workLocation,
-      hours,
-      overtime_requested: input.overtimeRequested,
-      overtime_reason: input.overtimeReason,
-      overtime_status: input.overtimeRequested ? 'pending' : 'none',
-      status: 'submitted',
-    })
     .select('id')
-    .single();
-  if (tsErr) throw tsErr;
+    .eq('clock_session_id', input.sessionId)
+    .maybeSingle();
 
   if (input.overtimeRequested && ts) {
     await supabase.from('overtime_requests').insert({
@@ -487,12 +476,9 @@ async function writeClockOut(
 }
 
 export async function clockOut(input: ClockOutInput): Promise<void> {
-  const clockOutAt = new Date().toISOString();
-  const msWorked = new Date(clockOutAt).getTime() - new Date(input.clockedInAt).getTime();
-  const hoursRaw = msWorked / 3_600_000;
-  // True elapsed time, rounded to the nearest minute (min ~1 min so it's never 0).
-  const hours = Math.max(0.02, Math.min(24, Math.round(hoursRaw * 60) / 60));
-  await writeClockOut(input, clockOutAt, hours, false);
+  // The DB computes the paid hours from clocked_in_at → clocked_out_at
+  // (rounded to the nearest minute, min ~1 min, max 24h).
+  await writeClockOut(input, new Date().toISOString(), false);
 }
 
 /**
@@ -519,7 +505,6 @@ export async function autoClockOut(session: ClockSession): Promise<void> {
       overtimeReason: null,
     },
     cappedOutAt,
-    AUTO_CLOCK_OUT_HOURS,
     true,
   );
 }
