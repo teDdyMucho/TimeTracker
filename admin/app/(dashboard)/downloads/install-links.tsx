@@ -10,11 +10,11 @@ import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-r
  *   https://drive.google.com/uc?export=download&id=FILE_ID
  */
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
-// v7.3 APK (morning reminders, 16h auto clock-out, duplicate-timesheet fix),
+// v7.4 APK (3:07 / 3:12 PM clock-out reminders, no duplicate timesheet on clock-out),
 // hosted on Google Drive so the link does not expire like an EAS artifact.
 // To update: upload the new .apk to Drive → Share → "Anyone with the link" →
 // put its file id below. (`confirm=t` skips Drive's scan page for files >25 MB.)
-const ANDROID_APK_FILE_ID = '1SISENMD9XCcv5Lg4znJDJdyvhOdSNWY2'
+const ANDROID_APK_FILE_ID = '15ypODJ1QJXsD35yiqm1BlYjrkyN-lBeN'
 const ANDROID_APK_URL = `https://drive.usercontent.google.com/download?id=${ANDROID_APK_FILE_ID}&export=download&confirm=t`
 
 const ANDROID_IS_PLACEHOLDER = ANDROID_APK_URL.includes('REPLACE_WITH')
