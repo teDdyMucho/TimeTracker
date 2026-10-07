@@ -165,7 +165,7 @@ export default function Settings() {
           <View className="flex-1 pr-3">
             <Text className="font-semibold text-ink">Notifications</Text>
             <Text className="text-muted text-sm mt-0.5">
-              Remind me to clock out after 8 hours on the clock.
+              Remind me to clock out at 3:07 PM and 3:12 PM while I’m still on the clock.
             </Text>
           </View>
           {savingNotif ? (

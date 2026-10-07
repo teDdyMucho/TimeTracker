@@ -136,7 +136,7 @@ export default function ClockInScreen() {
       });
       // Clocked in — today's morning "have you clocked in?" alerts are moot.
       await cancelTodayClockInReminders();
-      // Schedule the 8-hour clock-out reminder (unless the user disabled notifications)
+      // Arm the 3:07 / 3:12 PM "make sure you have clocked out" reminders (unless disabled)
       if (profile.notifications_enabled !== false) {
         await scheduleClockOutReminder(new Date().toISOString());
       }

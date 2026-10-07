@@ -3,9 +3,18 @@ import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const REMINDER_KEY = 'clockOutReminderId';
+const REMINDER_KEY = 'clockOutReminderIds';
 const DAILY_KEY = 'dailyTimesheetReminderId';
-const STANDARD_DAY_HOURS = 8;
+
+/**
+ * Fixed end-of-day "make sure you have clocked out" reminders. The site day
+ * runs 7:00 AM – 3:06 PM (7.6 h), so the client asked for nudges at 3:07 PM
+ * and 3:12 PM device-local time, not "8 hours after clock-in".
+ */
+export const CLOCK_OUT_REMINDERS: { hour: number; minute: number }[] = [
+  { hour: 15, minute: 7 },
+  { hour: 15, minute: 12 },
+];
 
 /** Ask for notification permission (no-op if already granted). Returns true if allowed. */
 export async function ensureNotifPermission(): Promise<boolean> {
@@ -16,41 +25,51 @@ export async function ensureNotifPermission(): Promise<boolean> {
 }
 
 /**
- * Schedule a local "time to clock out" reminder 8 hours after clock-in.
- * Fires even if the app is closed. Replaces any existing reminder.
+ * Schedule the 3:07 PM and 3:12 PM "make sure you have clocked out" reminders
+ * for the day of this clock-in. Fires even if the app is closed; cancelled on
+ * clock-out. Replaces any existing reminders. Times already past (a clock-in
+ * at 4 PM) are skipped. Returns true if at least one was scheduled.
  */
 export async function scheduleClockOutReminder(clockedInAtISO: string): Promise<boolean> {
   try {
     if (!(await ensureNotifPermission())) return false;
     await cancelClockOutReminder();
 
-    const target = new Date(clockedInAtISO).getTime() + STANDARD_DAY_HOURS * 3_600_000;
-    const fireDate = new Date(Math.max(Date.now() + 1000, target));
-
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Time to clock out',
-        body: "You've reached 8 hours on the clock — don't forget to clock out.",
-        sound: true,
-      },
-      // A trigger without `type` matches no parser in expo-notifications and
-      // means "fire now" — this reminder used to go off at the moment of clock-in.
-      trigger: { type: SchedulableTriggerInputTypes.DATE, date: fireDate },
-    });
-    await SecureStore.setItemAsync(REMINDER_KEY, id);
-    return true;
+    const clockIn = new Date(clockedInAtISO);
+    const ids: string[] = [];
+    for (const r of CLOCK_OUT_REMINDERS) {
+      const fireAt = new Date(clockIn);
+      fireAt.setHours(r.hour, r.minute, 0, 0);
+      if (fireAt.getTime() <= Date.now() + 1000) continue;
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Make sure you have clocked out',
+          body: `It's ${formatClock(r.hour, r.minute)} — if you've finished for the day, clock out now.`,
+          sound: true,
+        },
+        // A trigger without `type` matches no parser in expo-notifications and
+        // means "fire now" — this reminder used to go off at the moment of clock-in.
+        trigger: { type: SchedulableTriggerInputTypes.DATE, date: fireAt },
+      });
+      ids.push(id);
+    }
+    await SecureStore.setItemAsync(REMINDER_KEY, JSON.stringify(ids));
+    return ids.length > 0;
   } catch (e) {
     console.warn('[notify] schedule failed', e);
     return false;
   }
 }
 
-/** Cancel a pending clock-out reminder (called on clock-out). */
+/** Cancel pending clock-out reminders (called on clock-out). */
 export async function cancelClockOutReminder(): Promise<void> {
   try {
-    const id = await SecureStore.getItemAsync(REMINDER_KEY);
-    if (id) {
-      await Notifications.cancelScheduledNotificationAsync(id);
+    const raw = await SecureStore.getItemAsync(REMINDER_KEY);
+    if (raw) {
+      // Older builds stored a single id as a bare string.
+      let ids: string[] = [];
+      try { ids = JSON.parse(raw); } catch { ids = [raw]; }
+      for (const id of ids) await Notifications.cancelScheduledNotificationAsync(id);
       await SecureStore.deleteItemAsync(REMINDER_KEY);
     }
   } catch (e) {
@@ -58,7 +77,11 @@ export async function cancelClockOutReminder(): Promise<void> {
   }
 }
 
-/** Daily 5pm reminder to log hours (the PRD "missing timesheet reminder"). */
+function formatClock(hour: number, minute: number): string {
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
+}
+
 export async function scheduleDailyTimesheetReminder(): Promise<void> {
   try {
     if (!(await ensureNotifPermission())) return;
