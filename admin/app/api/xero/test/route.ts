@@ -69,6 +69,9 @@ export async function GET(req: NextRequest) {
   // so we don't call the accounting Organisations endpoint here.
   const employees = await xeroGet('https://api.xero.com/payroll.xro/1.0/Employees', token, tenantId)
   const payItems  = await xeroGet('https://api.xero.com/payroll.xro/1.0/PayItems', token, tenantId)
+  // Tracking diagnostics: which category payroll timesheets use vs. what Accounting has.
+  const settings  = await xeroGet('https://api.xero.com/payroll.xro/1.0/Settings', token, tenantId)
+  const trackCats = await xeroGet('https://api.xero.com/api.xro/2.0/TrackingCategories', token, tenantId)
 
   const empBody = employees.body as any
   const piBody  = payItems.body as any
@@ -101,6 +104,17 @@ export async function GET(req: NextRequest) {
         count: emps?.length,
         employees: emps,
         error: employees.ok ? undefined : empBody,
+      },
+      tracking: {
+        payrollSettings: settings.ok ? (settings.body as any)?.Settings?.TrackingCategories ?? null : { status: settings.status },
+        accountingCategories: trackCats.ok
+          ? ((trackCats.body as any)?.TrackingCategories ?? []).map((c: any) => ({
+              id: c.TrackingCategoryID,
+              name: c.Name,
+              status: c.Status,
+              options: (c.Options ?? []).map((o: any) => ({ id: o.TrackingOptionID, name: o.Name, status: o.Status })),
+            }))
+          : { status: trackCats.status },
       },
       payrollEarningsRates: {
         status: payItems.status,

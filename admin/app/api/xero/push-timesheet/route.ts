@@ -14,6 +14,7 @@ import {
   matchLeaveTypeId,
   postXeroTimesheet,
   postXeroLeave,
+  type XeroTimesheetLine,
 } from '@/lib/xero'
 
 const LEAVE_TITLES: Record<string, string> = {
@@ -22,6 +23,14 @@ const LEAVE_TITLES: Record<string, string> = {
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+/** Flatten a Xero error body to a readable message. */
+function xeroErrorText(body: any): string {
+  const v = body?.Elements?.[0]?.ValidationErrors
+  if (Array.isArray(v) && v.length) return v.map((e: any) => e?.Message ?? String(e)).join('; ')
+  if (body?.Message) return String(body.Message)
+  return typeof body === 'string' ? body : JSON.stringify(body)
+}
 
 /** Number of days (inclusive) between two ISO dates. */
 function daysInPeriod(from: string, to: string): number {
@@ -109,12 +118,11 @@ export async function POST(req: NextRequest) {
   const soleCalendar = calendars.length === 1 ? calendars[0] : null
   const calIdCache = new Map<string, string | null>()
 
-  // If the org requires timesheet job tracking, we must attach a TrackingItemID.
-  // We use the first available "Job" option as the default (aggregation loses the
-  // per-project split). If tracking is required but no option is available (scope
-  // missing), we report a clear error instead of a cryptic Xero one.
-  const trackingRequired = !!tracking.categoryId
-  const defaultTrackingId = tracking.options[0]?.id ?? null
+  // Attach a TrackingItemID up front only when payroll Settings names a timesheet
+  // category (first option; aggregation loses the per-project split). Otherwise
+  // send none, and let the retry below add the fallback if Xero insists.
+  const defaultTrackingId = tracking.required ? (tracking.options[0]?.id ?? null) : null
+  const fallbackTrackingId = tracking.fallbackOptions[0]?.id ?? null
 
   const byEmail = new Map(xeroEmployees.filter((e) => e.email).map((e) => [e.email!.toLowerCase(), e]))
   const byName = new Map(xeroEmployees.map((e) => [e.name.toLowerCase(), e]))
@@ -123,19 +131,10 @@ export async function POST(req: NextRequest) {
   let lastXeroFrom = from
   let lastXeroTo = to
 
-  // If tracking is required but we couldn't load any job options, stop early
-  // with a clear message (usually the accounting.settings.read scope is missing).
-  if (trackingRequired && !defaultTrackingId) {
-    return NextResponse.json({
-      error: 'tracking_required',
-      hint: 'This Xero org requires a job/tracking item on timesheets, but no tracking options are available. Add the accounting.settings.read scope (and re-authorise), or disable timesheet tracking in Xero payroll settings.',
-    }, { status: 400 })
-  }
-
   for (const emp of employees) {
     const xe = (emp.email && byEmail.get(emp.email.toLowerCase())) || byName.get(emp.name.toLowerCase())
     if (!xe) {
-      results.push({ employee: emp.name, ok: false, reason: 'No matching Xero employee (check name/email).' })
+      results.push({ employee: emp.name, ok: false, reason: `Not in ${entity.name}'s Xero payroll — add them in Xero with the same name or email.` })
       continue
     }
 
@@ -161,7 +160,7 @@ export async function POST(req: NextRequest) {
 
     // Build one timesheet line per band that has hours + a matching Xero rate,
     // placing each day's hours on its actual day within the aligned period.
-    const lines = []
+    const lines: XeroTimesheetLine[] = []
     const unmapped: string[] = []
     for (const band of PAY_BANDS) {
       const perDay = emp.byBand[band] ?? {}
@@ -180,7 +179,7 @@ export async function POST(req: NextRequest) {
       // so the total is never lost (edge case: run period vs. calendar mismatch).
       const leftover = Math.round((bandTotal - placed) * 100) / 100
       if (leftover > 0) units[nDays - 1] = Math.round((units[nDays - 1] + leftover) * 100) / 100
-      lines.push({ earningsRateId: rateId, numberOfUnits: units, trackingItemId: trackingRequired ? defaultTrackingId : undefined })
+      lines.push({ earningsRateId: rateId, numberOfUnits: units, trackingItemId: defaultTrackingId })
     }
 
     if (lines.length === 0) {
@@ -188,15 +187,28 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    const res = await postXeroTimesheet(token, entity.xero_tenant_id, {
-      employeeId: xe.id, startDate: xeroFrom, endDate: xeroTo, lines,
+    const post = (trackingItemId: string | null) => postXeroTimesheet(token, entity.xero_tenant_id, {
+      employeeId: xe.id, startDate: xeroFrom, endDate: xeroTo,
+      lines: lines.map((l) => ({ ...l, trackingItemId })),
     })
+    let res = await post(defaultTrackingId)
+    // Self-correct tracking once, based on what Xero tells us:
+    //  - it wants a TrackingItemID we didn't send → retry with the fallback Job option
+    //  - it doesn't recognise the option we sent → retry without tracking
+    if (!res.ok) {
+      const msg = xeroErrorText(res.body)
+      if (!defaultTrackingId && fallbackTrackingId && /TrackingItemID is required/i.test(msg)) {
+        res = await post(fallbackTrackingId)
+      } else if (defaultTrackingId && /Tracking Option .* does not exist/i.test(msg)) {
+        res = await post(null)
+      }
+    }
     results.push({
       employee: emp.name,
       ok: res.ok,
       status: res.status,
       unmapped: unmapped.length ? unmapped : undefined,
-      error: res.ok ? undefined : (res.body?.Elements?.[0]?.ValidationErrors ?? res.body?.Message ?? res.body),
+      error: res.ok ? undefined : xeroErrorText(res.body),
     })
   }
 
@@ -228,7 +240,7 @@ export async function POST(req: NextRequest) {
         employee: name, leaveType: l.leave_type,
         dates: l.start_date === l.end_date ? l.start_date : `${l.start_date} – ${l.end_date}`,
         ok: lr.ok,
-        error: lr.ok ? undefined : (lr.body?.Elements?.[0]?.ValidationErrors ?? lr.body?.Message ?? lr.body),
+        error: lr.ok ? undefined : xeroErrorText(lr.body),
       })
     }
   }
