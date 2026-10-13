@@ -20,6 +20,7 @@ import {
 import { friendlyDate } from '@/lib/date';
 import { formatHours } from '@/lib/format';
 import { cancelClockOutReminder, syncClockInReminders } from '@/lib/notify';
+import { clockOutMessage, workedLabel } from '@/lib/clock-feedback';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
 // Build One palette constants
@@ -158,10 +159,13 @@ export default function Home() {
         overtimeReason: overtime ? otReason.trim() : null,
       });
       await cancelClockOutReminder();
+      const msg = clockOutMessage(workedLabel(activeSession.clocked_in_at), overtime);
       setActiveSession(null);
       setOvertime(false);
       setOtReason('');
       await load();
+      // PRD §7 confirmation: "Timesheet Successfully Submitted".
+      Alert.alert(msg.title, msg.body);
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Could not clock out.');
     } finally {

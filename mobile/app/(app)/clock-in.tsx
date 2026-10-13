@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,6 +23,7 @@ import {
 } from '@/lib/queries';
 import { todayISO } from '@/lib/date';
 import { scheduleClockOutReminder, cancelTodayClockInReminders } from '@/lib/notify';
+import { clockInMessage, filterProjects, shouldShowProjectSearch } from '@/lib/clock-feedback';
 import { Button, Card, Chip, Label } from '@/components/ui';
 import type { BusinessEntity, Project, WorkLocation } from '@/lib/types';
 
@@ -47,6 +49,8 @@ export default function ClockInScreen() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workLocation, setWorkLocation] = useState<WorkLocation>('site');
 
+  const [projectSearch, setProjectSearch] = useState('');
+
   const [loadingEntities, setLoadingEntities] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -68,6 +72,7 @@ export default function ClockInScreen() {
     setLoadingProjects(true);
     setProjects([]);
     setProjectId(null);
+    setProjectSearch(''); // a filter typed for one business must not hide the next one's projects
     fetchProjects(businessId)
       .then((p) => {
         setProjects(p);
@@ -92,19 +97,34 @@ export default function ClockInScreen() {
     if (result.canceled) return;
     setSelfieUri(result.assets[0].uri);
 
-    const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
-    if (locStatus === 'granted') {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude, longitude } = loc.coords;
-      setLocation({ lat: latitude, lng: longitude });
-      try {
-        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (place) {
-          const parts = [place.streetNumber, place.street, place.suburb, place.city, place.region]
-            .filter(Boolean);
-          setAddress(parts.join(', '));
+    // Location is best-effort: a phone with location services off (or no GPS
+    // fix yet) used to throw here, which left the worker stuck on the selfie
+    // step. Now we fall back to the last known position, then to no location,
+    // and always continue — the admin still sees the photo and timestamp.
+    try {
+      const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locStatus === 'granted') {
+        let loc: Location.LocationObject | null = null;
+        try {
+          loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        } catch (_) {
+          loc = await Location.getLastKnownPositionAsync({ maxAge: 10 * 60_000 }).catch(() => null);
         }
-      } catch (_) {}
+        if (loc) {
+          const { latitude, longitude } = loc.coords;
+          setLocation({ lat: latitude, lng: longitude });
+          try {
+            const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+            if (place) {
+              const parts = [place.streetNumber, place.street, place.district, place.city, place.region]
+                .filter(Boolean);
+              setAddress(parts.join(', '));
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+      // permission prompt failed — continue without location
     }
     setStep('details');
   }, []);
@@ -140,12 +160,18 @@ export default function ClockInScreen() {
       if (profile.notifications_enabled !== false) {
         await scheduleClockOutReminder(new Date().toISOString());
       }
+      // PRD §7 confirmation — a visible "you're on the clock" acknowledgement.
+      const msg = clockInMessage(projects.find((p) => p.id === projectId)?.name);
       router.replace('/');
+      Alert.alert(msg.title, msg.body);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not clock in.');
       setSubmitting(false);
     }
-  }, [profile, businessId, projectId, workLocation, location, selfieUri, router]);
+  }, [profile, businessId, projectId, workLocation, location, selfieUri, router, projects]);
+
+  // PRD §7 "Searchable dropdown": filter the project list by name / client.
+  const visibleProjects = filterProjects(projects, projectSearch);
 
   // ── Step 1: Take selfie ───────────────────────────────────────────────────
   if (step === 'selfie') {
@@ -259,7 +285,30 @@ export default function ClockInScreen() {
             <Text className="text-muted text-sm">No active projects. Ask an admin to create one.</Text>
           ) : (
             <View className="gap-2">
-              {projects.map((p) => (
+              {shouldShowProjectSearch(projects.length) && (
+                <TextInput
+                  value={projectSearch}
+                  onChangeText={setProjectSearch}
+                  placeholder="Search projects…"
+                  placeholderTextColor={MUTED}
+                  autoCorrect={false}
+                  clearButtonMode="while-editing"
+                  style={{
+                    borderWidth: 1.5,
+                    borderColor: LINE,
+                    backgroundColor: '#ffffff',
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    color: INK,
+                    marginBottom: 4,
+                  }}
+                />
+              )}
+              {visibleProjects.length === 0 && (
+                <Text className="text-muted text-sm">{`No projects match "${projectSearch.trim()}".`}</Text>
+              )}
+              {visibleProjects.map((p) => (
                 <TouchableOpacity
                   key={p.id}
                   activeOpacity={0.8}

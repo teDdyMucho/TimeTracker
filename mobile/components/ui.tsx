@@ -1,4 +1,5 @@
 import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type { ReactNode } from 'react';
 
 /**
@@ -70,12 +71,14 @@ export function Button({
   loading = false,
   disabled = false,
   variant = 'primary',
+  className = '',
 }: {
   label: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'ghost';
+  className?: string;
 }) {
   const base = 'rounded-2xl py-4 px-5 items-center justify-center flex-row';
   const styles =
@@ -90,7 +93,7 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isOff}
-      className={`${base} ${styles} ${isOff ? 'opacity-50' : 'active:opacity-80'}`}
+      className={`${base} ${styles} ${isOff ? 'opacity-50' : 'active:opacity-80'} ${className}`}
     >
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? '#fff' : '#1C1A16'} />
@@ -122,9 +125,20 @@ export function Chip({
   );
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = '',
+  style,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Inline overrides (e.g. a tinted background for the "on the clock" card). */
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <View className={`bg-white rounded-2xl p-4 border border-line ${className}`}>{children}</View>
+    <View className={`bg-white rounded-2xl p-4 border border-line ${className}`} style={style}>
+      {children}
+    </View>
   );
 }
 
