@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/server'
-import { aggregatePayrollByDay, PAY_BANDS, type PayConfig } from '@/lib/payroll'
+import { PAY_BANDS } from '@/lib/payroll'
+import { aggregateEmployeeBandsByDay, normalizePayConfig } from '@/lib/labour-cost'
 import {
   getValidXeroToken,
   fetchXeroEmployees,
@@ -73,10 +74,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'not_connected', hint: 'Connect this entity to Xero first.' }, { status: 400 })
   }
 
-  // 1. Aggregate our timesheet hours into per-employee pay bands.
+  // PRD §16 sync status: mark the run pending while we talk to Xero, then
+  // success / failed below. Any thrown error also lands as 'failed'.
+  const setSync = async (status: 'pending' | 'success' | 'failed', exported = false) => {
+    if (!runId) return
+    await admin
+      .from('payroll_runs')
+      .update(exported ? { xero_sync_status: status, status: 'exported' } : { xero_sync_status: status })
+      .eq('id', runId)
+  }
+  const failRun = async (reason: string) => {
+    await setSync('failed')
+    // PRD §18 admin notification: "Failed Xero Sync".
+    const { data: admins } = await admin.from('profiles').select('id').eq('role', 'admin').eq('status', 'active')
+    const rows = (admins ?? []).map((a: any) => ({
+      profile_id: a.id, type: 'xero_sync_failed', title: `Xero push failed — ${entity.name}`,
+      body: `${from} – ${to}: ${reason}`.slice(0, 500),
+    }))
+    if (rows.length) await admin.from('notifications').insert(rows)
+  }
+  await setSync('pending')
+
+  try {
+  // 1. Aggregate our timesheet hours into per-employee pay bands. overtime_status
+  //    feeds the entity's "overtime must be approved" rule (PRD §10).
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, profiles!inner(name, email, flat_rate, status)')
+    .select('profile_id, work_date, hours, overtime_status, profiles!inner(name, email, flat_rate, status)')
     .eq('profiles.status', 'active') // deactivated staff are never pushed
     .eq('business_entity_id', entity.id)
     .gte('work_date', from).lte('work_date', to)
@@ -90,7 +114,7 @@ export async function POST(req: NextRequest) {
   const flatRateIds = new Set(
     ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
   )
-  const employees = aggregatePayrollByDay((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig, flatRateIds)
+  const employees = aggregateEmployeeBandsByDay((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds)
 
   // 2. Pull Xero employees + earnings rates + (if required) job tracking + calendars.
   const token = await getValidXeroToken(entity.xero_tenant_id)
@@ -126,6 +150,7 @@ export async function POST(req: NextRequest) {
   // If tracking is required but we couldn't load any job options, stop early
   // with a clear message (usually the accounting.settings.read scope is missing).
   if (trackingRequired && !defaultTrackingId) {
+    await failRun('Xero requires a job/tracking item on timesheets but none are available.')
     return NextResponse.json({
       error: 'tracking_required',
       hint: 'This Xero org requires a job/tracking item on timesheets, but no tracking options are available. Add the accounting.settings.read scope (and re-authorise), or disable timesheet tracking in Xero payroll settings.',
@@ -234,6 +259,15 @@ export async function POST(req: NextRequest) {
   }
   const leavePushed = leaveResults.filter((r) => r.ok).length
 
+  // Record the outcome on the run (PRD §16): every employee pushed → success and
+  // the run becomes "exported"; anything else → failed, with an admin alert.
+  if (results.length > 0 && pushed === results.length) {
+    await setSync('success', true)
+  } else {
+    const failed = results.filter((r) => !r.ok).map((r) => `${r.employee}: ${r.reason ?? (typeof r.error === 'string' ? r.error : 'error')}`)
+    await failRun(results.length === 0 ? 'No employees with approved hours to push.' : `${failed.length} of ${results.length} employees failed — ${failed.join('; ')}`)
+  }
+
   return NextResponse.json({
     entity: entity.name,
     period: { from, to },
@@ -248,4 +282,9 @@ export async function POST(req: NextRequest) {
     results,
     leaveResults,
   })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unexpected error while talking to Xero.'
+    await failRun(msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }

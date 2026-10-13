@@ -4,15 +4,19 @@ import Link from 'next/link'
 import { Bell, ChevronDown, LogOut, Timer } from 'lucide-react'
 import { signOutAction } from '@/app/actions'
 import ConfirmModal from '@/components/confirm-modal'
+import AdminInbox, { type InboxItem } from './admin-inbox'
 
 export default function HeaderActions({
   userName,
   userEmail,
   pendingCount,
+  inbox,
 }: {
   userName: string
   userEmail: string
   pendingCount: number
+  /** The admin's own notifications (payroll ready, Xero failed, budget alerts …). */
+  inbox?: InboxItem[]
 }) {
   const [openBell, setOpenBell] = useState(false)
   const [openUser, setOpenUser] = useState(false)
@@ -41,6 +45,9 @@ export default function HeaderActions({
     <div className="flex items-center gap-3">
 
       {/* ── Notifications ──────────────────────────────────── */}
+      {inbox ? (
+        <AdminInbox items={inbox} pendingCount={pendingCount} />
+      ) : (
       <div className="relative" ref={bellRef}>
         <button
           type="button"
@@ -87,6 +94,7 @@ export default function HeaderActions({
           </div>
         )}
       </div>
+      )}
 
       {/* ── User menu ──────────────────────────────────────── */}
       <div className="relative" ref={userRef}>

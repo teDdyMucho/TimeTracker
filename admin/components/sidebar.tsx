@@ -15,6 +15,8 @@ import {
   LogOut,
   MessageSquare,
   ScanLine,
+  Settings,
+  Sun,
   Timer,
   Users,
 } from 'lucide-react'
@@ -32,9 +34,14 @@ const NAV = [
   { href: '/leave',      label: 'Leave',      icon: CalendarDays, badge: 'leave' as const },
   { href: '/reports',    label: 'Reports',    icon: BarChart3 },
   { href: '/payroll',    label: 'Payroll',    icon: Banknote },
+  { href: '/holidays',   label: 'Public Holidays', icon: Sun },
   { href: '/xero',       label: 'Xero',       icon: Link2 },
+  { href: '/settings',   label: 'Settings',   icon: Settings },
   { href: '/downloads',  label: 'Get the App', icon: Download },
 ]
+
+// Supervisors (PRD §4) only review their team: overtime, attendance, leave.
+const SUPERVISOR_NAV = NAV.filter((n) => ['/overtime', '/attendance', '/leave'].includes(n.href))
 
 // Pure-black monochrome sidebar palette
 const BG          = '#000000'   // true black
@@ -86,10 +93,12 @@ interface Props {
   pendingLeaveCount: number
   userName: string
   userEmail: string
+  role?: 'admin' | 'supervisor'
 }
 
-export default function Sidebar({ pendingOvertimeCount, unreadMessages, pendingLeaveCount, userName, userEmail }: Props) {
+export default function Sidebar({ pendingOvertimeCount, unreadMessages, pendingLeaveCount, userName, userEmail, role = 'admin' }: Props) {
   const pathname = usePathname()
+  const nav = role === 'supervisor' ? SUPERVISOR_NAV : NAV
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const signOutFormRef = useRef<HTMLFormElement>(null)
@@ -125,7 +134,7 @@ export default function Sidebar({ pendingOvertimeCount, unreadMessages, pendingL
 
       {/* ── Navigation ─────────────────────────────────────── */}
       <nav className="flex-1 px-3 py-1 space-y-1.5 overflow-y-auto">
-        {NAV.map(({ href, label, icon: Icon, badge }) => {
+        {nav.map(({ href, label, icon: Icon, badge }) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
           const badgeCount =
             badge === 'overtime' ? pendingOvertimeCount :
@@ -214,7 +223,7 @@ export default function Sidebar({ pendingOvertimeCount, unreadMessages, pendingL
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="text-sm font-semibold truncate text-white">{userName}</div>
-            <div className="text-[11px] truncate" style={{ color: TEXT_FAINT }}>{userEmail || 'Administrator'}</div>
+            <div className="text-[11px] truncate" style={{ color: TEXT_FAINT }}>{userEmail || (role === 'supervisor' ? 'Supervisor' : 'Administrator')}</div>
           </div>
           <ChevronDown size={15} className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`} style={{ color: TEXT_FAINT }} />
         </button>

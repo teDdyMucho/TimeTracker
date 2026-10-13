@@ -10,10 +10,11 @@ interface Props {
   pendingLeaveCount: number
   userName: string
   userEmail: string
+  role?: 'admin' | 'supervisor'
   children: React.ReactNode
 }
 
-export default function AppShell({ pendingOvertimeCount, unreadMessages, pendingLeaveCount, userName, userEmail, children }: Props) {
+export default function AppShell({ pendingOvertimeCount, unreadMessages, pendingLeaveCount, userName, userEmail, role = 'admin', children }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -43,6 +44,7 @@ export default function AppShell({ pendingOvertimeCount, unreadMessages, pending
           pendingLeaveCount={pendingLeaveCount}
           userName={userName}
           userEmail={userEmail}
+          role={role}
         />
       </div>
 

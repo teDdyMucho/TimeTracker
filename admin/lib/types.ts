@@ -2,9 +2,10 @@ export type Role = 'employee' | 'supervisor' | 'admin'
 export type WorkLocation = 'site' | 'workshop'
 export type OvertimeStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type TimesheetStatus = 'submitted' | 'approved' | 'rejected' | 'locked'
-export type PayrollStatus = 'draft' | 'finalised' | 'paid' | 'failed'
-export type EmploymentType = 'full_time' | 'part_time' | 'casual' | 'contractor'
-export type EntityStatus = 'active' | 'inactive'
+export type PayrollStatus = 'draft' | 'reviewed' | 'approved' | 'exported'
+export type XeroSyncStatus = 'not_synced' | 'pending' | 'success' | 'failed'
+export type EmploymentType = 'full_time' | 'part_time' | 'casual' | 'contractor' | 'labour_hire'
+export type EntityStatus = 'active' | 'archived'
 
 export interface WeekdayTier {
   label: string
@@ -107,11 +108,8 @@ export interface PayrollRun {
   period_start: string
   period_end: string
   status: PayrollStatus
-  total_gross: number
-  total_employees: number
-  xero_payrun_id: string | null
-  xero_sync_status: 'pending' | 'synced' | 'failed' | 'not_required'
-  generated_at: string
+  xero_sync_status: XeroSyncStatus
+  created_at: string
 }
 
 /** Admin-only */

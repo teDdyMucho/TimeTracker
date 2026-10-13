@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
-import { Users, Clock, Timer, FolderOpen, ArrowUp, ArrowDown } from 'lucide-react'
+import { Users, Clock, Timer, FolderOpen, ArrowUp, ArrowDown, Banknote, TrendingUp, CalendarCheck } from 'lucide-react'
 
-const ICONS = { users: Users, clock: Clock, timer: Timer, folder: FolderOpen } as const
+const ICONS = { users: Users, clock: Clock, timer: Timer, folder: FolderOpen, banknote: Banknote, trending: TrendingUp, calendar: CalendarCheck } as const
 
 export interface StatCard {
   label: string
@@ -17,7 +17,7 @@ export interface StatCard {
 
 export default function DashboardStatCards({ cards }: { cards: StatCard[] }) {
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+    <div className={`grid grid-cols-2 ${cards.length > 4 ? 'lg:grid-cols-3 xl:grid-cols-4' : 'xl:grid-cols-4'} gap-4 mb-5`}>
       {cards.map((c, i) => {
         const Icon = ICONS[c.iconName]
         return (

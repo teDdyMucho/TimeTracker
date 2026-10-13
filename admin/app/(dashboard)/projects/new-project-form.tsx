@@ -2,8 +2,8 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { CheckCircle, XCircle, Loader2, Plus } from 'lucide-react'
 import { createProjectAction } from './actions'
-import { Input, Button } from '@/components/ui'
-import Dropdown from '@/components/dropdown'
+import { Button } from '@/components/ui'
+import ProjectFields from './project-fields'
 import type { BusinessEntity } from '@/lib/types'
 
 export default function NewProjectForm({ entities }: { entities: BusinessEntity[] }) {
@@ -75,34 +75,7 @@ export default function NewProjectForm({ entities }: { entities: BusinessEntity[
             </div>
           )}
 
-          <Input
-            label="Project name"
-            name="name"
-            required
-            placeholder="Brisbane Renovation"
-            disabled={pending}
-          />
-          <Input
-            label="Client / builder"
-            name="client"
-            placeholder="Optional"
-            disabled={pending}
-          />
-          <Input
-            label="Code"
-            name="code"
-            placeholder="Optional reference code"
-            disabled={pending}
-          />
-          <div>
-            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Business entity</span>
-            <Dropdown
-              name="business_entity_id"
-              value={entityId}
-              onChange={setEntityId}
-              options={entities.map((e) => ({ value: e.id, label: e.name }))}
-            />
-          </div>
+          <ProjectFields values={{}} entities={entities} entityId={entityId} onEntityChange={setEntityId} pending={pending} />
 
           <div className="flex gap-3 pt-2">
             <button

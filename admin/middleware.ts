@@ -61,6 +61,16 @@ export async function middleware(request: NextRequest) {
       )
     }
 
+    // Supervisors (PRD §4) may review their team's overtime, attendance and
+    // leave. Anything else sends them to the overtime queue. Pages and actions
+    // scope their data to the supervisor's team (lib/viewer.ts).
+    if (profile && profile.role === 'supervisor') {
+      const allowed = ['/overtime', '/attendance', '/leave']
+      const ok = allowed.some((p) => pathname === p || pathname.startsWith(p + '/'))
+      if (!ok) return NextResponse.redirect(new URL('/overtime', request.url))
+      return response
+    }
+
     if (profile && profile.role !== 'admin') {
       // Sign out and redirect to login with a clear message
       return NextResponse.redirect(

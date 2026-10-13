@@ -17,6 +17,7 @@ interface Profile {
   status: string
   hourly_rate?: number | null
   flat_rate?: boolean
+  supervisor_id?: string | null
 }
 
 interface Props {
@@ -24,6 +25,7 @@ interface Props {
   profiles: Profile[]
   entityMap: Record<string, string>
   activeCount: number
+  supervisors?: { id: string; name: string }[]
 }
 
 // Build a readable "entities" label for a profile (e.g. "ARKO Joinery, Build One").
@@ -31,9 +33,10 @@ function entitiesLabel(p: Profile, entityMap: Record<string, string>): string {
   return p.business_access.map((id) => entityMap[id] ?? id).join(', ') || '—'
 }
 
-export default function EmployeesClient({ entities, profiles, entityMap, activeCount }: Props) {
+export default function EmployeesClient({ entities, profiles, entityMap, activeCount, supervisors = [] }: Props) {
   const [showInvite, setShowInvite] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
+  const supervisorName = useMemo(() => Object.fromEntries(supervisors.map((s) => [s.id, s.name])), [supervisors])
 
   // Filter by the distinct entity-combination label (e.g. "ARKO Joinery, Build One")
   const [entityFilter, setEntityFilter] = useState<string>('')
@@ -58,13 +61,14 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
       />
 
       {showInvite && (
-        <InviteEmployeeForm entities={entities} onClose={() => setShowInvite(false)} />
+        <InviteEmployeeForm entities={entities} supervisors={supervisors} onClose={() => setShowInvite(false)} />
       )}
 
       {editing && (
         <EditEmployeeForm
           employee={editing}
           entities={entities}
+          supervisors={supervisors.filter((s) => s.id !== editing.id)}
           onClose={() => setEditing(null)}
         />
       )}
@@ -83,6 +87,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Role</th>
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Type</th>
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Rate</th>
+                <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Supervisor</th>
                 {/* Entities — click to filter by combo (grey-highlight dropdown) */}
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">
                   <Dropdown
@@ -121,6 +126,11 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                       </span>
                     )}
                   </td>
+                  <td className="py-3 pr-4 text-muted text-xs whitespace-nowrap">
+                    {p.supervisor_id && supervisorName[p.supervisor_id]
+                      ? supervisorName[p.supervisor_id]
+                      : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="py-3 pr-4 text-muted text-xs">
                     {entitiesLabel(p, entityMap)}
                   </td>
@@ -157,7 +167,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
               ))}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted text-sm">
+                  <td colSpan={9} className="py-8 text-center text-muted text-sm">
                     No employees match this filter.{' '}
                     <button onClick={() => setEntityFilter('')} className="font-semibold text-ink hover:underline">Clear</button>
                   </td>

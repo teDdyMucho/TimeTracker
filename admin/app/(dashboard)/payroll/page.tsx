@@ -13,6 +13,7 @@ import PushToXeroButton from './push-to-xero'
 import DeleteRunButton from './delete-run-button'
 import RecalculateRunButton from './recalculate-run-button'
 import type { BusinessEntity } from '@/lib/types'
+import { normalizePayCycle, lastCompletedPeriod } from '@/lib/pay-cycle'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +44,7 @@ export default async function PayrollPage({
   const ppFrom = sp.ppFrom || isoDay(-13)
   const ppTo = sp.ppTo || isoDay(0)
 
-  const [runsRes, entitiesRes, employeesRes, projectsRes] = await Promise.all([
+  const [runsRes, entitiesRes, employeesRes, projectsRes, cycleRes] = await Promise.all([
     adminClient
       .from('payroll_runs')
       .select(
@@ -65,7 +66,12 @@ export default async function PayrollPage({
       .from('projects')
       .select('id, name, business_entity_id')
       .order('name'),
+    adminClient.from('settings').select('value').eq('key', 'pay_cycle').maybeSingle(),
   ])
+
+  // Default "New pay run" period = the last completed pay period (PRD §15 pay cycle).
+  const payCycle = normalizePayCycle(cycleRes.data?.value)
+  const defaultPeriod = lastCompletedPeriod(payCycle, isoDay(0))
 
   const runs = (runsRes.data ?? []) as any[]
   const entities = (entitiesRes.data ?? []) as (BusinessEntity & { xero_tenant_id: string | null })[]
@@ -103,6 +109,8 @@ export default async function PayrollPage({
               const totalHours = entries.reduce((s, e) => s + bandTotal(e.band_hours), 0)
               const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
               const ent = entityMap[r.business_entity_id]
+              // Pushed to Xero → figures are final (enum value is 'success', not 'synced').
+              const exported = r.xero_sync_status === 'success' || r.status === 'exported'
               return (
                 <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 pr-4 font-medium">
@@ -155,13 +163,27 @@ export default async function PayrollPage({
                         entityName={ent?.name ?? 'This entity'}
                         period={`${r.period_start} – ${r.period_end}`}
                         status={r.status}
-                        synced={r.xero_sync_status === 'synced'}
+                        synced={exported}
                       />
 
                       {/* Push approved timesheets to Xero */}
                       <PushToXeroButton runId={r.id} />
 
+                      {/* PRD §15: Draft → Reviewed → Approved → Exported */}
                       {r.status === 'draft' && (
+                        <form action={updatePayrollStatusAction}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="status" value="reviewed" />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center h-7 px-3 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap"
+                            style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
+                          >
+                            Mark reviewed
+                          </button>
+                        </form>
+                      )}
+                      {(r.status === 'draft' || r.status === 'reviewed') && (
                         <form action={updatePayrollStatusAction}>
                           <input type="hidden" name="id" value={r.id} />
                           <input type="hidden" name="status" value="approved" />
@@ -181,7 +203,7 @@ export default async function PayrollPage({
                         period={`${r.period_start} – ${r.period_end}`}
                         employeeCount={empCount}
                         status={r.status}
-                        synced={r.xero_sync_status === 'synced'}
+                        synced={exported}
                       />
                     </div>
                   </td>
@@ -198,7 +220,7 @@ export default async function PayrollPage({
       <PageHeader
         title="Payroll"
         subtitle="Fortnightly pay runs — hours export to Xero"
-        action={<NewPayrollRunForm entities={entities} />}
+        action={<NewPayrollRunForm entities={entities} defaultStart={defaultPeriod.start} defaultEnd={defaultPeriod.end} cycleLabel={payCycle.frequency} />}
       />
 
       {/* Xero status notice */}

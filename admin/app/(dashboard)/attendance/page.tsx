@@ -7,6 +7,7 @@ import AttendanceFilter from './attendance-filter'
 import AttendanceForm from './attendance-form'
 import EditAttendanceButton from './edit-attendance-button'
 import { approveAttendanceAction, rejectAttendanceAction } from './actions'
+import { getViewer, NO_ROWS_ID } from '@/lib/viewer'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,9 @@ export default async function AttendancePage({
   searchParams: Promise<{ date?: string; from?: string; to?: string; employee?: string; entity?: string }>
 }) {
   const admin = createAdminClient()
+  const viewer = await getViewer()
+  const teamIds = viewer.teamIds // null = admin (everyone); [] = supervisor with no team yet
+  const isAdmin = viewer.role === 'admin'
   const params = await searchParams
   // "Today" on site (Australia/Melbourne, follows daylight saving) — the server runs in UTC on Netlify, so
   // without a timezone the date could be a day off for Australian users.
@@ -83,8 +87,10 @@ export default async function AttendancePage({
   const entityId = params.entity ?? ''
 
   // Dropdown options for the filters (all employees + entities, alphabetical).
+  let empQuery = admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name')
+  if (teamIds) empQuery = empQuery.in('id', teamIds.length ? teamIds : [NO_ROWS_ID])
   const [empRes, entRes, projRes] = await Promise.all([
-    admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name'),
+    empQuery,
     admin.from('business_entities').select('id, name').eq('status', 'active').order('name'),
     admin.from('projects').select('id, name, business_entity_id').eq('status', 'active').order('name'),
   ])
@@ -112,6 +118,7 @@ export default async function AttendancePage({
   }
   if (employeeId) query = query.eq('profile_id', employeeId)
   if (entityId) query = query.eq('business_entity_id', entityId)
+  if (teamIds) query = query.in('profile_id', teamIds.length ? teamIds : [NO_ROWS_ID])
 
   const { data: sessions } = await query
 
@@ -147,7 +154,7 @@ export default async function AttendancePage({
             : `${sorted.length} session${sorted.length !== 1 ? 's' : ''} on ${formatDate(date)}`
         }
         action={
-          <AttendanceForm employees={employees} projects={projects} companies={companies} />
+          isAdmin ? <AttendanceForm employees={employees} projects={projects} companies={companies} /> : undefined
         }
       />
 
@@ -298,6 +305,7 @@ export default async function AttendancePage({
                       {/* Actions — edit times, then accept/reject after checking photo + location */}
                       <td className="py-3">
                         <div className="flex gap-1.5 items-center justify-end flex-nowrap">
+                          {isAdmin && (
                           <EditAttendanceButton
                             session={{
                               id: s.id,
@@ -312,6 +320,7 @@ export default async function AttendancePage({
                             projects={projects}
                             companies={companies}
                           />
+                          )}
                           {isActive ? (
                             <span className="text-slate-300 text-xs">On the clock</span>
                           ) : review === 'pending' ? (

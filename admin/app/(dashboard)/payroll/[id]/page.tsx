@@ -6,6 +6,8 @@ import { PAY_BANDS, PAY_BAND_LABELS } from '@/lib/payroll'
 import { formatHours } from '@/lib/format'
 import { ArrowLeft, Download } from 'lucide-react'
 import RecalculateRunButton from '../recalculate-run-button'
+import { updatePayrollStatusAction } from '../actions'
+import AllowanceCell from './allowance-cell'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +20,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const { data: run } = await admin
     .from('payroll_runs')
     .select(
-      'id, period_start, period_end, status, xero_sync_status, business_entity_id, business_entities(name), payroll_entries(profile_id, band_hours, gross_pay, profiles(name, email))',
+      'id, period_start, period_end, status, xero_sync_status, business_entity_id, business_entities(name), payroll_entries(profile_id, band_hours, allowances, gross_pay, profiles(name, email))',
     )
     .eq('id', id)
     .maybeSingle()
@@ -28,6 +30,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const entries = ((run as any).payroll_entries ?? []) as {
     profile_id: string
     band_hours: Record<string, number>
+    allowances: number | null
     gross_pay: number
     profiles?: { name?: string; email?: string }
   }[]
@@ -35,7 +38,10 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   // Which bands actually have hours anywhere — only show those columns
   const activeBands = PAY_BANDS.filter((b) => entries.some((e) => (e.band_hours?.[b] ?? 0) > 0))
   const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
+  const totalAllow = entries.reduce((s, e) => s + Number(e.allowances || 0), 0)
   const entityName = (run as any).business_entities?.name ?? '—'
+  const status = (run as any).status as string
+  const exported = status === 'exported' || (run as any).xero_sync_status === 'success'
 
   return (
     <div>
@@ -50,14 +56,33 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
             {(run as any).period_start} → {(run as any).period_end} · {entries.length} employee{entries.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <RecalculateRunButton
             runId={id}
             entityName={entityName}
             period={`${(run as any).period_start} – ${(run as any).period_end}`}
-            status={(run as any).status}
-            synced={(run as any).xero_sync_status === 'synced'}
+            status={status}
+            synced={exported}
           />
+          {/* PRD §15 approval flow: Draft → Reviewed → Approved (Exported is set by the Xero push) */}
+          {status === 'draft' && (
+            <form action={updatePayrollStatusAction}>
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="status" value="reviewed" />
+              <button type="submit" className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold border transition-colors" style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000' }}>
+                Mark reviewed
+              </button>
+            </form>
+          )}
+          {(status === 'draft' || status === 'reviewed') && (
+            <form action={updatePayrollStatusAction}>
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="status" value="approved" />
+              <button type="submit" className="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold text-white transition-colors" style={{ background: '#1C1A16' }}>
+                Approve
+              </button>
+            </form>
+          )}
           <a
             href={`/api/payroll/pdf?run=${id}`}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm"
@@ -65,7 +90,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
           >
             <Download size={14} /> Download PDF
           </a>
-          <Badge status={(run as any).status} />
+          <Badge status={status} />
           <div className="text-right">
             <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#A39C90' }}>Total gross</div>
             <div className="text-2xl font-black tabular-nums" style={{ color: '#2D2A26' }}>{peso(totalGross)}</div>
@@ -78,7 +103,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
           <p className="text-muted text-sm py-6 text-center">No employees in this pay run.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[760px]">
               <thead>
                 <tr className="text-left border-b border-slate-200">
                   <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest">Employee</th>
@@ -87,6 +112,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                       {PAY_BAND_LABELS[b]}
                     </th>
                   ))}
+                  <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right">Allowances</th>
                   <th className="pb-3 pl-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right">Gross Pay</th>
                 </tr>
               </thead>
@@ -102,11 +128,15 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                         {(e.band_hours?.[b] ?? 0) > 0 ? formatHours(e.band_hours[b]) : '—'}
                       </td>
                     ))}
+                    <td className="py-3 pr-4 text-right">
+                      <AllowanceCell runId={id} profileId={e.profile_id} value={Number(e.allowances || 0)} locked={exported} />
+                    </td>
                     <td className="py-3 pl-4 text-right font-bold tabular-nums text-ink">{peso(e.gross_pay)}</td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-slate-200">
                   <td className="pt-3 font-bold text-ink" colSpan={activeBands.length + 1}>Total</td>
+                  <td className="pt-3 pr-4 text-right font-semibold tabular-nums text-ink">{totalAllow > 0 ? peso(totalAllow) : '—'}</td>
                   <td className="pt-3 pl-4 text-right font-black tabular-nums text-ink">{peso(totalGross)}</td>
                 </tr>
               </tbody>
@@ -116,8 +146,10 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
       </Card>
 
       <p className="text-xs mt-4" style={{ color: '#A39C90' }}>
-        Gross is computed from logged hours per band × each employee&rsquo;s hourly rate × the entity&rsquo;s
-        overtime / weekend / public-holiday multipliers. Set rates in Employees; adjust multipliers per entity.
+        Gross is computed from approved hours per band × each employee&rsquo;s hourly rate × the entity&rsquo;s
+        overtime / weekend / public-holiday multipliers, plus any allowances. Set rates in Employees; adjust
+        multipliers and the overtime-approval rule in Entities → Pay settings. Allowances are sent to Xero as
+        part of the gross figure only if an allowance earnings rate is configured there.
       </p>
     </div>
   )

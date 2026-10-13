@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/server'
+import { createClient, createAdminClient } from '@/lib/server'
 import Link from 'next/link'
 import { formatHours } from '@/lib/format'
 import { ArrowRight, Briefcase, Clock } from 'lucide-react'
@@ -7,7 +7,12 @@ import DashboardStatCards from './dashboard-stat-cards'
 import TeamDonut from './team-donut'
 import WeekPicker from './week-picker'
 import HeaderActions from './header-actions'
+import CostSummary from './cost-summary'
+import LiveRefresh from './live-refresh'
+import { labourCost, money } from '@/lib/labour-cost'
+import { normalizePayCycle, periodContaining, daysUntilPeriodEnd } from '@/lib/pay-cycle'
 import type { StatCard } from './dashboard-stat-cards'
+import type { InboxItem } from './admin-inbox'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +32,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ week?: string }>
 }) {
   const supabase    = await createClient()
+  const adminClient = createAdminClient()
   const params      = await searchParams
 
   const today         = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
@@ -51,7 +57,7 @@ export default async function DashboardPage({
   // Run the auth check in parallel with the count queries that don't need it,
   // instead of awaiting it first (which blocked all other queries behind one
   // sequential round-trip). The greeting name comes from getUser() below.
-  const [userRes, employeesRes, projectsRes, newProjectsRes, overtimeRes, weekTimesheetsRes, lastWeekRes, recentRes] =
+  const [userRes, employeesRes, projectsRes, newProjectsRes, overtimeRes, weekTimesheetsRes, lastWeekRes, recentRes, weekCost, settingsRes, draftRunsRes] =
     await Promise.all([
       supabase.auth.getUser(),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'active').neq('role', 'admin'),
@@ -69,11 +75,33 @@ export default async function DashboardPage({
         .select('id, work_date, hours, work_location, created_at, status, profiles!inner(name, avatar_url), projects!inner(name)')
         .order('created_at', { ascending: false })
         .limit(6),
+      // PRD §14: labour cost / overtime cost for the week, by project, employee,
+      // business and location — same engine as payroll and reports.
+      labourCost(adminClient, { from: weekStart, to: weekEndStr }),
+      adminClient.from('settings').select('key, value').eq('key', 'pay_cycle').maybeSingle(),
+      adminClient.from('payroll_runs').select('id', { count: 'exact', head: true }).in('status', ['draft', 'reviewed']),
     ])
 
   // Greeting name from the auth user's metadata (set at signup) — avoids an
   // extra profiles round-trip just to say "Welcome back, <name>".
   const user           = userRes.data.user
+
+  // The admin's own inbox (payroll ready, Xero failures, budget alerts …).
+  const { data: inboxRows } = user
+    ? await adminClient
+        .from('notifications')
+        .select('id, type, title, body, read, created_at')
+        .eq('profile_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(15)
+    : { data: [] as InboxItem[] }
+  const inbox = (inboxRows ?? []) as InboxItem[]
+
+  // Payroll due (PRD §14): days until the current pay period ends, from settings.pay_cycle.
+  const payCycle   = normalizePayCycle(settingsRes.data?.value)
+  const curPeriod  = periodContaining(payCycle, today)
+  const dueInDays  = daysUntilPeriodEnd(payCycle, today)
+  const draftRuns  = draftRunsRes.count ?? 0
   const metaName       = (user?.user_metadata?.name as string | undefined) ?? user?.email ?? 'Admin'
   const firstName      = metaName.split(/[ @]/)[0]
   const weekTimesheets = (weekTimesheetsRes.data ?? []) as any[]
@@ -186,10 +214,46 @@ export default async function DashboardPage({
       trend: newProjects > 0 ? { text: `${newProjects} new`, positive: true } : undefined,
       sub: newProjects > 0 ? 'this week' : 'In progress',
     },
+    {
+      label: 'Labour Cost This Week',
+      value: money(weekCost.totalCost),
+      iconName: 'banknote',
+      href: '/reports',
+      iconBg: 'rgba(28,26,22,0.12)',
+      iconColor: '#1C1A16',
+      sub: `${formatHours(weekCost.totalHours)} approved`,
+    },
+    {
+      label: 'Overtime Cost',
+      value: money(weekCost.overtimeCost),
+      iconName: 'trending',
+      href: '/reports',
+      iconBg: '#F4F4F5',
+      iconColor: '#52525B',
+      sub: weekCost.overtimeHours > 0 ? `${formatHours(weekCost.overtimeHours)} at loaded rates` : 'No overtime this week',
+    },
+    {
+      label: 'Payroll Due',
+      value: dueInDays === 0 ? 'Today' : dueInDays === 1 ? 'Tomorrow' : `${dueInDays} days`,
+      iconName: 'calendar',
+      href: '/payroll',
+      iconBg: draftRuns > 0 ? '#FFFBEB' : '#F4F4F5',
+      iconColor: draftRuns > 0 ? '#B45309' : '#52525B',
+      sub: draftRuns > 0 ? `${draftRuns} run${draftRuns > 1 ? 's' : ''} awaiting approval` : `Period ends ${curPeriod.end}`,
+    },
   ]
+
+  const costLines = (rows: { name: string; hours: number; cost: number; overtimeCost: number }[]) =>
+    rows.map((r) => ({ name: r.name, hours: r.hours, cost: r.cost, overtimeCost: r.overtimeCost }))
+  const locationLines = [
+    { name: 'On site', hours: weekCost.byLocation.site.hours, cost: weekCost.byLocation.site.cost, overtimeCost: 0 },
+    { name: 'Factory / Workshop', hours: weekCost.byLocation.workshop.hours, cost: weekCost.byLocation.workshop.cost, overtimeCost: 0 },
+  ].filter((l) => l.hours > 0)
 
   return (
     <div>
+      {/* Supabase Realtime: re-render when attendance / timesheets / requests change */}
+      <LiveRefresh tables={['timesheets', 'clock_sessions', 'overtime_requests', 'leave_requests', 'notifications']} />
 
       {/* ── HEADER ───────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-7">
@@ -224,6 +288,7 @@ export default async function DashboardPage({
             userName={metaName}
             userEmail={user?.email ?? ''}
             pendingCount={pendingCount}
+            inbox={inbox}
           />
         </div>
       </div>
@@ -263,6 +328,17 @@ export default async function DashboardPage({
         <div className="xl:col-span-2">
           <TeamDonut statusCounts={statusCounts} />
         </div>
+      </div>
+
+      {/* ── LABOUR COST SUMMARY (PRD §14) ─────────────────────────────────────── */}
+      <div className="mb-5 animate-fade-in-up delay-200">
+        <CostSummary
+          byProject={costLines(weekCost.byProject)}
+          byEmployee={costLines(weekCost.byEmployee)}
+          byEntity={costLines(weekCost.byEntity)}
+          byLocation={locationLines}
+          weekLabel={isCurrentWeek ? 'This week' : weekLabel}
+        />
       </div>
 
       {/* ── RECENT ACTIVITY + TOP PROJECTS ───────────────────────────────────── */}

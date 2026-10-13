@@ -9,7 +9,7 @@ export default async function EmployeesPage() {
   const [profilesRes, entitiesRes, ratesRes] = await Promise.all([
     adminClient
       .from('profiles')
-      .select('id, name, email, role, employment_type, business_access, status, created_at, flat_rate')
+      .select('id, name, email, role, employment_type, business_access, status, created_at, flat_rate, supervisor_id')
       .neq('role', 'admin')
       .order('name'),
     adminClient
@@ -35,12 +35,19 @@ export default async function EmployeesPage() {
   const profiles = (profilesRes.data ?? []).map((p) => ({ ...p, hourly_rate: rateMap[p.id] ?? null }))
   const activeCount = profiles.filter((p) => p.status === 'active' && p.role !== 'admin').length
 
+  // Who can be assigned as a supervisor (PRD §12 "Assign supervisor"): active
+  // supervisors. Admins approve everything anyway so they are not listed.
+  const supervisors = profiles
+    .filter((p) => p.role === 'supervisor' && p.status === 'active')
+    .map((p) => ({ id: p.id, name: p.name }))
+
   return (
     <EmployeesClient
       entities={entities}
       profiles={profiles as any}
       entityMap={entityMap}
       activeCount={activeCount}
+      supervisors={supervisors}
     />
   )
 }

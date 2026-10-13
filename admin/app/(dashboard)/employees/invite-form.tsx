@@ -8,13 +8,17 @@ import type { BusinessEntity } from '@/lib/types'
 
 export default function InviteEmployeeForm({
   entities,
+  supervisors = [],
   onClose,
 }: {
   entities: BusinessEntity[]
+  supervisors?: { id: string; name: string }[]
   onClose: () => void
 }) {
   const [serverError, formAction, pending] = useActionState(createEmployeeAction, null)
   const [selectedEntities, setSelectedEntities] = useState<string[]>([entities[0]?.id ?? ''])
+  const [supervisorId, setSupervisorId] = useState('')
+  const [flatRate, setFlatRate] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [password, setPassword] = useState('')
@@ -186,6 +190,19 @@ export default function InviteEmployeeForm({
             />
           </div>
 
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Supervisor</span>
+            <Dropdown
+              name="supervisor_id"
+              value={supervisorId}
+              onChange={setSupervisorId}
+              options={[
+                { value: '', label: 'No supervisor (admins review)' },
+                ...supervisors.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+          </div>
+
           <Input
             label="Hourly pay rate ($) — optional"
             name="hourly_rate"
@@ -196,6 +213,21 @@ export default function InviteEmployeeForm({
             placeholder="e.g. 45.00"
             disabled={pending}
           />
+
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="flat_rate"
+              checked={flatRate}
+              onChange={(e) => setFlatRate(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-brand cursor-pointer"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">Flat rate — no overtime</span>
+              <span className="block text-xs text-muted mt-0.5">Every hour paid at the rate above; no overtime, weekend or public-holiday loading.</span>
+            </span>
+          </label>
 
           <div>
             <span className="block text-sm font-medium text-ink mb-2">Entity access</span>

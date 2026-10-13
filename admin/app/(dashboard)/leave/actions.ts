@@ -1,6 +1,7 @@
 'use server'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
+import { getViewer, canAct } from '@/lib/viewer'
 
 const LEAVE_LABELS: Record<string, string> = {
   annual: 'Annual Leave',
@@ -11,10 +12,17 @@ const LEAVE_LABELS: Record<string, string> = {
 
 async function decideLeave(id: string, decision: 'approved' | 'rejected') {
   const admin = createAdminClient()
+  const viewer = await getViewer()
+
+  // Supervisors (PRD §4) may only decide leave for their own team.
+  if (viewer.role === 'supervisor') {
+    const { data: target } = await admin.from('leave_requests').select('profile_id').eq('id', id).maybeSingle()
+    if (!canAct(viewer, target?.profile_id)) throw new Error('You can only review leave for your own team.')
+  }
 
   const { data: req, error } = await admin
     .from('leave_requests')
-    .update({ status: decision, decided_at: new Date().toISOString() })
+    .update({ status: decision, decided_at: new Date().toISOString(), decided_by: viewer.id })
     .eq('id', id)
     .select('profile_id, leave_type, start_date, end_date')
     .maybeSingle()

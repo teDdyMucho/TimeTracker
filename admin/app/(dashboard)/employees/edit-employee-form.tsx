@@ -15,15 +15,18 @@ interface Props {
     business_access: string[]
     hourly_rate?: number | null
     flat_rate?: boolean
+    supervisor_id?: string | null
   }
   entities: BusinessEntity[]
+  supervisors?: { id: string; name: string }[]
   onClose: () => void
 }
 
-export default function EditEmployeeForm({ employee, entities, onClose }: Props) {
+export default function EditEmployeeForm({ employee, entities, supervisors = [], onClose }: Props) {
   const [serverError, formAction, pending] = useActionState(updateEmployeeAction, null)
   const [selectedEntities, setSelectedEntities] = useState<string[]>(employee.business_access)
   const [role, setRole] = useState(employee.role)
+  const [supervisorId, setSupervisorId] = useState(employee.supervisor_id ?? '')
   const [employmentType, setEmploymentType] = useState(employee.employment_type)
   const [flatRate, setFlatRate] = useState(employee.flat_rate ?? false)
   const [showPassword, setShowPassword] = useState(false)
@@ -99,6 +102,20 @@ export default function EditEmployeeForm({ employee, entities, onClose }: Props)
                 { value: 'casual', label: 'Casual' },
                 { value: 'contractor', label: 'Contractor' },
                 { value: 'labour_hire', label: 'Labour Hire' },
+              ]}
+            />
+          </div>
+
+          {/* Supervisor (PRD §12): who reviews this person's overtime & attendance. */}
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Supervisor</span>
+            <Dropdown
+              name="supervisor_id"
+              value={supervisorId}
+              onChange={setSupervisorId}
+              options={[
+                { value: '', label: 'No supervisor (admins review)' },
+                ...supervisors.map((s) => ({ value: s.id, label: s.name })),
               ]}
             />
           </div>

@@ -5,7 +5,18 @@ import { Input, Button } from '@/components/ui'
 import Dropdown from '@/components/dropdown'
 import type { BusinessEntity } from '@/lib/types'
 
-export default function NewPayrollRunForm({ entities }: { entities: BusinessEntity[] }) {
+export default function NewPayrollRunForm({
+  entities,
+  defaultStart,
+  defaultEnd,
+  cycleLabel,
+}: {
+  entities: BusinessEntity[]
+  /** Last completed pay period from Settings → Pay cycle (PRD §15). */
+  defaultStart?: string
+  defaultEnd?: string
+  cycleLabel?: string
+}) {
   const [open, setOpen] = useState(false)
   const [error, formAction, pending] = useActionState(generatePayrollAction, null)
   const [entityId, setEntityId] = useState(entities[0]?.id ?? '')
@@ -17,9 +28,10 @@ export default function NewPayrollRunForm({ entities }: { entities: BusinessEnti
     prevPending.current = pending
   }, [pending, error])
 
-  // Default period: fortnightly ending today (site time, Melbourne)
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
-  const twoWeeksAgo = new Date(Date.now() - 13 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+  // Default period: the configured pay cycle's last completed period, or a
+  // fortnight ending today (site time, Melbourne) if none is configured.
+  const today = defaultEnd ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+  const twoWeeksAgo = defaultStart ?? new Date(Date.now() - 13 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
 
   return (
     <>
@@ -29,8 +41,9 @@ export default function NewPayrollRunForm({ entities }: { entities: BusinessEnti
           <div className="glass-panel rounded-2xl p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-ink mb-1">Generate Pay Run</h2>
             <p className="text-muted text-sm mb-5">
-              Aggregates each employee&rsquo;s submitted hours for the period into pay bands
+              Aggregates each employee&rsquo;s approved hours for the period into pay bands
               (ordinary, overtime, weekend, public holiday) — ready to export to Xero.
+              {cycleLabel && <> Defaults to the last completed <strong>{cycleLabel}</strong> period.</>}
             </p>
             <form action={formAction} className="space-y-4">
               {error && (

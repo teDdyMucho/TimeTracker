@@ -4,13 +4,15 @@ import { Card, PageHeader, Badge } from '@/components/ui'
 import { toggleEntityStatusAction } from './actions'
 import NewEntityForm from './new-entity-form'
 import EditEntityForm from './edit-entity-form'
-import { Pencil, Link2, CheckCircle, XCircle } from 'lucide-react'
+import PaySettingsForm, { type PayConfigView } from './pay-settings-form'
+import { Pencil, Link2, CheckCircle, XCircle, Percent } from 'lucide-react'
 
 interface Entity {
   id: string
   name: string
   status: string
   xero_tenant_id: string | null
+  pay: PayConfigView
 }
 
 interface XeroNotice {
@@ -28,6 +30,7 @@ export default function EntitiesClient({
   xeroNotice?: XeroNotice | null
 }) {
   const [editing, setEditing] = useState<Entity | null>(null)
+  const [paying, setPaying] = useState<Entity | null>(null)
 
   return (
     <div>
@@ -55,6 +58,9 @@ export default function EntitiesClient({
       {editing && (
         <EditEntityForm entity={editing} onClose={() => setEditing(null)} />
       )}
+      {paying && (
+        <PaySettingsForm entity={paying} onClose={() => setPaying(null)} />
+      )}
 
       <Card className="!border-line">
         {entities.length === 0 ? (
@@ -65,7 +71,7 @@ export default function EntitiesClient({
           <div className="overflow-x-auto"><table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="text-left border-b border-slate-200">
-                {['Name', 'Xero', 'Status', ''].map((h) => (
+                {['Name', 'Overtime rules', 'Xero', 'Status', ''].map((h) => (
                   <th key={h} className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest">
                     {h}
                   </th>
@@ -76,6 +82,14 @@ export default function EntitiesClient({
               {entities.map((e) => (
                 <tr key={e.id} className="hover:bg-slate-50/60 transition-colors">
                   <td className="py-3 pr-4 font-semibold text-ink">{e.name}</td>
+                  <td className="py-3 pr-4 text-xs text-muted whitespace-nowrap">
+                    {e.pay.standardDailyHours}h ordinary · OT {e.pay.t1Multiplier}× / {e.pay.t2Multiplier}× · Sat {e.pay.saturdayMultiplier}× · Sun {e.pay.sundayMultiplier}× · PH {e.pay.publicHolidayMultiplier}×
+                    {e.pay.overtimeRequiresApproval && (
+                      <span className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink align-middle">
+                        OT needs approval
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4">
                     {e.xero_tenant_id ? (
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#16A34A' }}>
@@ -104,6 +118,16 @@ export default function EntitiesClient({
                         <Link2 size={11} />
                         {e.xero_tenant_id ? 'Reconnect' : 'Connect Xero'}
                       </a>
+
+                      <button
+                        onClick={() => setPaying(e)}
+                        title="Overtime, weekend and public-holiday rates"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border active:scale-95 transition-all whitespace-nowrap hover:bg-stone"
+                        style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
+                      >
+                        <Percent size={11} />
+                        Pay settings
+                      </button>
 
                       <button
                         onClick={() => setEditing(e)}

@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/server'
 import { PageHeader } from '@/components/ui'
+import { getViewer, NO_ROWS_ID } from '@/lib/viewer'
 import OvertimeClient from './overtime-client'
 import OvertimeFilter from './overtime-filter'
 
@@ -11,6 +12,9 @@ export default async function OvertimePage({
   searchParams: Promise<{ employee?: string; entity?: string; date?: string; view?: string }>
 }) {
   const admin = createAdminClient()
+  const viewer = await getViewer()
+  // Supervisors see only their team (PRD §4); admins see everyone.
+  const teamIds = viewer.teamIds
   const params = await searchParams
   const employeeId = params.employee ?? ''
   const entityId = params.entity ?? ''
@@ -22,27 +26,33 @@ export default async function OvertimePage({
   const date = dateSel === 'all' ? '' : dateSel
 
   // Dropdown options for the filters.
+  let empQuery = admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name')
+  if (teamIds) empQuery = empQuery.in('id', teamIds.length ? teamIds : [NO_ROWS_ID])
   const [empRes, entRes] = await Promise.all([
-    admin.from('profiles').select('id, name').eq('status', 'active').neq('role', 'admin').order('name'),
+    empQuery,
     admin.from('business_entities').select('id, name').eq('status', 'active').order('name'),
   ])
   const employees = (empRes.data ?? []) as { id: string; name: string }[]
   const companies = (entRes.data ?? []) as { id: string; name: string }[]
 
   // Fetch overtime requests with no joins first (avoid FK ambiguity)
-  const [pendingRaw, recentRaw] = await Promise.all([
-    admin
-      .from('overtime_requests')
-      .select('id, reason, status, created_at, timesheet_id, profile_id')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false }),
-    admin
-      .from('overtime_requests')
-      .select('id, reason, status, decided_at, timesheet_id, profile_id')
-      .in('status', ['approved', 'rejected'])
-      .order('decided_at', { ascending: false })
-      .limit(20),
-  ])
+  let pendingQ = admin
+    .from('overtime_requests')
+    .select('id, reason, status, created_at, timesheet_id, profile_id')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  let recentQ = admin
+    .from('overtime_requests')
+    .select('id, reason, status, decided_at, timesheet_id, profile_id')
+    .in('status', ['approved', 'rejected'])
+    .order('decided_at', { ascending: false })
+    .limit(20)
+  if (teamIds) {
+    const ids = teamIds.length ? teamIds : [NO_ROWS_ID]
+    pendingQ = pendingQ.in('profile_id', ids)
+    recentQ = recentQ.in('profile_id', ids)
+  }
+  const [pendingRaw, recentRaw] = await Promise.all([pendingQ, recentQ])
 
   const allRequests = [...(pendingRaw.data ?? []), ...(recentRaw.data ?? [])]
 
@@ -109,7 +119,11 @@ export default async function OvertimePage({
     <div>
       <PageHeader
         title="Overtime Approvals"
-        subtitle={`${pending.length} pending request${pending.length !== 1 ? 's' : ''}`}
+        subtitle={
+          viewer.role === 'supervisor'
+            ? `${pending.length} pending from your team (${employees.length} member${employees.length !== 1 ? 's' : ''})`
+            : `${pending.length} pending request${pending.length !== 1 ? 's' : ''}`
+        }
       />
       <OvertimeFilter
         employees={employees}

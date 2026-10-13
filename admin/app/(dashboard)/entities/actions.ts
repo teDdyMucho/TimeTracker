@@ -35,6 +35,58 @@ export async function updateEntityAction(_prevState: string | null, formData: Fo
   return null
 }
 
+/**
+ * Per-entity pay settings (PRD §9 "Configurable"): the ordinary-hours cut-off,
+ * both overtime tiers, weekend and public-holiday multipliers, and whether
+ * overtime must be approved before it is paid at overtime rates (PRD §10).
+ * Stored in business_entities.pay_config and read by payroll, project costing
+ * and the Xero push.
+ */
+export async function updatePayConfigAction(_prevState: string | null, formData: FormData) {
+  const id = formData.get('id') as string
+  const num = (key: string) => Number((formData.get(key) as string | null)?.trim())
+
+  const standard = num('standard_hours')
+  const t1To = num('t1_to')
+  const t1Mult = num('t1_multiplier')
+  const t2Mult = num('t2_multiplier')
+  const sat = num('saturday_multiplier')
+  const sun = num('sunday_multiplier')
+  const ph = num('public_holiday_multiplier')
+  const requiresApproval = formData.get('overtime_requires_approval') === 'on'
+
+  const bad = (v: number) => Number.isNaN(v) || v <= 0
+  if (bad(standard) || standard > 24) return 'Ordinary hours per day must be between 0.5 and 24.'
+  if (bad(t1To) || t1To <= standard || t1To > 24) return 'Overtime tier 1 must end after the ordinary hours and within 24h.'
+  if (bad(t1Mult) || bad(t2Mult) || bad(sat) || bad(sun) || bad(ph)) return 'Multipliers must be positive numbers (e.g. 1.5).'
+
+  const payConfig = {
+    standardDailyHours: standard,
+    weekdayTiers: [
+      { band: 'regular', fromHour: 0, toHour: standard, multiplier: 1 },
+      { band: 'overtime_t1', fromHour: standard, toHour: t1To, multiplier: t1Mult },
+      { band: 'overtime_t2', fromHour: t1To, toHour: null, multiplier: t2Mult },
+    ],
+    saturdayMultiplier: sat,
+    sundayMultiplier: sun,
+    publicHolidayMultiplier: ph,
+    overtimeRequiresApproval: requiresApproval,
+  }
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('business_entities')
+    .update({ pay_config: payConfig })
+    .eq('id', id)
+  if (error) return error.message
+
+  revalidatePath('/entities')
+  revalidatePath('/payroll')
+  revalidatePath('/reports')
+  revalidatePath('/')
+  return null
+}
+
 export async function toggleEntityStatusAction(formData: FormData) {
   const id = formData.get('id') as string
   const current = formData.get('current_status') as string

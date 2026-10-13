@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/server'
 import { Card } from '@/components/ui'
 import { formatHours } from '@/lib/format'
-import { aggregateByProject, type PayConfig } from '@/lib/payroll'
+import { labourCost } from '@/lib/labour-cost'
 
 interface Project { id: string; name: string; business_entity_id: string }
 
@@ -35,65 +35,15 @@ export default async function ProjectTotals({
   const admin = createAdminClient()
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]))
 
-  // Timesheets in range that count for pay (submitted or approved).
-  let tsQuery = admin
-    .from('timesheets')
-    .select('profile_id, project_id, business_entity_id, work_date, hours, profiles!inner(status)')
-    .eq('profiles.status', 'active') // deactivated staff are never costed
-    .gte('work_date', from)
-    .lte('work_date', to)
-    .eq('status', 'approved') // only approved attendance is paid
-  if (entityId) tsQuery = tsQuery.eq('business_entity_id', entityId)
-  if (projectId) tsQuery = tsQuery.eq('project_id', projectId)
-
-  const [tsRes, holRes, entRes, rateRes, flatRes] = await Promise.all([
-    tsQuery,
-    admin.from('public_holidays').select('date').gte('date', from).lte('date', to),
-    admin.from('business_entities').select('id, pay_config'),
-    admin.from('pay_rates').select('profile_id, hourly_rate, effective_from').order('effective_from', { ascending: false }),
-    admin.from('profiles').select('id').eq('flat_rate', true),
-  ])
-
-  const rows = (tsRes.data ?? []) as {
-    profile_id: string; project_id: string; business_entity_id: string; work_date: string; hours: number
-  }[]
-  const holidays = new Set((holRes.data ?? []).map((h: any) => h.date as string))
-  // Flat-rate workers are paid one rate for every hour, so their project cost
-  // carries no overtime/weekend loading.
-  const flatRateIds = new Set(((flatRes.data ?? []) as any[]).map((p) => p.id as string))
-
-  // Latest rate per employee.
-  const rateMap: Record<string, number> = {}
-  for (const r of (rateRes.data ?? []) as any[]) {
-    if (!(r.profile_id in rateMap)) rateMap[r.profile_id] = Number(r.hourly_rate)
-  }
-
-  // The pay ladder differs per entity, so band each entity's rows with its own
-  // config, then merge the per-project results.
-  const configByEntity = Object.fromEntries(
-    ((entRes.data ?? []) as any[]).map((e) => [e.id, e.pay_config as PayConfig]),
-  )
-  const rowsByEntity = new Map<string, typeof rows>()
-  for (const r of rows) {
-    const arr = rowsByEntity.get(r.business_entity_id) ?? []
-    arr.push(r)
-    rowsByEntity.set(r.business_entity_id, arr)
-  }
-
-  const merged = new Map<string, { projectId: string; hours: number; cost: number }>()
-  for (const [eid, eRows] of rowsByEntity) {
-    const cfg = configByEntity[eid]
-    if (!cfg) continue
-    const parts = aggregateByProject(eRows, holidays, cfg, (pid) => rateMap[pid] ?? 0, flatRateIds)
-    for (const p of parts) {
-      const cur = merged.get(p.projectId) ?? { projectId: p.projectId, hours: 0, cost: 0 }
-      cur.hours += p.hours
-      cur.cost += p.cost
-      merged.set(p.projectId, cur)
-    }
-  }
-
-  const totals = [...merged.values()].sort((a, b) => b.cost - a.cost || b.hours - a.hours)
+  // Same engine as payroll / reports: approved hours of active staff, banded
+  // per employee-day with the entity's ladder (and its overtime-approval rule),
+  // cost apportioned across the projects worked that day.
+  const cost = await labourCost(admin, {
+    from, to,
+    entityId: entityId || undefined,
+    projectId: projectId || undefined,
+  })
+  const totals = cost.byProject.map((p) => ({ projectId: p.id, hours: p.hours, cost: p.cost }))
   const grandHours = totals.reduce((s, t) => s + t.hours, 0)
   const grandCost = totals.reduce((s, t) => s + t.cost, 0)
 
@@ -104,7 +54,7 @@ export default async function ProjectTotals({
         <span className="text-xs text-muted">{fmtDate(from)} – {fmtDate(to)}</span>
       </div>
       <p className="text-xs text-muted mb-4">
-        Labour cost per project from approved/submitted timesheets. Overtime &amp; weekend loading is
+        Labour cost per project from approved timesheets. Overtime &amp; weekend loading is
         apportioned to the projects worked each day.
       </p>
 

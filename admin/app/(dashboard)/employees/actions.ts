@@ -49,6 +49,7 @@ export async function createEmployeeAction(
   const role = formData.get('role') as string
   const employment_type = formData.get('employment_type') as string
   const entityIds = formData.getAll('entity_ids') as string[]
+  const supervisor_id = ((formData.get('supervisor_id') as string | null) ?? '').trim() || null
 
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email,
@@ -68,7 +69,10 @@ export async function createEmployeeAction(
     role,
     employment_type,
     business_access: entityIds,
+    supervisor_id,
     status: 'active',
+    // Unchecked checkboxes are absent from FormData, so absence means false.
+    flat_rate: formData.get('flat_rate') === 'on',
   })
 
   if (profileError) {
@@ -78,8 +82,6 @@ export async function createEmployeeAction(
 
   // Optional initial pay rate
   const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
-  // Unchecked checkboxes are absent from FormData, so absence means false.
-  const flat_rate = formData.get('flat_rate') === 'on'
   if (rateRaw) {
     const rate = Number(rateRaw)
     if (!Number.isNaN(rate) && rate >= 0) {
@@ -126,6 +128,8 @@ export async function updateEmployeeAction(
   // Unchecked checkboxes are absent from FormData, so absence means false.
   const flat_rate = formData.get('flat_rate') === 'on'
   const newPassword = (formData.get('new_password') as string | null)?.trim() ?? ''
+  const supervisor_id = ((formData.get('supervisor_id') as string | null) ?? '').trim() || null
+  if (supervisor_id === id) return 'An employee cannot be their own supervisor.'
 
   const adminClient = createAdminClient()
 
@@ -141,7 +145,7 @@ export async function updateEmployeeAction(
 
   const { error } = await adminClient
     .from('profiles')
-    .update({ role, employment_type, business_access: entityIds, flat_rate })
+    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id })
     .eq('id', id)
 
   if (error) return error.message

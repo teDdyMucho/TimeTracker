@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/server'
-import { aggregatePayroll, PAY_BANDS, PAY_BAND_LABELS, type PayConfig } from '@/lib/payroll'
+import { PAY_BANDS, PAY_BAND_LABELS, type PayConfig } from '@/lib/payroll'
+import { aggregateEmployeeBands, normalizePayConfig } from '@/lib/labour-cost'
 
 export const runtime = 'nodejs'
 
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, profiles!inner(name, email, flat_rate, status)')
+    .select('profile_id, work_date, hours, overtime_status, profiles!inner(name, email, flat_rate, status)')
     .eq('profiles.status', 'active') // deactivated staff are never previewed
     .eq('business_entity_id', entity.id)
     .gte('work_date', periodStart)
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
   const flatRateIds = new Set(
     ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
   )
-  const employees = aggregatePayroll((tsRows ?? []) as any, holidays, entity.pay_config as PayConfig, flatRateIds)
+  const employees = aggregateEmployeeBands((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds)
 
   return NextResponse.json({
     entity: entity.name,

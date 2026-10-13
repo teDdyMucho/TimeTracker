@@ -1,6 +1,7 @@
 'use server'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
+import { getViewer, canAct } from '@/lib/viewer'
 
 /**
  * Approving/rejecting an attendance record (a clock_sessions row). The DB
@@ -12,6 +13,13 @@ import { revalidatePath } from 'next/cache'
  */
 async function setReview(sessionId: string, decision: 'approved' | 'rejected'): Promise<string | null> {
   const admin = createAdminClient()
+
+  // Supervisors (PRD §4) may only review their own team's attendance.
+  const viewer = await getViewer()
+  if (viewer.role === 'supervisor') {
+    const { data: target } = await admin.from('clock_sessions').select('profile_id').eq('id', sessionId).maybeSingle()
+    if (!canAct(viewer, target?.profile_id)) return 'You can only review attendance for your own team.'
+  }
 
   // 1. Mark the attendance record itself.
   const { data: session, error } = await admin
@@ -69,6 +77,7 @@ export async function addAttendanceAction(
   formData: FormData,
 ): Promise<string | null> {
   const admin = createAdminClient()
+  if ((await getViewer()).role !== 'admin') return 'Only admins can add attendance.'
 
   const profileId = formData.get('profile_id') as string
 
@@ -151,6 +160,7 @@ export async function editAttendanceAction(
   formData: FormData,
 ): Promise<string | null> {
   const admin = createAdminClient()
+  if ((await getViewer()).role !== 'admin') return 'Only admins can edit attendance times.'
 
   const id = formData.get('id') as string
   const projectId = formData.get('project_id') as string
@@ -199,6 +209,7 @@ export async function deleteAttendanceAction(formData: FormData) {
   const admin = createAdminClient()
   const id = formData.get('id') as string
   if (!id) return
+  if ((await getViewer()).role !== 'admin') return
   await admin.from('clock_sessions').delete().eq('id', id)
   revalidatePath('/attendance')
   revalidatePath('/')

@@ -14,17 +14,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name')
+    .select('name, role')
     .eq('id', user?.id ?? '')
     .maybeSingle()
+
+  const role: 'admin' | 'supervisor' = profile?.role === 'supervisor' ? 'supervisor' : 'admin'
 
   return (
     <AppShell
       pendingOvertimeCount={count ?? 0}
       unreadMessages={unreadMessages ?? 0}
       pendingLeaveCount={pendingLeave ?? 0}
-      userName={profile?.name ?? 'Admin'}
+      userName={profile?.name ?? (role === 'supervisor' ? 'Supervisor' : 'Admin')}
       userEmail={user?.email ?? ''}
+      role={role}
     >
       {children}
     </AppShell>

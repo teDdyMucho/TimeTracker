@@ -2,6 +2,7 @@
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
 import { formatHours } from '@/lib/format'
+import { getViewer, canAct } from '@/lib/viewer'
 
 async function decideOvertime(
   id: string,
@@ -9,6 +10,7 @@ async function decideOvertime(
   decision: 'approved' | 'rejected',
 ) {
   const admin = createAdminClient()
+  const viewer = await getViewer()
 
   // Pull details for the employee notification before updating
   const { data: ts } = await admin
@@ -17,10 +19,13 @@ async function decideOvertime(
     .eq('id', timesheetId)
     .maybeSingle()
 
+  // Supervisors (PRD §4) may only decide requests from their own team.
+  if (!canAct(viewer, ts?.profile_id)) throw new Error('You can only review overtime for your own team.')
+
   const [otRes, tsRes] = await Promise.all([
     admin
       .from('overtime_requests')
-      .update({ status: decision, decided_at: new Date().toISOString() })
+      .update({ status: decision, decided_at: new Date().toISOString(), decided_by: viewer.id })
       .eq('id', id),
     admin
       .from('timesheets')
@@ -44,6 +49,7 @@ async function decideOvertime(
   }
 
   revalidatePath('/overtime')
+  revalidatePath('/payroll') // approval can change overtime pay (PRD §10)
   revalidatePath('/')
 }
 
