@@ -177,36 +177,50 @@ export async function postXeroLeave(
 
 export interface XeroTrackingOption { id: string; name: string }
 export interface XeroTimesheetTracking {
-  categoryId: string | null           // the payroll timesheet tracking category (null = no tracking required)
-  options: XeroTrackingOption[]        // available "Job" options
+  categoryId: string | null             // payroll's timesheet tracking category (null = payroll names none)
+  options: XeroTrackingOption[]          // that category's active options
+  required: boolean                      // payroll Settings names a timesheet category → attach up front
+  fallbackOptions: XeroTrackingOption[]  // first active Accounting category's options, for retry only
 }
 
+const activeOptions = (cat: any): XeroTrackingOption[] =>
+  (cat?.Options ?? [])
+    .filter((o: any) => o.Status === 'ACTIVE')
+    .map((o: any) => ({ id: o.TrackingOptionID, name: o.Name }))
+
 /**
- * Find out whether payroll timesheets require a tracking item ("Job"), and get
- * the available options.
+ * Find out which tracking category ("Job") payroll timesheets use, and its options.
  *
- * NOTE: Payroll `Settings.TimesheetCategories` is unreliable — Build One's org
- * returns no category there yet still rejects timesheet lines without a
- * TrackingItemID ("TrackingItemID is required for each timesheet line"), because
- * individual employees have a tracking category on their pay template. So we
- * read the ACTIVE tracking categories straight from the Accounting API
- * (accounting.settings.read) and treat the first one (the "Job" category) as the
- * required timesheet tracking. Returns categoryId=null only when the org has no
- * active tracking category at all.
+ * Payroll `Settings.TrackingCategories.TimesheetCategories` is the source of truth
+ * when it names a category: we attach one of THAT category's options. Picking an
+ * arbitrary Accounting category instead made ARKO's push fail with "Tracking
+ * Option … does not exist".
+ *
+ * It is not always set, though: Build One's org names no category there yet
+ * rejects untracked lines ("TrackingItemID is required for each timesheet line")
+ * because employees' pay templates carry the Job category. For that case we
+ * return the first active Accounting category's options as `fallbackOptions`,
+ * which the push route uses only when Xero asks for a TrackingItemID.
  */
 export async function fetchTimesheetTracking(token: string, tenantId: string): Promise<XeroTimesheetTracking> {
+  let payrollCategoryId: string | null = null
+  try {
+    const s = await xeroApiGet('https://api.xero.com/payroll.xro/1.0/Settings', token, tenantId)
+    payrollCategoryId = s?.Settings?.TrackingCategories?.TimesheetCategories?.TrackingCategoryID ?? null
+  } catch { /* payroll.settings.read missing — fall through */ }
+
+  let categories: any[] = []
   try {
     const acct = await xeroApiGet('https://api.xero.com/api.xro/2.0/TrackingCategories', token, tenantId)
-    const cat = (acct?.TrackingCategories ?? []).find((c: any) => c.Status === 'ACTIVE')
-    if (!cat) return { categoryId: null, options: [] }
-    const options = (cat.Options ?? [])
-      .filter((o: any) => o.Status === 'ACTIVE')
-      .map((o: any) => ({ id: o.TrackingOptionID, name: o.Name }))
-    return { categoryId: cat.TrackingCategoryID, options }
-  } catch {
-    // accounting.settings.read not granted, or lookup failed — assume no tracking.
-    return { categoryId: null, options: [] }
+    categories = (acct?.TrackingCategories ?? []).filter((c: any) => c.Status === 'ACTIVE')
+  } catch { /* accounting.settings.read not granted — no options to offer */ }
+
+  const fallbackOptions = activeOptions(categories[0])
+  const payrollCat = payrollCategoryId ? categories.find((c) => c.TrackingCategoryID === payrollCategoryId) : null
+  if (payrollCat) {
+    return { categoryId: payrollCategoryId, options: activeOptions(payrollCat), required: true, fallbackOptions }
   }
+  return { categoryId: null, options: [], required: false, fallbackOptions }
 }
 
 export interface XeroPayCalendar {
