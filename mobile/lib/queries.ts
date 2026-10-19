@@ -1,6 +1,27 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { isNetworkError } from './offline-core';
 import type { BusinessEntity, ClockSession, Profile, Project, Timesheet, TimesheetLine, WorkLocation } from './types';
 import { startOfWeek, todayISO } from './date';
+
+// The entity and project lists are kept on the phone so Clock In still works
+// with no signal (PRD "offline capture"): the last list seen online is used.
+const ENTITIES_CACHE_KEY = 'timevera.entities';
+const projectsCacheKey = (businessEntityId: string) => `timevera.projects.${businessEntityId}`;
+
+async function cacheGet<T>(key: string): Promise<T | null> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+async function cacheSet(key: string, value: unknown): Promise<void> {
+  try { await AsyncStorage.setItem(key, JSON.stringify(value)); } catch { /* best effort */ }
+}
+
+export interface CachedResult<T> { data: T; fromCache: boolean }
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
@@ -16,26 +37,56 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function fetchBusinessEntities(ids: string[]): Promise<BusinessEntity[]> {
-  if (ids.length === 0) return [];
-  const { data, error } = await supabase
-    .from('business_entities')
-    .select('id, name')
-    .in('id', ids)
-    .eq('status', 'active')
-    .order('name');
-  if (error) throw error;
-  return (data ?? []) as BusinessEntity[];
+  return (await fetchBusinessEntitiesCached(ids)).data;
+}
+
+/** Like fetchBusinessEntities, but with no connection returns the last list this phone saw. */
+export async function fetchBusinessEntitiesCached(ids: string[]): Promise<CachedResult<BusinessEntity[]>> {
+  if (ids.length === 0) return { data: [], fromCache: false };
+  try {
+    const { data, error } = await supabase
+      .from('business_entities')
+      .select('id, name')
+      .in('id', ids)
+      .eq('status', 'active')
+      .order('name');
+    if (error) throw error;
+    const list = (data ?? []) as BusinessEntity[];
+    void cacheSet(ENTITIES_CACHE_KEY, list);
+    return { data: list, fromCache: false };
+  } catch (e) {
+    if (isNetworkError(e)) {
+      const cached = await cacheGet<BusinessEntity[]>(ENTITIES_CACHE_KEY);
+      if (cached) return { data: cached.filter((b) => ids.includes(b.id)), fromCache: true };
+    }
+    throw e;
+  }
 }
 
 export async function fetchProjects(businessEntityId: string): Promise<Project[]> {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('id, name, client, business_entity_id')
-    .eq('business_entity_id', businessEntityId)
-    .eq('status', 'active')
-    .order('name');
-  if (error) throw error;
-  return (data ?? []) as Project[];
+  return (await fetchProjectsCached(businessEntityId)).data;
+}
+
+/** Like fetchProjects, but with no connection returns the last list this phone saw. */
+export async function fetchProjectsCached(businessEntityId: string): Promise<CachedResult<Project[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, name, client, business_entity_id')
+      .eq('business_entity_id', businessEntityId)
+      .eq('status', 'active')
+      .order('name');
+    if (error) throw error;
+    const list = (data ?? []) as Project[];
+    void cacheSet(projectsCacheKey(businessEntityId), list);
+    return { data: list, fromCache: false };
+  } catch (e) {
+    if (isNetworkError(e)) {
+      const cached = await cacheGet<Project[]>(projectsCacheKey(businessEntityId));
+      if (cached) return { data: cached, fromCache: true };
+    }
+    throw e;
+  }
 }
 
 export async function fetchTimesheetsBetween(
@@ -159,7 +210,13 @@ export async function fetchClockSessions(userId: string, limit = 100): Promise<C
   return (data ?? []) as ClockSession[];
 }
 
-export async function uploadSelfie(userId: string, uri: string): Promise<string | null> {
+/**
+ * Upload a selfie and return its public URL. Returns null when the server
+ * refused it (the clock-in can go in without a photo). With `throwOnNetwork`
+ * a connection failure is thrown instead of swallowed, so the caller can keep
+ * the photo on the phone and retry later.
+ */
+export async function uploadSelfie(userId: string, uri: string, opts: { throwOnNetwork?: boolean } = {}): Promise<string | null> {
   try {
     const fileName = `${Date.now()}.jpg`;
     const storagePath = `${userId}/${fileName}`;
@@ -202,6 +259,7 @@ export async function uploadSelfie(userId: string, uri: string): Promise<string 
     const { data } = supabase.storage.from('selfies').getPublicUrl(storagePath);
     return data.publicUrl;
   } catch (e) {
+    if (opts.throwOnNetwork && isNetworkError(e)) throw e;
     console.error('[selfie] exception:', String(e));
     return null;
   }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Timevera",
     "slug": "timevera-timesheets",
-    "version": "7.5",
+    "version": "7.6",
     "scheme": "timevera",
     "orientation": "portrait",
     "userInterfaceStyle": "light",

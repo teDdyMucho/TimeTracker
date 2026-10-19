@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  if (me?.role !== 'admin') return NextResponse.json({ error: 'admin_only' }, { status: 403 })
 
   const admin = createAdminClient()
   const sp = req.nextUrl.searchParams
@@ -92,6 +94,53 @@ export async function POST(req: NextRequest) {
       .update(exported ? { xero_sync_status: status, status: 'exported' } : { xero_sync_status: status })
       .eq('id', runId)
   }
+  // 1. Aggregate our timesheet hours into per-employee pay bands. overtime_status
+  //    feeds the entity's "overtime must be approved" rule (PRD §10). Rows from
+  //    every entity are loaded so the unpaid break is deducted once per day;
+  //    only this entity's rows contribute hours (see aggregateEmployeeBandsByDay).
+  const { data: tsRows } = await admin
+    .from('timesheets')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status)')
+    .eq('profiles.status', 'active') // deactivated staff are never pushed
+    .gte('work_date', from).lte('work_date', to)
+    .eq('status', 'approved') // only approved attendance is paid
+
+  const { data: holRows } = await admin
+    .from('public_holidays').select('date').gte('date', from).lte('date', to)
+  const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
+  // Flat-rate workers: all hours on the ordinary band, so Xero gets no
+  // overtime/weekend lines for them.
+  const flatRateIds = new Set(
+    ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
+  )
+  const employees = aggregateEmployeeBandsByDay((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds, { entityId: entity.id })
+
+  // The hours sent to Xero are recomputed from attendance, so they must match
+  // what the run page / PDF / CSV show. If attendance was approved (or the pay
+  // rules changed) after the run was created, make the admin Recalculate first
+  // instead of silently sending different figures.
+  if (runId) {
+    const { data: stored } = await admin.from('payroll_entries').select('profile_id, band_hours').eq('payroll_run_id', runId)
+    const storedMap = new Map(((stored ?? []) as any[]).map((e) => [e.profile_id as string, (e.band_hours ?? {}) as Record<string, number>]))
+    const drift = new Set<string>()
+    for (const emp of employees) {
+      const s = storedMap.get(emp.profileId)
+      if (!s) { drift.add(emp.name); continue }
+      for (const band of PAY_BANDS) {
+        const now = Object.values(emp.byBand[band] ?? {}).reduce((a, b) => a + b, 0)
+        if (Math.abs(now - Number(s[band] || 0)) > 0.011) { drift.add(emp.name); break }
+      }
+    }
+    for (const pid of storedMap.keys()) if (!employees.some((e) => e.profileId === pid)) drift.add('an employee no longer on the run')
+    if (drift.size > 0) {
+      // `error` is what the Push dialog shows, so it carries the plain-English text.
+      return NextResponse.json({
+        code: 'run_out_of_date',
+        error: `The hours on this run no longer match the approved attendance (${[...drift].join(', ')}). Click Recalculate on the run, check it, then push again.`,
+      }, { status: 409 })
+    }
+  }
+
   const failRun = async (reason: string) => {
     await setSync('failed')
     // PRD §18 admin notification: "Failed Xero Sync".
@@ -105,26 +154,6 @@ export async function POST(req: NextRequest) {
   await setSync('pending')
 
   try {
-  // 1. Aggregate our timesheet hours into per-employee pay bands. overtime_status
-  //    feeds the entity's "overtime must be approved" rule (PRD §10).
-  const { data: tsRows } = await admin
-    .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, profiles!inner(name, email, flat_rate, status)')
-    .eq('profiles.status', 'active') // deactivated staff are never pushed
-    .eq('business_entity_id', entity.id)
-    .gte('work_date', from).lte('work_date', to)
-    .eq('status', 'approved') // only approved attendance is paid
-
-  const { data: holRows } = await admin
-    .from('public_holidays').select('date').gte('date', from).lte('date', to)
-  const holidays = new Set((holRows ?? []).map((h: any) => h.date as string))
-  // Flat-rate workers: all hours on the ordinary band, so Xero gets no
-  // overtime/weekend lines for them.
-  const flatRateIds = new Set(
-    ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
-  )
-  const employees = aggregateEmployeeBandsByDay((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds)
-
   // 2. Pull Xero employees + earnings rates + (if required) job tracking + calendars.
   const token = await getValidXeroToken(entity.xero_tenant_id)
   const [xeroEmployees, xeroRates, tracking, calendars] = await Promise.all([

@@ -25,37 +25,52 @@ function addDays(iso: string, n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function addMonths(iso: string, n: number): string {
-  const d = new Date(iso + 'T00:00:00Z')
-  d.setUTCMonth(d.getUTCMonth() + n)
-  return d.toISOString().slice(0, 10)
+/**
+ * The anchor day moved by `k` whole months, clamped to the month's length so
+ * an anchor on the 29th–31st never drifts (31 Jan + 1 month = 28/29 Feb, not
+ * 3 Mar).
+ */
+function monthsFromAnchor(anchor: string, k: number): string {
+  const [y, m, d] = anchor.split('-').map(Number)
+  const first = new Date(Date.UTC(y, m - 1 + k, 1))
+  const lastDay = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate()
+  first.setUTCDate(Math.min(d, lastDay))
+  return first.toISOString().slice(0, 10)
 }
 
 export interface PayPeriod { start: string; end: string }
 
-/**
- * The pay period containing `date`, walking forward/back from the anchor.
- * Periods are inclusive of both ends.
- */
-export function periodContaining(cycle: PayCycle, date: string): PayPeriod {
-  let start = cycle.anchorStart
-  const next = (s: string) =>
-    cycle.frequency === 'weekly' ? addDays(s, 7) : cycle.frequency === 'fortnightly' ? addDays(s, 14) : addMonths(s, 1)
-  const prev = (s: string) =>
-    cycle.frequency === 'weekly' ? addDays(s, -7) : cycle.frequency === 'fortnightly' ? addDays(s, -14) : addMonths(s, -1)
-
-  // Guard against runaway loops on absurd anchors (max ~40 years either way).
-  let guard = 0
-  while (start > date && guard++ < 2100) start = prev(start)
-  guard = 0
-  while (next(start) <= date && guard++ < 2100) start = next(start)
-  return { start, end: addDays(next(start), -1) }
+/** Start date of the k-th period from the anchor (k may be negative). */
+function periodStart(cycle: PayCycle, k: number): string {
+  if (cycle.frequency === 'weekly') return addDays(cycle.anchorStart, 7 * k)
+  if (cycle.frequency === 'fortnightly') return addDays(cycle.anchorStart, 14 * k)
+  return monthsFromAnchor(cycle.anchorStart, k)
 }
 
-/** The most recent period that has fully ended on or before `date`. */
-export function lastCompletedPeriod(cycle: PayCycle, date: string): PayPeriod {
+/**
+ * The pay period containing `date`, counted in whole periods from the anchor
+ * (never chained from a previous computed date, so monthly cycles cannot
+ * drift). Periods are inclusive of both ends.
+ */
+export function periodContaining(cycle: PayCycle, date: string): PayPeriod {
+  let k = 0
+  // Guard against runaway loops on absurd anchors (max ~40 years either way).
+  let guard = 0
+  while (periodStart(cycle, k) > date && guard++ < 2100) k--
+  guard = 0
+  while (periodStart(cycle, k + 1) <= date && guard++ < 2100) k++
+  return { start: periodStart(cycle, k), end: addDays(periodStart(cycle, k + 1), -1) }
+}
+
+/**
+ * The most recent period that has fully ended before `date`. A period whose
+ * last day IS `date` only counts when `includeToday` is set (the manual
+ * "New pay run" form uses that; the automatic period-end run does not, so it
+ * never creates a run before the last day's hours have been worked).
+ */
+export function lastCompletedPeriod(cycle: PayCycle, date: string, includeToday = false): PayPeriod {
   const cur = periodContaining(cycle, date)
-  if (cur.end <= date) return cur
+  if (cur.end < date || (includeToday && cur.end === date)) return cur
   const prevEnd = addDays(cur.start, -1)
   return periodContaining(cycle, prevEnd)
 }

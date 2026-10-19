@@ -22,13 +22,15 @@ export default function PayrollDownload({
   const [entity, setEntity] = useState('')
   const [employee, setEmployee] = useState('')
 
-  const href = (() => {
+  const qs = (() => {
     const p = new URLSearchParams()
     if (entity) p.set('entity', entity)
     if (employee) p.set('employee', employee)
-    const qs = p.toString()
-    return `/api/payroll/pdf${qs ? `?${qs}` : ''}`
+    const s = p.toString()
+    return s ? `?${s}` : ''
   })()
+  const href = `/api/payroll/pdf${qs}`
+  const csvHref = `/api/payroll/csv${qs}`
 
   return (
     <div className="flex flex-wrap items-end gap-3 mb-6 bg-white rounded-2xl border border-line px-5 py-4 shadow-card">
@@ -57,8 +59,15 @@ export default function PayrollDownload({
       >
         <Download size={15} /> Download PDF
       </a>
+      <a
+        href={csvHref}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 border hover:bg-stone"
+        style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
+      >
+        <Download size={15} /> CSV
+      </a>
       <p className="text-xs text-muted self-center max-w-[280px]">
-        Exports payroll for the selected scope across all matching pay runs.
+        Exports payroll for the selected scope across all matching pay runs. CSV opens in Excel and is the fallback if Xero is unavailable.
       </p>
     </div>
   )

@@ -13,6 +13,9 @@ export interface PayConfigView {
   sundayMultiplier: number
   publicHolidayMultiplier: number
   overtimeRequiresApproval: boolean
+  breakEnabled: boolean
+  breakMinutes: number
+  breakAfterHours: number
 }
 
 /**
@@ -29,6 +32,7 @@ export default function PaySettingsForm({
 }) {
   const [serverError, formAction, pending] = useActionState(updatePayConfigAction, null)
   const [requires, setRequires] = useState(entity.pay.overtimeRequiresApproval)
+  const [breakOn, setBreakOn] = useState(entity.pay.breakEnabled)
   const prevPending = useRef(false)
 
   useEffect(() => {
@@ -84,6 +88,31 @@ export default function PaySettingsForm({
               <Input label="Saturday ×" name="saturday_multiplier" type="number" step="0.05" min="0.1" required defaultValue={String(entity.pay.saturdayMultiplier)} disabled={pending} />
               <Input label="Sunday ×" name="sunday_multiplier" type="number" step="0.05" min="0.1" required defaultValue={String(entity.pay.sundayMultiplier)} disabled={pending} />
               <Input label="Public holiday ×" name="public_holiday_multiplier" type="number" step="0.05" min="0.1" required defaultValue={String(entity.pay.publicHolidayMultiplier)} disabled={pending} />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted mb-3">Unpaid meal break</h3>
+            <label className="flex items-start gap-3 cursor-pointer select-none mb-3">
+              <input
+                type="checkbox"
+                name="break_enabled"
+                checked={breakOn}
+                onChange={(e) => setBreakOn(e.target.checked)}
+                disabled={pending}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-brand cursor-pointer"
+              />
+              <span>
+                <span className="block text-sm font-medium text-ink">Deduct an unpaid break from long days</span>
+                <span className="block text-xs text-muted mt-0.5 leading-snug">
+                  Taken once per day, before overtime is worked out. If someone works for both companies in one day it comes off the company they worked the most for, using that company&rsquo;s rule only.
+                </span>
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Kept enabled even when the rule is off so the values are submitted and remembered. */}
+              <Input label="Break (minutes)" name="break_minutes" type="number" step="5" min="0" max="240" defaultValue={String(entity.pay.breakMinutes)} disabled={pending} className={breakOn ? '' : 'opacity-50'} />
+              <Input label="Only when the day is longer than (h)" name="break_after_hours" type="number" step="0.5" min="0" max="24" defaultValue={String(entity.pay.breakAfterHours)} disabled={pending} className={breakOn ? '' : 'opacity-50'} />
             </div>
           </div>
 

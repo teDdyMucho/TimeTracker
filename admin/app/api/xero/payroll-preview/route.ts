@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  if (me?.role !== 'admin') return NextResponse.json({ error: 'admin_only' }, { status: 403 })
 
   const admin = createAdminClient()
   const sp = req.nextUrl.searchParams
@@ -63,9 +65,8 @@ export async function GET(req: NextRequest) {
 
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, profiles!inner(name, email, flat_rate, status)')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status)')
     .eq('profiles.status', 'active') // deactivated staff are never previewed
-    .eq('business_entity_id', entity.id)
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)
     .eq('status', 'approved') // only approved attendance is paid
@@ -81,12 +82,12 @@ export async function GET(req: NextRequest) {
   const flatRateIds = new Set(
     ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
   )
-  const employees = aggregateEmployeeBands((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds)
+  const employees = aggregateEmployeeBands((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds, { entityId: entity.id })
 
   return NextResponse.json({
     entity: entity.name,
     period: { from: periodStart, to: periodEnd },
-    timesheetRows: tsRows?.length ?? 0,
+    timesheetRows: ((tsRows ?? []) as any[]).filter((r) => r.business_entity_id === entity!.id).length,
     employeeCount: employees.length,
     totalHours: Math.round(employees.reduce((s, e) => s + e.totalHours, 0) * 100) / 100,
     note: 'These hours map 1:1 to Xero earnings rates. This is a preview — nothing was sent to Xero.',
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
       name: e.name,
       email: e.email,
       totalHours: e.totalHours,
+      unpaidBreakHours: e.breakHours,
       bands: Object.fromEntries(
         PAY_BANDS.filter((b) => e.bandHours[b] > 0).map((b) => [PAY_BAND_LABELS[b], e.bandHours[b]]),
       ),

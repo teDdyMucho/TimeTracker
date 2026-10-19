@@ -1,4 +1,5 @@
 'use server'
+import { buildRateHistory, rateOn, RATE_BASELINE_DATE, type RateRow } from '@/lib/labour-cost'
 import { createAdminClient } from '@/lib/server'
 import { revalidatePath } from 'next/cache'
 
@@ -80,12 +81,13 @@ export async function createEmployeeAction(
     return profileError.message
   }
 
-  // Optional initial pay rate
+  // Optional initial pay rate — the first rate is the employee's baseline
+  // (applies to all their work, however far back).
   const rateRaw = (formData.get('hourly_rate') as string | null)?.trim()
   if (rateRaw) {
     const rate = Number(rateRaw)
     if (!Number.isNaN(rate) && rate >= 0) {
-      await adminClient.from('pay_rates').insert({ profile_id: userId, hourly_rate: rate })
+      await adminClient.from('pay_rates').insert({ profile_id: userId, hourly_rate: rate, effective_from: RATE_BASELINE_DATE })
     }
   }
 
@@ -150,20 +152,40 @@ export async function updateEmployeeAction(
 
   if (error) return error.message
 
-  // Pay rate: insert a new effective row only if a valid rate was given and it changed.
+  // Pay rate: insert a new row, effective from the chosen date (default today),
+  // only if a valid rate was given and it differs from the rate already in
+  // force on that date. Payroll and reports price each worked day with the
+  // rate in force that day (PRD task "Apply pay rates effective on the worked date").
   if (rateRaw) {
     const rate = Number(rateRaw)
     if (Number.isNaN(rate) || rate < 0) return 'Hourly rate must be a positive number.'
-    const { data: latest } = await adminClient
+    const fromRaw = ((formData.get('rate_effective_from') as string | null) ?? '').trim()
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+    const effectiveFrom = fromRaw || today
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) return 'Rate effective date must be a valid date.'
+    const { data: history } = await adminClient
       .from('pay_rates')
-      .select('hourly_rate')
+      .select('id, profile_id, hourly_rate, effective_from, created_at')
       .eq('profile_id', id)
-      .order('effective_from', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (!latest || Number(latest.hourly_rate) !== rate) {
-      const { error: rateErr } = await adminClient.from('pay_rates').insert({ profile_id: id, hourly_rate: rate })
+    const rows = (history ?? []) as (RateRow & { id: string })[]
+    if (rows.length === 0) {
+      // First rate ever: the baseline, applying to all of their work.
+      const { error: rateErr } = await adminClient.from('pay_rates').insert({ profile_id: id, hourly_rate: rate, effective_from: RATE_BASELINE_DATE })
       if (rateErr) return rateErr.message
+    } else {
+      const current = rateOn(buildRateHistory(rows), id, effectiveFrom)
+      const sameDay = rows.filter((r) => r.effective_from === effectiveFrom)
+      if (sameDay.length > 0) {
+        // Correcting a rate entered for the same date: replace it rather than
+        // leaving two rows that start on the same day.
+        if (sameDay.some((r) => Number(r.hourly_rate) !== rate)) {
+          const { error: rateErr } = await adminClient.from('pay_rates').update({ hourly_rate: rate }).in('id', sameDay.map((r) => r.id))
+          if (rateErr) return rateErr.message
+        }
+      } else if (current !== rate) {
+        const { error: rateErr } = await adminClient.from('pay_rates').insert({ profile_id: id, hourly_rate: rate, effective_from: effectiveFrom })
+        if (rateErr) return rateErr.message
+      }
     }
   }
 

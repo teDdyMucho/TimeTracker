@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff, Download } from 'lucide-react'
 import { signInAction } from './actions'
 import SuccessSplash from './success-splash'
+import MfaForm from './mfa-form'
 
 const fieldClass =
   'w-full rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-white/40 border focus:outline-none focus:ring-2 transition-all duration-200'
@@ -29,6 +30,11 @@ export default function LoginForm({ initialError }: { initialError: string | nul
 
   if (success) {
     return <SuccessSplash onDone={() => router.replace('/')} />
+  }
+
+  // Password accepted but the admin has an authenticator app: ask for the code.
+  if (state?.mfa) {
+    return <MfaForm onDone={() => setSuccess(true)} />
   }
 
   return (

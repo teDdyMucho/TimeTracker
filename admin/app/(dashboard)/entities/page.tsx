@@ -35,6 +35,9 @@ export default async function EntitiesPage({
         sundayMultiplier: cfg.sundayMultiplier,
         publicHolidayMultiplier: cfg.publicHolidayMultiplier,
         overtimeRequiresApproval: cfg.overtimeRequiresApproval === true,
+        breakEnabled: cfg.unpaidBreak?.enabled !== false,
+        breakMinutes: cfg.unpaidBreak?.minutes ?? 30,
+        breakAfterHours: cfg.unpaidBreak?.afterHours ?? 5,
       },
     }
   })

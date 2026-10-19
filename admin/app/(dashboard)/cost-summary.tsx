@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { formatHours } from '@/lib/format'
 
-export interface CostLine { name: string; hours: number; cost: number; overtimeCost: number }
+export interface CostLine { id?: string; name: string; hours: number; cost: number; overtimeCost: number }
 
 const money = (n: number) => `$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -73,8 +73,8 @@ export default function CostSummary({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {rows.slice(0, 8).map((r) => (
-              <tr key={r.name}>
+            {rows.slice(0, 8).map((r, i) => (
+              <tr key={r.id ?? `${r.name}-${i}`}>
                 <td className="py-2.5 pr-3">
                   <div className="font-medium truncate max-w-[220px]" style={{ color: '#2D2A26' }}>{r.name}</div>
                   <div className="h-1 rounded-full overflow-hidden mt-1 max-w-[220px]" style={{ background: '#F2F0EA' }}>

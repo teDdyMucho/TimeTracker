@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/server'
 import { Card, Badge } from '@/components/ui'
 import { PAY_BANDS, PAY_BAND_LABELS } from '@/lib/payroll'
+import { UNPAID_BREAK_KEY } from '@/lib/labour-cost'
 import { formatHours } from '@/lib/format'
-import { ArrowLeft, Download } from 'lucide-react'
+import { ArrowLeft, Download, FileSpreadsheet } from 'lucide-react'
 import RecalculateRunButton from '../recalculate-run-button'
 import { updatePayrollStatusAction } from '../actions'
 import AllowanceCell from './allowance-cell'
+import VerifyXeroButton from './verify-xero-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +22,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const { data: run } = await admin
     .from('payroll_runs')
     .select(
-      'id, period_start, period_end, status, xero_sync_status, business_entity_id, business_entities(name), payroll_entries(profile_id, band_hours, allowances, gross_pay, profiles(name, email))',
+      'id, period_start, period_end, status, xero_sync_status, business_entity_id, business_entities(name, xero_tenant_id), payroll_entries(profile_id, band_hours, allowances, gross_pay, profiles(name, email))',
     )
     .eq('id', id)
     .maybeSingle()
@@ -37,9 +39,12 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
 
   // Which bands actually have hours anywhere — only show those columns
   const activeBands = PAY_BANDS.filter((b) => entries.some((e) => (e.band_hours?.[b] ?? 0) > 0))
+  const anyBreak = entries.some((e) => (e.band_hours?.[UNPAID_BREAK_KEY] ?? 0) > 0)
   const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
   const totalAllow = entries.reduce((s, e) => s + Number(e.allowances || 0), 0)
+  const totalBreak = entries.reduce((s, e) => s + Number(e.band_hours?.[UNPAID_BREAK_KEY] || 0), 0)
   const entityName = (run as any).business_entities?.name ?? '—'
+  const xeroConnected = !!(run as any).business_entities?.xero_tenant_id
   const status = (run as any).status as string
   const exported = status === 'exported' || (run as any).xero_sync_status === 'success'
 
@@ -83,12 +88,20 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
               </button>
             </form>
           )}
+          {xeroConnected && <VerifyXeroButton runId={id} entityName={entityName} />}
           <a
             href={`/api/payroll/pdf?run=${id}`}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm"
             style={{ background: '#1C1A16' }}
           >
-            <Download size={14} /> Download PDF
+            <Download size={14} /> PDF
+          </a>
+          <a
+            href={`/api/payroll/csv?run=${id}`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-all active:scale-95"
+            style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000' }}
+          >
+            <FileSpreadsheet size={14} /> CSV
           </a>
           <Badge status={status} />
           <div className="text-right">
@@ -112,6 +125,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                       {PAY_BAND_LABELS[b]}
                     </th>
                   ))}
+                  {anyBreak && (
+                    <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right whitespace-nowrap" title="Unpaid meal breaks deducted before pay (Entities → Pay settings)">
+                      Unpaid break
+                    </th>
+                  )}
                   <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right">Allowances</th>
                   <th className="pb-3 pl-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right">Gross Pay</th>
                 </tr>
@@ -128,6 +146,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                         {(e.band_hours?.[b] ?? 0) > 0 ? formatHours(e.band_hours[b]) : '—'}
                       </td>
                     ))}
+                    {anyBreak && (
+                      <td className="py-3 pr-4 text-right tabular-nums text-muted">
+                        {(e.band_hours?.[UNPAID_BREAK_KEY] ?? 0) > 0 ? `−${formatHours(e.band_hours[UNPAID_BREAK_KEY])}` : '—'}
+                      </td>
+                    )}
                     <td className="py-3 pr-4 text-right">
                       <AllowanceCell runId={id} profileId={e.profile_id} value={Number(e.allowances || 0)} locked={exported} />
                     </td>
@@ -136,6 +159,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                 ))}
                 <tr className="border-t-2 border-slate-200">
                   <td className="pt-3 font-bold text-ink" colSpan={activeBands.length + 1}>Total</td>
+                  {anyBreak && <td className="pt-3 pr-4 text-right font-semibold tabular-nums text-muted">−{formatHours(totalBreak)}</td>}
                   <td className="pt-3 pr-4 text-right font-semibold tabular-nums text-ink">{totalAllow > 0 ? peso(totalAllow) : '—'}</td>
                   <td className="pt-3 pl-4 text-right font-black tabular-nums text-ink">{peso(totalGross)}</td>
                 </tr>
@@ -147,9 +171,9 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
 
       <p className="text-xs mt-4" style={{ color: '#A39C90' }}>
         Gross is computed from approved hours per band × each employee&rsquo;s hourly rate × the entity&rsquo;s
-        overtime / weekend / public-holiday multipliers, plus any allowances. Set rates in Employees; adjust
-        multipliers and the overtime-approval rule in Entities → Pay settings. Allowances are sent to Xero as
-        part of the gross figure only if an allowance earnings rate is configured there.
+        overtime / weekend / public-holiday multipliers, plus any allowances. Unpaid meal breaks are deducted
+        once per day before banding (Entities → Pay settings). Set rates in Employees; adjust multipliers, the
+        break rule and the overtime-approval rule in Entities → Pay settings.
       </p>
     </div>
   )

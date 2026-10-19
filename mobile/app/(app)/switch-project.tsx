@@ -7,6 +7,7 @@ import { useAuth } from '@/store/auth';
 import {
   fetchActiveSession, fetchBusinessEntities, fetchProjects, switchProject,
 } from '@/lib/queries';
+import { isNetworkError } from '@/lib/offline-core';
 import type { BusinessEntity, ClockSession, Project, WorkLocation } from '@/lib/types';
 
 const MUTED = '#71717A';
@@ -79,7 +80,14 @@ export default function SwitchProject() {
       Alert.alert('Switched', 'Your hours were logged to the previous project and you are now clocked into the new one.');
       router.back();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not switch project.');
+      if (isNetworkError(e)) {
+        Alert.alert(
+          'No connection',
+          'Switching projects needs an internet connection. Clock out and clock in to the new project instead — both are saved on your phone and sent when you are back online.',
+        );
+      } else {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Could not switch project.');
+      }
     } finally {
       setSwitching(false);
     }

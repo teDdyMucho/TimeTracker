@@ -63,7 +63,7 @@ export async function getCustomConnectionToken(app: XeroApp = xeroApps()[0]): Pr
 }
 
 /** GET a Xero API endpoint with a valid token for the given tenant. */
-async function xeroApiGet(url: string, token: string, tenantId: string): Promise<any> {
+export async function xeroApiGet(url: string, token: string, tenantId: string): Promise<any> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, 'Xero-tenant-id': tenantId, Accept: 'application/json' },
   })
@@ -256,7 +256,7 @@ export function alignToOneCalendar(
 }
 
 /** Parse a Xero "/Date(1234567890000+0000)/" string to an ISO date (YYYY-MM-DD). */
-function parseXeroDate(s: string | null | undefined): string | null {
+export function parseXeroDate(s: string | null | undefined): string | null {
   if (!s) return null
   const m = s.match(/\/Date\((\d+)/)
   if (!m) return null

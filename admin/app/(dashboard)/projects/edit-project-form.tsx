@@ -11,7 +11,7 @@ export default function EditProjectForm({
   entities,
   onClose,
 }: {
-  project: ProjectFormValues & { id: string }
+  project: ProjectFormValues & { id: string; budget_is_default?: boolean }
   entities: BusinessEntity[]
   onClose: () => void
 }) {
@@ -49,7 +49,13 @@ export default function EditProjectForm({
               <XCircle size={16} className="shrink-0 mt-0.5" /> {serverError}
             </div>
           )}
-          <ProjectFields values={project} entities={entities} entityId={entityId} onEntityChange={setEntityId} pending={pending} />
+          <ProjectFields
+            values={project.budget_is_default ? { ...project, budget_labour_cost: null } : project}
+            entities={entities}
+            entityId={entityId}
+            onEntityChange={setEntityId}
+            pending={pending}
+          />
           <div className="flex gap-3 pt-2">
             <button
               type="submit"

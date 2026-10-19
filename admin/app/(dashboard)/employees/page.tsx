@@ -1,3 +1,4 @@
+import { buildRateHistory, rateOn, type RateRow } from '@/lib/labour-cost'
 import { createAdminClient } from '@/lib/server'
 import { PageHeader } from '@/components/ui'
 import EmployeesClient from './employees-client'
@@ -19,17 +20,20 @@ export default async function EmployeesPage() {
       .order('name'),
     adminClient
       .from('pay_rates')
-      .select('profile_id, hourly_rate, effective_from')
-      .order('effective_from', { ascending: false }),
+      .select('profile_id, hourly_rate, effective_from, created_at'),
   ])
 
   const entities = (entitiesRes.data ?? []) as BusinessEntity[]
   const entityMap = Object.fromEntries(entities.map((e) => [e.id, e.name]))
 
-  // Latest (current) hourly rate per employee — rates are ordered newest-first
+  // The hourly rate in force today per employee (a rate dated in the future
+  // is not shown until it starts).
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+  const history = buildRateHistory((ratesRes.data ?? []) as RateRow[])
   const rateMap: Record<string, number> = {}
-  for (const r of ratesRes.data ?? []) {
-    if (!(r.profile_id in rateMap)) rateMap[r.profile_id] = Number(r.hourly_rate)
+  for (const pid of Object.keys(history)) {
+    const r = rateOn(history, pid, today)
+    if (r != null) rateMap[pid] = r
   }
 
   const profiles = (profilesRes.data ?? []).map((p) => ({ ...p, hourly_rate: rateMap[p.id] ?? null }))

@@ -4,7 +4,8 @@ import { Card, PageHeader, Badge } from '@/components/ui'
 import { updatePayrollStatusAction } from './actions'
 import NewPayrollRunForm from './new-run-form'
 import { formatHours } from '@/lib/format'
-import { Eye, Download } from 'lucide-react'
+import { PAY_BANDS } from '@/lib/payroll'
+import { Eye, Download, FileSpreadsheet } from 'lucide-react'
 import PayrollDownload from './payroll-download'
 import ProjectTotalsFilter from './project-totals-filter'
 import ProjectTotals from './project-totals'
@@ -17,9 +18,10 @@ import { normalizePayCycle, lastCompletedPeriod } from '@/lib/pay-cycle'
 
 export const dynamic = 'force-dynamic'
 
+/** Paid hours on the run: sums the pay bands only (band_hours also carries the deducted unpaid break). */
 function bandTotal(band_hours: Record<string, number> | null): number {
   if (!band_hours) return 0
-  return Object.values(band_hours).reduce((s, v) => s + Number(v || 0), 0)
+  return PAY_BANDS.reduce((s, b) => s + Number(band_hours[b] || 0), 0)
 }
 
 /** YYYY-MM-DD `days` before/after today (server local date). */
@@ -71,7 +73,7 @@ export default async function PayrollPage({
 
   // Default "New pay run" period = the last completed pay period (PRD §15 pay cycle).
   const payCycle = normalizePayCycle(cycleRes.data?.value)
-  const defaultPeriod = lastCompletedPeriod(payCycle, isoDay(0))
+  const defaultPeriod = lastCompletedPeriod(payCycle, isoDay(0), true)
 
   const runs = (runsRes.data ?? []) as any[]
   const entities = (entitiesRes.data ?? []) as (BusinessEntity & { xero_tenant_id: string | null })[]
@@ -155,6 +157,16 @@ export default async function PayrollPage({
                         style={{ background: '#1C1A16' }}
                       >
                         <Download size={12} /> PDF
+                      </a>
+
+                      {/* CSV fallback (PRD task "Complete CSV payroll/report fallback") */}
+                      <a
+                        href={`/api/payroll/csv?run=${r.id}`}
+                        title="Download CSV"
+                        className="inline-flex items-center gap-1 h-7 px-3 rounded-lg text-xs font-medium transition-colors whitespace-nowrap border"
+                        style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
+                      >
+                        <FileSpreadsheet size={12} /> CSV
                       </a>
 
                       {/* Refresh the snapshot with attendance approved since it was generated */}

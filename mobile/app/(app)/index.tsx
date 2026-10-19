@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Image, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, Image, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Button, Card } from '@/components/ui';
@@ -21,6 +21,8 @@ import { friendlyDate } from '@/lib/date';
 import { formatHours } from '@/lib/format';
 import { cancelClockOutReminder, syncClockInReminders } from '@/lib/notify';
 import { clockOutMessage, workedLabel } from '@/lib/clock-feedback';
+import { cacheActiveSession, clearFailed, flushQueue, readCachedSession, readFailed, readQueue, queueClockOut } from '@/lib/offline';
+import { describeQueue, isLocalId, isNetworkError, resolveShownSession, type FailedOp } from '@/lib/offline-core';
 import type { ClockSession, Timesheet } from '@/lib/types';
 
 // Build One palette constants
@@ -68,50 +70,116 @@ export default function Home() {
   const [overtime, setOvertime] = useState(false);
   const [otReason, setOtReason] = useState('');
 
+  // Offline queue (clock-ins / clock-outs saved on the phone, not yet sent).
+  const [offline, setOffline] = useState(false);
+  const [queued, setQueued] = useState(0);
+  const [queuedText, setQueuedText] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [failed, setFailed] = useState<FailedOp[]>([]);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoOutRef = useRef(false); // guards against double auto-clock-out
+  const loadingRef = useRef(false);
+  const rerunRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!userId) return;
+    // Focus, foreground, the timers and pull-to-refresh can all fire at once:
+    // run one load at a time and fold the extra calls into a single follow-up.
+    if (loadingRef.current) { rerunRef.current = true; return; }
+    loadingRef.current = true;
     try {
-      const [s, r, session, unreadCount, unreadMsgCount] = await Promise.all([
-        fetchHomeSummary(userId),
-        fetchRecentTimesheets(userId, 10),
-        fetchActiveSession(userId),
-        fetchUnreadCount(userId),
-        fetchUnreadMessageCount(userId),
-      ]);
-
-      // Forgot to clock out? If a session has run past the auto clock-out limit,
-      // close it automatically (capped at exactly that many hours) and reload.
-      if (session && isSessionExpired(session) && !autoOutRef.current) {
-        autoOutRef.current = true;
-        try {
-          await autoClockOut(session);
-          await cancelClockOutReminder();
-          Alert.alert(
-            'Automatically clocked out',
-            `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged a ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working past that, let your supervisor know.`,
-          );
-        } finally {
-          autoOutRef.current = false;
-        }
-        await load();
-        return;
+      // 1. Send anything saved while offline, in order, before reading the server.
+      let queue = await readQueue(userId);
+      if (queue.length > 0) {
+        setSyncing(true);
+        try { await flushQueue(userId); } catch (e) { console.warn('[home] flush', e); }
+        setSyncing(false);
+        queue = await readQueue(userId);
       }
+      setQueued(queue.length);
+      setQueuedText(describeQueue(queue));
+      setFailed(await readFailed(userId));
 
-      setSummary(s);
-      setRecent(r);
-      setActiveSession(session);
-      setUnread(unreadCount);
-      setUnreadMsgs(unreadMsgCount);
-      if (session) setElapsed(elapsedLabel(session.clocked_in_at));
-    } catch (e) {
-      console.warn('[home] load', e);
+      try {
+        const [s, r, session, unreadCount, unreadMsgCount] = await Promise.all([
+          fetchHomeSummary(userId),
+          fetchRecentTimesheets(userId, 10),
+          fetchActiveSession(userId),
+          fetchUnreadCount(userId),
+          fetchUnreadMessageCount(userId),
+        ]);
+        // A clock-in still waiting in the queue is "on the clock" until it
+        // syncs; a server session whose clock-out is queued is not.
+        const shown = resolveShownSession(queue, session);
+        // Remember the open server session (if that is what is shown) so a
+        // restart with no signal still shows "on the clock" instead of
+        // offering a second clock-in. Queued (local) sessions are not cached:
+        // they are rebuilt from the queue.
+        await cacheActiveSession(userId, shown);
+
+        // Forgot to clock out? If the server session has run past the auto
+        // clock-out limit (and no clock-out for it is waiting in the queue),
+        // close it automatically, capped at exactly that many hours, and reload.
+        if (session && shown?.id === session.id && isSessionExpired(session) && !autoOutRef.current) {
+          autoOutRef.current = true;
+          try {
+            await autoClockOut(session);
+            await cancelClockOutReminder();
+            await cacheActiveSession(userId, null);
+            Alert.alert(
+              'Automatically clocked out',
+              `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged a ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working past that, let your supervisor know.`,
+            );
+          } finally {
+            autoOutRef.current = false;
+          }
+          rerunRef.current = true;
+        } else {
+          setOffline(false);
+          setSummary(s);
+          setRecent(r);
+          setActiveSession(shown);
+          setUnread(unreadCount);
+          setUnreadMsgs(unreadMsgCount);
+          if (shown) setElapsed(elapsedLabel(shown.clocked_in_at));
+        }
+      } catch (e) {
+        if (isNetworkError(e)) {
+          // No connection: keep the hours on screen, show the queued or last
+          // known session so the worker can still clock out, and flag the banner.
+          setOffline(true);
+          const shown = resolveShownSession(queue, await readCachedSession(userId));
+          setActiveSession(shown);
+          if (shown) setElapsed(elapsedLabel(shown.clocked_in_at));
+        } else {
+          console.warn('[home] load', e);
+        }
+      }
+    } finally {
+      loadingRef.current = false;
+    }
+    if (rerunRef.current) {
+      rerunRef.current = false;
+      await load();
     }
   }, [userId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Back from the background (e.g. signal returned while the phone was in a
+  // pocket): sync the queue and refresh.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') load(); });
+    return () => sub.remove();
+  }, [load]);
+
+  // While something is waiting to sync, retry every 30 seconds.
+  useEffect(() => {
+    if (queued === 0) return;
+    const id = setInterval(() => { load(); }, 30_000);
+    return () => clearInterval(id);
+  }, [queued, load]);
 
   // Keep the 6:50 / 7:10 morning clock-in reminders armed for the next two
   // weeks. Cheap and idempotent, so it runs on every open. Skipped when the
@@ -124,8 +192,9 @@ export default function Home() {
   useEffect(() => {
     if (activeSession) {
       timerRef.current = setInterval(() => {
-        // If it crosses the limit while the app is open, auto clock out.
-        if (isSessionExpired(activeSession)) {
+        // If it crosses the limit while the app is open, auto clock out
+        // (server sessions only — a queued clock-in is closed when it syncs).
+        if (!isLocalId(activeSession.id) && isSessionExpired(activeSession)) {
           load();
           return;
         }
@@ -146,7 +215,36 @@ export default function Home() {
   const handleClockOut = useCallback(async () => {
     if (!userId || !activeSession) return;
     setClockingOut(true);
+    const reason = overtime ? otReason.trim() : null;
+
+    // Save the clock-out on the phone; it is sent when the connection is back.
+    const saveOffline = async () => {
+      await queueClockOut({
+        userId,
+        sessionId: activeSession.id,
+        overtimeRequested: overtime,
+        overtimeReason: reason,
+      });
+      await cancelClockOutReminder();
+      const worked = workedLabel(activeSession.clocked_in_at);
+      setActiveSession(null);
+      setOvertime(false);
+      setOtReason('');
+      const q = await readQueue();
+      setQueued(q.length);
+      setQueuedText(describeQueue(q));
+      Alert.alert(
+        'Saved on your phone',
+        `${worked} recorded. There's no connection right now, so your clock-out is saved on this phone and will be sent to the office automatically when you're back online.`,
+      );
+    };
+
     try {
+      // A clock-in that is itself still queued cannot be closed on the server yet.
+      if (isLocalId(activeSession.id) || offline) {
+        await saveOffline();
+        return;
+      }
       await clockOut({
         sessionId: activeSession.id,
         userId,
@@ -156,9 +254,10 @@ export default function Home() {
         workDate: activeSession.work_date,
         clockedInAt: activeSession.clocked_in_at,
         overtimeRequested: overtime,
-        overtimeReason: overtime ? otReason.trim() : null,
+        overtimeReason: reason,
       });
       await cancelClockOutReminder();
+      await cacheActiveSession(userId, null);
       const msg = clockOutMessage(workedLabel(activeSession.clocked_in_at), overtime);
       setActiveSession(null);
       setOvertime(false);
@@ -167,11 +266,30 @@ export default function Home() {
       // PRD §7 confirmation: "Timesheet Successfully Submitted".
       Alert.alert(msg.title, msg.body);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not clock out.');
+      if (isNetworkError(err)) {
+        setOffline(true);
+        await saveOffline();
+      } else {
+        Alert.alert('Error', err instanceof Error ? err.message : 'Could not clock out.');
+      }
     } finally {
       setClockingOut(false);
     }
-  }, [userId, activeSession, overtime, otReason, load]);
+  }, [userId, activeSession, overtime, otReason, offline, load]);
+
+  const syncNow = useCallback(async () => {
+    if (!userId) return;
+    setSyncing(true);
+    try {
+      const r = await flushQueue(userId);
+      if (r.remaining > 0 && r.error === 'offline') {
+        Alert.alert('Still offline', 'No connection yet. Your hours are safe on this phone and will be sent automatically.');
+      }
+    } finally {
+      setSyncing(false);
+      await load();
+    }
+  }, [load, userId]);
 
   const firstName = profile?.name?.split(' ')[0] ?? 'there';
 
@@ -253,12 +371,68 @@ export default function Home() {
           </Card>
         ) : null}
 
+        {/* Offline queue banner — hours saved on the phone, not yet at the office */}
+        {queued > 0 ? (
+          <Card className="mb-4" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>
+            <View className="flex-row items-center gap-3">
+              <Ionicons name={offline ? 'cloud-offline-outline' : 'cloud-upload-outline'} size={22} color="#92400E" />
+              <View className="flex-1">
+                <Text style={{ color: '#92400E', fontWeight: '600' }}>
+                  {queuedText || `${queued} item${queued > 1 ? 's' : ''}`} saved on this phone
+                </Text>
+                <Text style={{ color: '#92400E', fontSize: 12, marginTop: 2 }}>
+                  {offline
+                    ? `No connection. ${queued > 1 ? 'They' : 'It'} will be sent automatically when you are back online.`
+                    : syncing ? 'Sending to the office…' : 'Waiting to send to the office.'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={syncNow}
+                disabled={syncing}
+                className="px-3 py-2 rounded-xl"
+                style={{ backgroundColor: '#92400E', opacity: syncing ? 0.6 : 1 }}
+              >
+                <Text className="text-white font-semibold text-xs">{syncing ? 'Syncing…' : 'Sync now'}</Text>
+              </Pressable>
+            </View>
+          </Card>
+        ) : null}
+
+        {/* Items the phone gave up on — the office must add these by hand */}
+        {failed.length > 0 ? (
+          <Card className="mb-4" style={{ backgroundColor: '#FEF2F2', borderColor: '#FECACA' }}>
+            <View className="flex-row items-center gap-3">
+              <Ionicons name="alert-circle-outline" size={22} color="#B91C1C" />
+              <View className="flex-1">
+                <Text style={{ color: '#B91C1C', fontWeight: '600' }}>
+                  {failed.length === 1 ? '1 item could not be sent' : `${failed.length} items could not be sent`}
+                </Text>
+                <Text style={{ color: '#B91C1C', fontSize: 12, marginTop: 2 }}>
+                  {failed
+                    .map((f) => `${f.kind === 'clock_in' ? 'Clock-in' : 'Clock-out'} at ${new Date(f.at).toLocaleString()}`)
+                    .join(', ')}
+                  . Please tell the office so they can add the hours.
+                </Text>
+              </View>
+              <Pressable
+                onPress={async () => { if (userId) { await clearFailed(userId); setFailed([]); } }}
+                className="px-3 py-2 rounded-xl"
+                style={{ backgroundColor: '#B91C1C' }}
+              >
+                <Text className="text-white font-semibold text-xs">Dismiss</Text>
+              </Pressable>
+            </View>
+          </Card>
+        ) : null}
+
         {/* ── CLOCKED IN STATE ─────────────────────────────────────── */}
         {activeSession ? (
           <Card className="mb-4" style={{ backgroundColor: 'rgba(28,26,22,0.06)', borderColor: LINE }}>
             <View className="flex-row items-center gap-3 mb-3">
               <View className="w-3 h-3 rounded-full" style={{ backgroundColor: BRONZE }} />
-              <Text className="font-bold text-ink text-base">On the clock</Text>
+              <Text className="font-bold text-ink text-base">
+                {isLocalId(activeSession.id) ? 'On the clock (saved on phone)' : 'On the clock'}
+              </Text>
               <Text className="ml-auto font-semibold text-lg" style={{ color: BRONZE }}>{elapsed}</Text>
             </View>
             <Text className="text-muted text-sm mb-4">
@@ -296,15 +470,18 @@ export default function Home() {
               onPress={handleClockOut}
             />
 
-            {/* Switch to a different project without clocking out for the day */}
-            <Pressable
-              onPress={() => router.push('/switch-project')}
-              className="flex-row items-center justify-center gap-2 mt-3 py-3 rounded-2xl bg-white"
-              style={{ borderWidth: 1, borderColor: LINE }}
-            >
-              <Ionicons name="swap-horizontal-outline" size={18} color={INK} />
-              <Text className="font-semibold text-ink">Switch Project</Text>
-            </Pressable>
+            {/* Switch to a different project without clocking out for the day.
+                Needs the session on the server, so it is hidden while offline. */}
+            {!isLocalId(activeSession.id) && !offline ? (
+              <Pressable
+                onPress={() => router.push('/switch-project')}
+                className="flex-row items-center justify-center gap-2 mt-3 py-3 rounded-2xl bg-white"
+                style={{ borderWidth: 1, borderColor: LINE }}
+              >
+                <Ionicons name="swap-horizontal-outline" size={18} color={INK} />
+                <Text className="font-semibold text-ink">Switch Project</Text>
+              </Pressable>
+            ) : null}
           </Card>
         ) : (
           /* ── NOT CLOCKED IN ─────────────────────────────────────── */

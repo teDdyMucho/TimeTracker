@@ -1,6 +1,6 @@
 /**
  * Labour cost engine (PRD §11) shared by the dashboard, reports, project
- * budgets and the CSV export.
+ * budgets, payroll, the Xero push and the CSV exports.
  *
  * Bands each employee-day (per entity) into ordinary / overtime / weekend /
  * public-holiday hours with the entity's pay config, prices it with the
@@ -8,9 +8,14 @@
  * projects and work locations worked that day pro-rata by hours. This matches
  * how pay runs cost a day, so report totals reconcile with payroll.
  *
- * PRD §10 is honoured here: when an entity's pay config has
- * `overtimeRequiresApproval`, weekday hours past the ordinary band are paid at
- * the ordinary rate unless that day's overtime request was approved.
+ * Rules honoured here:
+ *  - PRD §10: when an entity's pay config has `overtimeRequiresApproval`,
+ *    weekday hours past the ordinary band are paid at the ordinary rate unless
+ *    that day's overtime request was approved.
+ *  - Unpaid break: when a worker's day is longer than `afterHours`, `minutes`
+ *    are deducted once per calendar day (from the entity they worked the most
+ *    for that day) before banding. Configured per entity, editable in
+ *    Entities → Pay settings.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { classifyDay, grossPay, PAY_BANDS, type PayBand, type PayConfig } from '@/lib/payroll'
@@ -31,13 +36,39 @@ export const DEFAULT_PAY_CONFIG: PayConfig = {
   publicHolidayMultiplier: 2.5,
 }
 
-/** Pay config with the PRD §10 approval flag (stored in the same jsonb). */
+/** Unpaid meal break deducted from a long day (PRD task "Deduct agreed unpaid lunch"). */
+export interface UnpaidBreakRule {
+  enabled: boolean
+  /** Minutes deducted once per day. */
+  minutes: number
+  /** Only days longer than this many hours lose the break. */
+  afterHours: number
+}
+
+/** Default until the client confirms their agreement: 30 min when a day exceeds 5 h. */
+export const DEFAULT_UNPAID_BREAK: UnpaidBreakRule = { enabled: true, minutes: 30, afterHours: 5 }
+
+/** Pay config with the PRD §10 approval flag and the break rule (same jsonb column). */
 export interface PayConfigEx extends PayConfig {
   overtimeRequiresApproval?: boolean
+  unpaidBreak?: UnpaidBreakRule
 }
 
 /** Bands that carry overtime / penalty loading (everything except ordinary). */
 export const LOADED_BANDS: PayBand[] = ['overtime_t1', 'overtime_t2', 'saturday', 'sunday', 'public_holiday']
+
+/** Key used inside payroll_entries.band_hours to record the deducted break hours. */
+export const UNPAID_BREAK_KEY = 'unpaid_break'
+
+export function normalizeUnpaidBreak(raw: unknown): UnpaidBreakRule {
+  const c = (raw ?? {}) as Partial<UnpaidBreakRule>
+  const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : d)
+  return {
+    enabled: typeof c.enabled === 'boolean' ? c.enabled : DEFAULT_UNPAID_BREAK.enabled,
+    minutes: num(c.minutes, DEFAULT_UNPAID_BREAK.minutes),
+    afterHours: num(c.afterHours, DEFAULT_UNPAID_BREAK.afterHours),
+  }
+}
 
 /**
  * Defensive read of an entity's pay_config. An entity seeded with the legacy
@@ -64,13 +95,61 @@ export function normalizePayConfig(raw: unknown): PayConfigEx {
     sundayMultiplier: num(c.sundayMultiplier, DEFAULT_PAY_CONFIG.sundayMultiplier),
     publicHolidayMultiplier: num(c.publicHolidayMultiplier, DEFAULT_PAY_CONFIG.publicHolidayMultiplier),
     overtimeRequiresApproval: c.overtimeRequiresApproval === true,
+    unpaidBreak: normalizeUnpaidBreak(c.unpaidBreak),
   }
+}
+
+/** Hours to deduct from a day of `dayHours` under the rule (0 when it does not apply). */
+export function unpaidBreakHours(dayHours: number, rule: UnpaidBreakRule | undefined): number {
+  const r = rule ?? DEFAULT_UNPAID_BREAK
+  if (!r.enabled || r.minutes <= 0) return 0
+  if (dayHours <= r.afterHours) return 0
+  return round2(Math.min(r.minutes / 60, dayHours))
+}
+
+// ─── Pay rates by date (PRD task "Apply pay rates effective on the worked date") ─
+
+export interface RateRow { profile_id: string; hourly_rate: number | string; effective_from: string; created_at?: string | null }
+
+/**
+ * An employee's first rate is stored with this effective date so it counts as
+ * their baseline for all earlier work and can never be mistaken for a later
+ * change when a rise is back-dated (migration 0030 normalises existing rows).
+ */
+export const RATE_BASELINE_DATE = '2000-01-01'
+
+/** Per employee, their rates oldest-first (same date → entry order). */
+export type RateHistory = Record<string, { from: string; rate: number; created?: string }[]>
+
+export function buildRateHistory(rows: RateRow[]): RateHistory {
+  const h: RateHistory = {}
+  for (const r of rows) (h[r.profile_id] ??= []).push({ from: r.effective_from, rate: Number(r.hourly_rate), created: r.created_at ?? undefined })
+  for (const list of Object.values(h)) list.sort((a, b) => a.from.localeCompare(b.from) || (a.created ?? '').localeCompare(b.created ?? ''))
+  return h
+}
+
+/**
+ * The rate that applies to work done on `date`: the newest rate whose
+ * effective_from is on or before that day. If every rate on record starts
+ * after the day (the rate was entered after the work was done), the earliest
+ * one is used so a back-dated run still pays rather than coming out $0.
+ * null when the employee has no rate at all.
+ */
+export function rateOn(history: RateHistory, profileId: string, date: string): number | null {
+  const list = history[profileId]
+  if (!list || list.length === 0) return null
+  let rate: number | null = null
+  for (const r of list) {
+    if (r.from <= date) rate = r.rate
+    else break
+  }
+  return rate ?? list[0].rate
 }
 
 // ─── Day banding ──────────────────────────────────────────────────────────────
 
 /**
- * Band one employee's total hours for one day.
+ * Band one employee's (paid) hours for one day.
  *  - flat-rate workers: everything ordinary.
  *  - weekend / public holiday: everything at that day's loading.
  *  - weekday: the tier ladder; if the entity requires overtime approval and this
@@ -98,6 +177,20 @@ export function bandEmployeeDay(
   return out
 }
 
+/**
+ * Which entity "owns" an employee's day when they worked for more than one:
+ * the one with the most hours (ties → first by id). The unpaid break is taken
+ * from that entity's hours only, so it is never deducted twice in a day.
+ */
+export function primaryEntityForDay(hoursByEntity: Map<string, number>): string | null {
+  let best: string | null = null
+  let bestHours = -1
+  for (const [eid, h] of [...hoursByEntity.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (h > bestHours) { best = eid; bestHours = h }
+  }
+  return best
+}
+
 // ─── Inputs ───────────────────────────────────────────────────────────────────
 
 export interface CostRow {
@@ -113,9 +206,17 @@ export interface CostRow {
 
 export interface CostInputs {
   rows: CostRow[]
+  /**
+   * What to report. Rows outside the scope are still loaded (and grouped) so
+   * the unpaid break and the primary entity are decided on the whole day;
+   * only the figures are filtered. Employee scope is applied in the query
+   * because the break is per employee.
+   */
+  scope?: { entityId?: string; projectId?: string }
   holidays: Set<string>
   configs: Record<string, PayConfigEx>
-  rates: Record<string, number>
+  /** Every rate on record per employee; resolved per worked day with rateOn(). */
+  rateHistory: RateHistory
   flatRateIds: Set<string>
   employeeNames: Record<string, string>
   projectNames: Record<string, string>
@@ -143,15 +244,14 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
     .gte('work_date', scope.from)
     .lte('work_date', scope.to)
     .in('status', statuses)
-  if (scope.entityId) q = q.eq('business_entity_id', scope.entityId)
+  // Entity / project filters are NOT applied here (see CostInputs.scope).
   if (scope.employeeId) q = q.eq('profile_id', scope.employeeId)
-  if (scope.projectId) q = q.eq('project_id', scope.projectId)
 
   const [tsRes, holRes, entRes, rateRes, profRes, projRes] = await Promise.all([
     q,
     admin.from('public_holidays').select('date').gte('date', scope.from).lte('date', scope.to),
     admin.from('business_entities').select('id, name, pay_config'),
-    admin.from('pay_rates').select('profile_id, hourly_rate, effective_from').order('effective_from', { ascending: false }),
+    admin.from('pay_rates').select('profile_id, hourly_rate, effective_from, created_at'),
     admin.from('profiles').select('id, name, flat_rate'),
     admin.from('projects').select('id, name, business_entity_id'),
   ])
@@ -167,10 +267,7 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
     status: r.status,
   })) as CostRow[]
 
-  const rates: Record<string, number> = {}
-  for (const r of (rateRes.data ?? []) as any[]) {
-    if (!(r.profile_id in rates)) rates[r.profile_id] = Number(r.hourly_rate)
-  }
+  const rateHistory = buildRateHistory((rateRes.data ?? []) as RateRow[])
 
   const employeeNames: Record<string, string> = {}
   const flatRateIds = new Set<string>()
@@ -195,9 +292,10 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
 
   return {
     rows,
+    scope: { entityId: scope.entityId || undefined, projectId: scope.projectId || undefined },
     holidays: new Set((holRes.data ?? []).map((h: any) => h.date as string)),
     configs,
-    rates,
+    rateHistory,
     flatRateIds,
     employeeNames,
     projectNames,
@@ -211,12 +309,15 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
 export interface CostBucket {
   id: string
   name: string
+  /** Hours worked (before any unpaid break). */
   hours: number
   cost: number
   /** Hours on loaded bands (OT 1.5×/2×, Sat, Sun, PH). */
   overtimeHours: number
   /** Cost of those loaded-band hours. */
   overtimeCost: number
+  /** Unpaid break hours deducted before pay. */
+  breakHours: number
 }
 
 export interface ProjectBucket extends CostBucket { entityId: string }
@@ -228,7 +329,11 @@ export interface EmployeeDayCost {
   date: string
   entityId: string
   projectIds: string[]
+  /** Hours worked that day for this entity. */
   hours: number
+  /** Hours paid after the unpaid break. */
+  paidHours: number
+  breakHours: number
   bandHours: Record<PayBand, number>
   cost: number
   overtimeHours: number
@@ -237,7 +342,11 @@ export interface EmployeeDayCost {
 }
 
 export interface CostBreakdown {
+  /** Hours worked (clock-in to clock-out), before breaks. */
   totalHours: number
+  /** Hours paid, after unpaid breaks. */
+  paidHours: number
+  breakHours: number
   totalCost: number
   ordinaryCost: number
   overtimeHours: number
@@ -258,15 +367,32 @@ function bucket<T extends CostBucket>(map: Map<string, T>, id: string, make: () 
   return b
 }
 
-export function computeLabourCost(inputs: CostInputs): CostBreakdown {
-  const { rows, holidays, configs, rates, flatRateIds } = inputs
+interface DayGroup {
+  profileId: string
+  entityId: string
+  date: string
+  rows: CostRow[]
+  total: number
+  paid: number
+  breakHours: number
+  otApproved: boolean
+  otStatus: string
+}
 
-  // Group rows by employee + entity + day (the unit the pay ladder applies to).
-  const groups = new Map<string, { profileId: string; entityId: string; date: string; rows: CostRow[]; total: number; otApproved: boolean; otStatus: string }>()
+/**
+ * Group rows by employee + entity + day and apply the unpaid-break rule once
+ * per employee-day (to the primary entity). Shared by the cost breakdown and
+ * the payroll aggregators so they can never disagree.
+ */
+function groupDays(rows: CostRow[], configs: Record<string, PayConfigEx>): Map<string, DayGroup> {
+  const groups = new Map<string, DayGroup>()
   for (const r of rows) {
     if (!r.profile_id || !r.business_entity_id) continue
     const key = `${r.profile_id}|${r.business_entity_id}|${r.work_date}`
-    const g = groups.get(key) ?? { profileId: r.profile_id, entityId: r.business_entity_id, date: r.work_date, rows: [], total: 0, otApproved: false, otStatus: 'none' }
+    const g = groups.get(key) ?? {
+      profileId: r.profile_id, entityId: r.business_entity_id, date: r.work_date,
+      rows: [], total: 0, paid: 0, breakHours: 0, otApproved: false, otStatus: 'none',
+    }
     g.rows.push(r)
     g.total = round2(g.total + r.hours)
     if (r.overtime_status === 'approved') { g.otApproved = true; g.otStatus = 'approved' }
@@ -274,6 +400,34 @@ export function computeLabourCost(inputs: CostInputs): CostBreakdown {
     else if (r.overtime_status === 'rejected' && g.otStatus === 'none') g.otStatus = 'rejected'
     groups.set(key, g)
   }
+
+  // Unpaid break: once per employee calendar day, from the primary entity.
+  const byEmpDate = new Map<string, DayGroup[]>()
+  for (const g of groups.values()) {
+    const k = `${g.profileId}|${g.date}`
+    byEmpDate.set(k, [...(byEmpDate.get(k) ?? []), g])
+  }
+  for (const list of byEmpDate.values()) {
+    const hoursByEntity = new Map(list.map((g) => [g.entityId, g.total]))
+    const dayTotal = round2(list.reduce((s, g) => s + g.total, 0))
+    const primaryId = primaryEntityForDay(hoursByEntity)
+    for (const g of list) {
+      const rule = (configs[g.entityId] ?? normalizePayConfig(null)).unpaidBreak
+      g.breakHours = g.entityId === primaryId ? Math.min(unpaidBreakHours(dayTotal, rule), g.total) : 0
+      g.paid = round2(g.total - g.breakHours)
+    }
+  }
+  return groups
+}
+
+export function computeLabourCost(inputs: CostInputs): CostBreakdown {
+  const { rows, holidays, configs, rateHistory, flatRateIds } = inputs
+  const entityScope = inputs.scope?.entityId
+  const projectScope = inputs.scope?.projectId
+  // Break and primary entity are decided on the FULL day (every entity and
+  // project the employee worked); the scope only selects what is reported, so
+  // a filtered report always reconciles with the unfiltered one and payroll.
+  const groups = groupDays(rows, configs)
 
   const byBand = Object.fromEntries(PAY_BANDS.map((b) => [b, { hours: 0, cost: 0 }])) as Record<PayBand, { hours: number; cost: number }>
   const byProject = new Map<string, ProjectBucket>()
@@ -284,13 +438,25 @@ export function computeLabourCost(inputs: CostInputs): CostBreakdown {
   const unrated = new Set<string>()
   const days: EmployeeDayCost[] = []
 
-  let totalHours = 0, totalCost = 0, ordinaryCost = 0, overtimeHours = 0, overtimeCost = 0
+  let totalHours = 0, paidHours = 0, breakHours = 0, totalCost = 0, ordinaryCost = 0, overtimeHours = 0, overtimeCost = 0
 
   for (const g of groups.values()) {
+    if (entityScope && g.entityId !== entityScope) continue
+    const scopedRows = projectScope ? g.rows.filter((r) => r.project_id === projectScope) : g.rows
+    if (scopedRows.length === 0) continue
+    // Fraction of this employee-day that is in scope (1 unless a project
+    // filter is on). The day's cost is apportioned to projects by hours, so
+    // the in-scope share of every figure is this fraction of the day's figure.
+    const scopedHours = projectScope ? round2(scopedRows.reduce((s, r) => s + r.hours, 0)) : g.total
+    const f = g.total > 0 && scopedHours < g.total ? scopedHours / g.total : 1
+    const sc = (v: number) => (f === 1 ? v : round2(v * f))
+
     const cfg = configs[g.entityId] ?? normalizePayConfig(null)
-    const rate = rates[g.profileId] ?? 0
-    if (!(g.profileId in rates)) unrated.add(g.profileId)
-    const split = bandEmployeeDay(g.total, g.date, holidays, cfg, flatRateIds.has(g.profileId), g.otApproved)
+    // The rate in force on the day the work was done (a pay rise part-way
+    // through a period only applies from its effective date).
+    const rate = rateOn(rateHistory, g.profileId, g.date) ?? 0
+    if (!(g.profileId in rateHistory)) unrated.add(g.profileId)
+    const split = bandEmployeeDay(g.paid, g.date, holidays, cfg, flatRateIds.has(g.profileId), g.otApproved)
     const bandHours = Object.fromEntries(PAY_BANDS.map((b) => [b, 0])) as Record<PayBand, number>
     for (const [band, h] of Object.entries(split)) bandHours[band as PayBand] = h as number
     const { gross, bandCost } = grossPay(bandHours, rate, cfg)
@@ -298,49 +464,57 @@ export function computeLabourCost(inputs: CostInputs): CostBreakdown {
     const dayOtCost = round2(LOADED_BANDS.reduce((s, b) => s + bandCost[b], 0))
 
     for (const b of PAY_BANDS) {
-      byBand[b].hours = round2(byBand[b].hours + bandHours[b])
-      byBand[b].cost = round2(byBand[b].cost + bandCost[b])
+      byBand[b].hours = round2(byBand[b].hours + sc(bandHours[b]))
+      byBand[b].cost = round2(byBand[b].cost + sc(bandCost[b]))
     }
-    totalHours = round2(totalHours + g.total)
-    totalCost = round2(totalCost + gross)
-    ordinaryCost = round2(ordinaryCost + bandCost.regular)
-    overtimeHours = round2(overtimeHours + dayOtHours)
-    overtimeCost = round2(overtimeCost + dayOtCost)
+    totalHours = round2(totalHours + sc(g.total))
+    paidHours = round2(paidHours + sc(g.paid))
+    breakHours = round2(breakHours + sc(g.breakHours))
+    totalCost = round2(totalCost + sc(gross))
+    ordinaryCost = round2(ordinaryCost + sc(bandCost.regular))
+    overtimeHours = round2(overtimeHours + sc(dayOtHours))
+    overtimeCost = round2(overtimeCost + sc(dayOtCost))
 
     const emp = bucket(byEmployee, g.profileId, () => ({
-      id: g.profileId, name: inputs.employeeNames[g.profileId] ?? 'Unknown', hours: 0, cost: 0, overtimeHours: 0, overtimeCost: 0, projects: [], hasRate: g.profileId in rates,
+      id: g.profileId, name: inputs.employeeNames[g.profileId] ?? 'Unknown', hours: 0, cost: 0, overtimeHours: 0, overtimeCost: 0, breakHours: 0, projects: [], hasRate: g.profileId in rateHistory,
     }))
-    emp.hours = round2(emp.hours + g.total)
-    emp.cost = round2(emp.cost + gross)
-    emp.overtimeHours = round2(emp.overtimeHours + dayOtHours)
-    emp.overtimeCost = round2(emp.overtimeCost + dayOtCost)
+    emp.hours = round2(emp.hours + sc(g.total))
+    emp.cost = round2(emp.cost + sc(gross))
+    emp.overtimeHours = round2(emp.overtimeHours + sc(dayOtHours))
+    emp.overtimeCost = round2(emp.overtimeCost + sc(dayOtCost))
+    emp.breakHours = round2(emp.breakHours + sc(g.breakHours))
 
     const ent = bucket(byEntity, g.entityId, () => ({
-      id: g.entityId, name: inputs.entityNames[g.entityId] ?? 'Unknown', hours: 0, cost: 0, overtimeHours: 0, overtimeCost: 0,
+      id: g.entityId, name: inputs.entityNames[g.entityId] ?? 'Unknown', hours: 0, cost: 0, overtimeHours: 0, overtimeCost: 0, breakHours: 0,
     }))
-    ent.hours = round2(ent.hours + g.total)
-    ent.cost = round2(ent.cost + gross)
-    ent.overtimeHours = round2(ent.overtimeHours + dayOtHours)
-    ent.overtimeCost = round2(ent.overtimeCost + dayOtCost)
+    ent.hours = round2(ent.hours + sc(g.total))
+    ent.cost = round2(ent.cost + sc(gross))
+    ent.overtimeHours = round2(ent.overtimeHours + sc(dayOtHours))
+    ent.overtimeCost = round2(ent.overtimeCost + sc(dayOtCost))
+    ent.breakHours = round2(ent.breakHours + sc(g.breakHours))
 
     // Apportion the day's cost across the rows (projects / locations) by hours.
+    // Shares are always against the WHOLE day so a project filter never inflates
+    // a project's slice.
     const projectIds = new Set<string>()
-    for (const r of g.rows) {
+    for (const r of scopedRows) {
       const share = g.total > 0 ? r.hours / g.total : 0
       const rowCost = round2(gross * share)
       const rowOtHours = round2(dayOtHours * share)
       const rowOtCost = round2(dayOtCost * share)
+      const rowBreak = round2(g.breakHours * share)
 
       if (r.project_id) {
         projectIds.add(r.project_id)
         const pr = bucket(byProject, r.project_id, () => ({
           id: r.project_id!, name: inputs.projectNames[r.project_id!] ?? 'Unknown', entityId: inputs.projectEntity[r.project_id!] ?? g.entityId,
-          hours: 0, cost: 0, overtimeHours: 0, overtimeCost: 0,
+          hours: 0, cost: 0, overtimeHours: 0, overtimeCost: 0, breakHours: 0,
         }))
         pr.hours = round2(pr.hours + r.hours)
         pr.cost = round2(pr.cost + rowCost)
         pr.overtimeHours = round2(pr.overtimeHours + rowOtHours)
         pr.overtimeCost = round2(pr.overtimeCost + rowOtCost)
+        pr.breakHours = round2(pr.breakHours + rowBreak)
         const set = empProjects.get(g.profileId) ?? new Set<string>()
         set.add(r.project_id)
         empProjects.set(g.profileId, set)
@@ -357,11 +531,13 @@ export function computeLabourCost(inputs: CostInputs): CostBreakdown {
       date: g.date,
       entityId: g.entityId,
       projectIds: [...projectIds],
-      hours: g.total,
-      bandHours,
-      cost: gross,
-      overtimeHours: dayOtHours,
-      overtimeCost: dayOtCost,
+      hours: sc(g.total),
+      paidHours: sc(g.paid),
+      breakHours: sc(g.breakHours),
+      bandHours: f === 1 ? bandHours : (Object.fromEntries(PAY_BANDS.map((b) => [b, sc(bandHours[b])])) as Record<PayBand, number>),
+      cost: sc(gross),
+      overtimeHours: sc(dayOtHours),
+      overtimeCost: sc(dayOtCost),
       overtimeStatus: g.otStatus,
     })
   }
@@ -375,6 +551,8 @@ export function computeLabourCost(inputs: CostInputs): CostBreakdown {
 
   return {
     totalHours,
+    paidHours,
+    breakHours,
     totalCost,
     ordinaryCost,
     overtimeHours,
@@ -394,13 +572,15 @@ export async function labourCost(admin: SupabaseClient, scope: CostScope): Promi
   return computeLabourCost(await loadCostInputs(admin, scope))
 }
 
-// ─── Payroll aggregation (approval-aware drop-ins for lib/payroll.ts) ────────
+// ─── Payroll aggregation (approval- and break-aware drop-ins for lib/payroll.ts) ─
 
 export interface PayrollRow {
   profile_id: string
   work_date: string
   hours: number | string
   overtime_status?: string | null
+  /** Needed so the unpaid break is taken once per day across entities. */
+  business_entity_id?: string | null
   profiles?: { name?: string; email?: string } | null
 }
 
@@ -409,7 +589,10 @@ export interface EmployeeBandTotals {
   name: string
   email: string | null
   bandHours: Record<PayBand, number>
+  /** Hours worked for this entity (before breaks). */
   totalHours: number
+  /** Unpaid break hours deducted for this entity. */
+  breakHours: number
 }
 
 export interface EmployeeBandsByDay {
@@ -419,49 +602,77 @@ export interface EmployeeBandsByDay {
   /** band → (work_date → hours on that date). Only bands/dates with hours appear. */
   byBand: Record<PayBand, Record<string, number>>
   totalHours: number
+  breakHours: number
 }
 
-function groupEmployeeDays(rows: PayrollRow[]) {
-  const byEmpDay = new Map<string, Map<string, { hours: number; otApproved: boolean }>>()
+export interface AggregateOptions {
+  /**
+   * The entity this pay run is for. Rows from other entities are used only to
+   * decide the unpaid break for the day; they never contribute hours.
+   * When omitted, every row is treated as one entity.
+   */
+  entityId?: string
+}
+
+function payrollGroups(rows: PayrollRow[], cfg: PayConfigEx, opts: AggregateOptions) {
+  const entityId = opts.entityId ?? '__all__'
+  const costRows: CostRow[] = rows
+    .filter((r) => r.profile_id)
+    .map((r) => ({
+      profile_id: r.profile_id,
+      project_id: null,
+      business_entity_id: opts.entityId ? (r.business_entity_id ?? entityId) : entityId,
+      work_location: 'site',
+      work_date: r.work_date,
+      hours: Number(r.hours),
+      overtime_status: r.overtime_status ?? null,
+      status: 'approved',
+    }))
   const meta = new Map<string, { name: string; email: string | null }>()
   for (const r of rows) {
     if (!r.profile_id) continue
-    meta.set(r.profile_id, { name: r.profiles?.name ?? 'Unknown', email: r.profiles?.email ?? null })
-    const days = byEmpDay.get(r.profile_id) ?? new Map<string, { hours: number; otApproved: boolean }>()
-    const d = days.get(r.work_date) ?? { hours: 0, otApproved: false }
-    d.hours = round2(d.hours + Number(r.hours))
-    if (r.overtime_status === 'approved') d.otApproved = true
-    days.set(r.work_date, d)
-    byEmpDay.set(r.profile_id, days)
+    if (!opts.entityId || (r.business_entity_id ?? entityId) === entityId) {
+      meta.set(r.profile_id, { name: r.profiles?.name ?? 'Unknown', email: r.profiles?.email ?? null })
+    }
   }
-  return { byEmpDay, meta }
+  // Every entity gets this run's config for the break rule; only this entity's
+  // groups are banded, so other entities' multipliers never matter here.
+  const configs = Object.fromEntries(
+    [...new Set(costRows.map((r) => r.business_entity_id))].map((id) => [id, cfg]),
+  ) as Record<string, PayConfigEx>
+  const groups = [...groupDays(costRows, configs).values()].filter((g) => g.entityId === entityId)
+  return { groups, meta }
 }
 
 /**
- * Per-employee band hours for a pay run. Same output as
+ * Per-employee band hours for a pay run. Same output shape as
  * `aggregatePayroll` in lib/payroll.ts, but honours the entity's
- * `overtimeRequiresApproval` rule (PRD §10).
+ * `overtimeRequiresApproval` rule (PRD §10) and the unpaid-break rule.
  */
 export function aggregateEmployeeBands(
   rows: PayrollRow[],
   holidays: Set<string>,
   cfg: PayConfigEx,
   flatRateIds: Set<string> = new Set(),
+  opts: AggregateOptions = {},
 ): EmployeeBandTotals[] {
-  const { byEmpDay, meta } = groupEmployeeDays(rows)
-  const result: EmployeeBandTotals[] = []
-  for (const [pid, days] of byEmpDay) {
-    const bandHours = Object.fromEntries(PAY_BANDS.map((b) => [b, 0])) as Record<PayBand, number>
-    let total = 0
-    for (const [date, d] of days) {
-      const split = bandEmployeeDay(d.hours, date, holidays, cfg, flatRateIds.has(pid), d.otApproved)
-      for (const [band, h] of Object.entries(split)) bandHours[band as PayBand] = round2(bandHours[band as PayBand] + (h as number))
-      total = round2(total + d.hours)
+  const { groups, meta } = payrollGroups(rows, cfg, opts)
+  const byEmp = new Map<string, EmployeeBandTotals>()
+  for (const g of groups) {
+    const m = meta.get(g.profileId)
+    if (!m) continue
+    const e = byEmp.get(g.profileId) ?? {
+      profileId: g.profileId, name: m.name, email: m.email,
+      bandHours: Object.fromEntries(PAY_BANDS.map((b) => [b, 0])) as Record<PayBand, number>,
+      totalHours: 0, breakHours: 0,
     }
-    const m = meta.get(pid)!
-    result.push({ profileId: pid, name: m.name, email: m.email, bandHours, totalHours: total })
+    const split = bandEmployeeDay(g.paid, g.date, holidays, cfg, flatRateIds.has(g.profileId), g.otApproved)
+    for (const [band, h] of Object.entries(split)) e.bandHours[band as PayBand] = round2(e.bandHours[band as PayBand] + (h as number))
+    e.totalHours = round2(e.totalHours + g.total)
+    e.breakHours = round2(e.breakHours + g.breakHours)
+    byEmp.set(g.profileId, e)
   }
-  return result.sort((a, b) => a.name.localeCompare(b.name))
+  return [...byEmp.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Like aggregateEmployeeBands but split by date, for the Xero timesheet push. */
@@ -470,23 +681,27 @@ export function aggregateEmployeeBandsByDay(
   holidays: Set<string>,
   cfg: PayConfigEx,
   flatRateIds: Set<string> = new Set(),
+  opts: AggregateOptions = {},
 ): EmployeeBandsByDay[] {
-  const { byEmpDay, meta } = groupEmployeeDays(rows)
-  const result: EmployeeBandsByDay[] = []
-  for (const [pid, days] of byEmpDay) {
-    const byBand = Object.fromEntries(PAY_BANDS.map((b) => [b, {} as Record<string, number>])) as Record<PayBand, Record<string, number>>
-    let total = 0
-    for (const [date, d] of days) {
-      const split = bandEmployeeDay(d.hours, date, holidays, cfg, flatRateIds.has(pid), d.otApproved)
-      for (const [band, h] of Object.entries(split)) {
-        byBand[band as PayBand][date] = round2((byBand[band as PayBand][date] ?? 0) + (h as number))
-      }
-      total = round2(total + d.hours)
+  const { groups, meta } = payrollGroups(rows, cfg, opts)
+  const byEmp = new Map<string, EmployeeBandsByDay>()
+  for (const g of groups) {
+    const m = meta.get(g.profileId)
+    if (!m) continue
+    const e = byEmp.get(g.profileId) ?? {
+      profileId: g.profileId, name: m.name, email: m.email,
+      byBand: Object.fromEntries(PAY_BANDS.map((b) => [b, {} as Record<string, number>])) as Record<PayBand, Record<string, number>>,
+      totalHours: 0, breakHours: 0,
     }
-    const m = meta.get(pid)!
-    result.push({ profileId: pid, name: m.name, email: m.email, byBand, totalHours: total })
+    const split = bandEmployeeDay(g.paid, g.date, holidays, cfg, flatRateIds.has(g.profileId), g.otApproved)
+    for (const [band, h] of Object.entries(split)) {
+      e.byBand[band as PayBand][g.date] = round2((e.byBand[band as PayBand][g.date] ?? 0) + (h as number))
+    }
+    e.totalHours = round2(e.totalHours + g.total)
+    e.breakHours = round2(e.breakHours + g.breakHours)
+    byEmp.set(g.profileId, e)
   }
-  return result.sort((a, b) => a.name.localeCompare(b.name))
+  return [...byEmp.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function money(n: number): string {

@@ -21,6 +21,8 @@ interface Project {
   end_date: string | null
   actual_hours: number
   actual_labour_cost: number
+  /** True when the budget shown is the Settings default, not the project's own. */
+  budget_is_default?: boolean
 }
 
 const money = (n: number) => `$${n.toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
@@ -178,6 +180,7 @@ export default function ProjectsClient({
                       </td>
                       <td className="py-3 pr-4">
                         <BudgetBar actual={p.actual_labour_cost} budget={p.budget_labour_cost} fmt={money} />
+                        {p.budget_is_default && <div className="text-[10px] text-muted">default budget from Settings</div>}
                       </td>
                       <td className="py-3 pr-4">
                         <Badge status={p.status} />

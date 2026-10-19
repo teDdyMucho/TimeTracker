@@ -221,7 +221,9 @@ export default async function DashboardPage({
       href: '/reports',
       iconBg: 'rgba(28,26,22,0.12)',
       iconColor: '#1C1A16',
-      sub: `${formatHours(weekCost.totalHours)} approved`,
+      sub: weekCost.breakHours > 0
+        ? `${formatHours(weekCost.paidHours)} paid · ${formatHours(weekCost.breakHours)} unpaid breaks`
+        : `${formatHours(weekCost.paidHours)} paid`,
     },
     {
       label: 'Overtime Cost',
@@ -243,8 +245,8 @@ export default async function DashboardPage({
     },
   ]
 
-  const costLines = (rows: { name: string; hours: number; cost: number; overtimeCost: number }[]) =>
-    rows.map((r) => ({ name: r.name, hours: r.hours, cost: r.cost, overtimeCost: r.overtimeCost }))
+  const costLines = (rows: { id: string; name: string; hours: number; cost: number; overtimeCost: number }[]) =>
+    rows.map((r) => ({ id: r.id, name: r.name, hours: r.hours, cost: r.cost, overtimeCost: r.overtimeCost }))
   const locationLines = [
     { name: 'On site', hours: weekCost.byLocation.site.hours, cost: weekCost.byLocation.site.cost, overtimeCost: 0 },
     { name: 'Factory / Workshop', hours: weekCost.byLocation.workshop.hours, cost: weekCost.byLocation.workshop.cost, overtimeCost: 0 },

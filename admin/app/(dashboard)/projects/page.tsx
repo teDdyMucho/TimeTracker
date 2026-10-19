@@ -12,7 +12,7 @@ export default async function ProjectsPage() {
   const adminClient = createAdminClient()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
 
-  const [projectsRes, entitiesRes, finRes, cost] = await Promise.all([
+  const [projectsRes, entitiesRes, finRes, cost, alertRes] = await Promise.all([
     adminClient
       .from('projects')
       .select('id, name, client, code, business_entity_id, status, created_at, budget_hours, start_date, end_date')
@@ -25,8 +25,12 @@ export default async function ProjectsPage() {
     // (PRD §13 "Actual Labour Cost / Actual Hours"), computed live so it always
     // matches payroll.
     labourCost(adminClient, { from: '2000-01-01', to: today }),
+    adminClient.from('settings').select('value').eq('key', 'labour_cost_alert').maybeSingle(),
   ])
 
+  // Projects without their own labour budget fall back to the default from Settings.
+  const defaultBudgetRaw = (alertRes.data?.value as any)?.defaultBudget
+  const defaultBudget = typeof defaultBudgetRaw === 'number' && defaultBudgetRaw > 0 ? defaultBudgetRaw : null
   const budgetCost = new Map((finRes.data ?? []).map((f: any) => [f.project_id, f.budget_labour_cost == null ? null : Number(f.budget_labour_cost)]))
   const actual = new Map(cost.byProject.map((p) => [p.id, p]))
 
@@ -36,7 +40,8 @@ export default async function ProjectsPage() {
     .map((p: any) => ({
       ...p,
       budget_hours: p.budget_hours == null ? null : Number(p.budget_hours),
-      budget_labour_cost: budgetCost.get(p.id) ?? null,
+      budget_labour_cost: budgetCost.get(p.id) ?? defaultBudget,
+      budget_is_default: budgetCost.get(p.id) == null && defaultBudget != null,
       actual_hours: actual.get(p.id)?.hours ?? 0,
       actual_labour_cost: actual.get(p.id)?.cost ?? 0,
     }))

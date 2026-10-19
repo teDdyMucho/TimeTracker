@@ -31,7 +31,7 @@ export default async function ReportsPage({
   const employeeId = params.employee ?? ''
   const projectId = params.project ?? ''
 
-  const [entitiesRes, employeesRes, projectsRes, finRes, cost] = await Promise.all([
+  const [entitiesRes, employeesRes, projectsRes, finRes, cost, alertRes] = await Promise.all([
     supabase.from('business_entities').select('id, name').eq('status', 'active').order('name'),
     adminClient.from('profiles').select('id, name').neq('role', 'admin').eq('status', 'active').order('name'),
     adminClient.from('projects').select('id, name, business_entity_id, budget_hours, client').order('name'),
@@ -42,8 +42,11 @@ export default async function ReportsPage({
       employeeId: employeeId || undefined,
       projectId: projectId || undefined,
     }),
+    adminClient.from('settings').select('value').eq('key', 'labour_cost_alert').maybeSingle(),
   ])
 
+  const defaultBudgetRaw = (alertRes.data?.value as any)?.defaultBudget
+  const defaultBudget = typeof defaultBudgetRaw === 'number' && defaultBudgetRaw > 0 ? defaultBudgetRaw : null
   const entities = (entitiesRes.data ?? []) as { id: string; name: string }[]
   const employees = (employeesRes.data ?? []) as { id: string; name: string }[]
   const projects = (projectsRes.data ?? []) as { id: string; name: string; business_entity_id: string; budget_hours: number | null; client: string | null }[]
@@ -95,7 +98,11 @@ export default async function ReportsPage({
 
       {/* Summary row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <SummaryCard label="Total Hours" value={formatHours(cost.totalHours)} sub={`${cost.byEmployee.length} employee${cost.byEmployee.length !== 1 ? 's' : ''}`} />
+        <SummaryCard
+          label="Hours"
+          value={formatHours(cost.paidHours)}
+          sub={cost.breakHours > 0 ? `${formatHours(cost.totalHours)} worked − ${formatHours(cost.breakHours)} unpaid breaks · ${cost.byEmployee.length} employees` : `${cost.byEmployee.length} employee${cost.byEmployee.length !== 1 ? 's' : ''}`}
+        />
         <SummaryCard label="Labour Cost" value={money(cost.totalCost)} sub={`Ordinary ${money(cost.ordinaryCost)}`} />
         <SummaryCard label="Overtime & Penalty Cost" value={money(cost.overtimeCost)} sub={`${formatHours(cost.overtimeHours)} on loaded rates`} />
         <SummaryCard label="Site / Workshop" value={`${pct(loc.site.hours, cost.totalHours)} / ${pct(loc.workshop.hours, cost.totalHours)}`} sub={`${money(loc.site.cost)} / ${money(loc.workshop.cost)}`} />
@@ -116,7 +123,7 @@ export default async function ReportsPage({
             <tbody className="divide-y divide-slate-50">
               {cost.byProject.map((p) => {
                 const meta = projectMeta.get(p.id)
-                const budget = budgetCost.get(p.id) ?? null
+                const budget = budgetCost.get(p.id) ?? defaultBudget
                 const variance = budget == null ? null : Math.round((budget - p.cost) * 100) / 100
                 return (
                   <tr key={p.id}>

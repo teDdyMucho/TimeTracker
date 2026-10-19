@@ -22,6 +22,8 @@ interface Props {
   onClose: () => void
 }
 
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
+
 export default function EditEmployeeForm({ employee, entities, supervisors = [], onClose }: Props) {
   const [serverError, formAction, pending] = useActionState(updateEmployeeAction, null)
   const [selectedEntities, setSelectedEntities] = useState<string[]>(employee.business_access)
@@ -120,17 +122,29 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
             />
           </div>
 
-          <Input
-            label="Hourly pay rate ($)"
-            name="hourly_rate"
-            type="number"
-            step="0.01"
-            min="0"
-            inputMode="decimal"
-            placeholder="e.g. 45.00"
-            defaultValue={employee.hourly_rate != null ? String(employee.hourly_rate) : ''}
-            disabled={pending}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Hourly pay rate ($)"
+              name="hourly_rate"
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              placeholder="e.g. 45.00"
+              defaultValue={employee.hourly_rate != null ? String(employee.hourly_rate) : ''}
+              disabled={pending}
+            />
+            <Input
+              label="New rate applies from"
+              name="rate_effective_from"
+              type="date"
+              defaultValue={today}
+              disabled={pending}
+            />
+          </div>
+          <p className="text-[11px] text-muted -mt-2 leading-snug">
+            Days worked before this date keep the old rate; a pay run covering both prices each day with the rate in force that day.
+          </p>
 
           {/* Flat rate: paid the same rate for every hour — no overtime, weekend
               or public-holiday loading anywhere in payroll or the Xero push. */}

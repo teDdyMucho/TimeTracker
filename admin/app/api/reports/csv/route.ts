@@ -10,7 +10,10 @@ type ReportType = 'project' | 'employee' | 'entity' | 'location' | 'overtime'
 
 function csv(rows: (string | number | null | undefined)[][]): string {
   const esc = (v: string | number | null | undefined) => {
-    const s = v == null ? '' : String(v)
+    let s = v == null ? '' : String(v)
+    // A text cell starting with = + - @ would run as a formula in Excel /
+    // Sheets (names and emails are user-entered). Numbers are left alone.
+    if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   // BOM so Excel opens it as UTF-8.

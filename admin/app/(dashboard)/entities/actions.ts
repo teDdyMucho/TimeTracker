@@ -54,11 +54,19 @@ export async function updatePayConfigAction(_prevState: string | null, formData:
   const sun = num('sunday_multiplier')
   const ph = num('public_holiday_multiplier')
   const requiresApproval = formData.get('overtime_requires_approval') === 'on'
+  // Unpaid meal break (PRD task "Deduct agreed unpaid lunch")
+  const breakEnabled = formData.get('break_enabled') === 'on'
+  const breakMinutes = num('break_minutes')
+  const breakAfter = num('break_after_hours')
 
   const bad = (v: number) => Number.isNaN(v) || v <= 0
   if (bad(standard) || standard > 24) return 'Ordinary hours per day must be between 0.5 and 24.'
   if (bad(t1To) || t1To <= standard || t1To > 24) return 'Overtime tier 1 must end after the ordinary hours and within 24h.'
   if (bad(t1Mult) || bad(t2Mult) || bad(sat) || bad(sun) || bad(ph)) return 'Multipliers must be positive numbers (e.g. 1.5).'
+  if (breakEnabled) {
+    if (Number.isNaN(breakMinutes) || breakMinutes < 0 || breakMinutes > 240) return 'Unpaid break must be between 0 and 240 minutes.'
+    if (Number.isNaN(breakAfter) || breakAfter < 0 || breakAfter > 24) return 'Unpaid break threshold must be between 0 and 24 hours.'
+  }
 
   const payConfig = {
     standardDailyHours: standard,
@@ -71,6 +79,11 @@ export async function updatePayConfigAction(_prevState: string | null, formData:
     sundayMultiplier: sun,
     publicHolidayMultiplier: ph,
     overtimeRequiresApproval: requiresApproval,
+    unpaidBreak: {
+      enabled: breakEnabled,
+      minutes: Number.isNaN(breakMinutes) ? 30 : breakMinutes,
+      afterHours: Number.isNaN(breakAfter) ? 5 : breakAfter,
+    },
   }
 
   const adminClient = createAdminClient()

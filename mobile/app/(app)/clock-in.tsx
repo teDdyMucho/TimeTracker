@@ -17,13 +17,16 @@ import * as Location from 'expo-location';
 import { useAuth } from '@/store/auth';
 import {
   clockIn,
-  fetchBusinessEntities,
-  fetchProjects,
+  fetchBusinessEntitiesCached,
+  fetchProjectsCached,
+  isSessionExpired,
   uploadSelfie,
 } from '@/lib/queries';
 import { todayISO } from '@/lib/date';
 import { scheduleClockOutReminder, cancelTodayClockInReminders } from '@/lib/notify';
 import { clockInMessage, filterProjects, shouldShowProjectSearch } from '@/lib/clock-feedback';
+import { probeOnline, queueClockIn, readCachedSession, readQueue } from '@/lib/offline';
+import { isNetworkError, resolveShownSession } from '@/lib/offline-core';
 import { Button, Card, Chip, Label } from '@/components/ui';
 import type { BusinessEntity, Project, WorkLocation } from '@/lib/types';
 
@@ -55,15 +58,23 @@ export default function ClockInScreen() {
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The lists came from this phone's cache because there is no connection.
+  const [offlineList, setOfflineList] = useState(false);
+
+  const listError = (err: unknown) =>
+    isNetworkError(err)
+      ? 'No connection, and this phone has not loaded the project list yet. Connect once, then try again.'
+      : err instanceof Error ? err.message : 'Could not load the list.';
 
   useEffect(() => {
     if (!profile) return;
-    fetchBusinessEntities(profile.business_access)
-      .then((e) => {
+    fetchBusinessEntitiesCached(profile.business_access)
+      .then(({ data: e, fromCache }) => {
         setEntities(e);
         setBusinessId(e[0]?.id ?? null);
+        if (fromCache) setOfflineList(true);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(listError(err)))
       .finally(() => setLoadingEntities(false));
   }, [profile]);
 
@@ -73,12 +84,13 @@ export default function ClockInScreen() {
     setProjects([]);
     setProjectId(null);
     setProjectSearch(''); // a filter typed for one business must not hide the next one's projects
-    fetchProjects(businessId)
-      .then((p) => {
+    fetchProjectsCached(businessId)
+      .then(({ data: p, fromCache }) => {
         setProjects(p);
         setProjectId(p[0]?.id ?? null);
+        if (fromCache) setOfflineList(true);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(listError(err)))
       .finally(() => setLoadingProjects(false));
   }, [businessId]);
 
@@ -133,17 +145,11 @@ export default function ClockInScreen() {
     if (!profile || !businessId || !projectId) return;
     setSubmitting(true);
     setError(null);
-    try {
-      let selfieUrl: string | null = null;
-      if (selfieUri) {
-        selfieUrl = await uploadSelfie(profile.id, selfieUri);
-        if (!selfieUrl) {
-          setError('Photo upload failed. Check your connection and try again.');
-          setSubmitting(false);
-          return;
-        }
-      }
-      await clockIn({
+
+    // No connection: keep the clock-in (and the selfie) on the phone; it is
+    // sent automatically when the signal is back (PRD "offline capture").
+    const saveOffline = async (selfieUrl: string | null) => {
+      await queueClockIn({
         userId: profile.id,
         businessEntityId: businessId,
         projectId,
@@ -151,9 +157,80 @@ export default function ClockInScreen() {
         workDate: todayISO(),
         lat: location?.lat ?? null,
         lng: location?.lng ?? null,
-        selfieUrl,
         address: address ?? null,
+        selfieUri: selfieUrl ? null : selfieUri,
+        selfieUrl,
       });
+      await cancelTodayClockInReminders();
+      if (profile.notifications_enabled !== false) {
+        await scheduleClockOutReminder(new Date().toISOString());
+      }
+      const projectName = projects.find((p) => p.id === projectId)?.name ?? 'your project';
+      router.replace('/');
+      Alert.alert(
+        'Saved on your phone',
+        `No connection right now. You're clocked in for ${projectName} on this phone, and it will be sent to the office automatically when you're back online.`,
+      );
+    };
+
+    // Already on the clock — a clock-in waiting in the queue, or the server
+    // session this phone saw before the signal dropped (unless its clock-out
+    // is already queued)? A second clock-in would leave the first one open
+    // until the 16-hour cap, so refuse it here.
+    const cached = await readCachedSession(profile.id);
+    const known = resolveShownSession(await readQueue(profile.id), cached && !isSessionExpired(cached) ? cached : null);
+    if (known) {
+      setSubmitting(false);
+      Alert.alert(
+        'Already clocked in',
+        'You are still on the clock from earlier. Go back to Home and clock out first (pull down to refresh once you have signal).',
+      );
+      return;
+    }
+
+    try {
+      let selfieUrl: string | null = null;
+      if (selfieUri) {
+        try {
+          selfieUrl = await uploadSelfie(profile.id, selfieUri, { throwOnNetwork: true });
+        } catch (err) {
+          if (isNetworkError(err)) {
+            await saveOffline(null);
+            return;
+          }
+          throw err;
+        }
+        if (!selfieUrl) {
+          // No token (the saved login expired and could not refresh) or a
+          // storage rejection. With no signal, keep the clock-in on the phone.
+          if (!(await probeOnline())) {
+            await saveOffline(null);
+            return;
+          }
+          setError('Photo upload failed. Please try again.');
+          setSubmitting(false);
+          return;
+        }
+      }
+      try {
+        await clockIn({
+          userId: profile.id,
+          businessEntityId: businessId,
+          projectId,
+          workLocation,
+          workDate: todayISO(),
+          lat: location?.lat ?? null,
+          lng: location?.lng ?? null,
+          selfieUrl,
+          address: address ?? null,
+        });
+      } catch (err) {
+        if (isNetworkError(err)) {
+          await saveOffline(selfieUrl);
+          return;
+        }
+        throw err;
+      }
       // Clocked in — today's morning "have you clocked in?" alerts are moot.
       await cancelTodayClockInReminders();
       // Arm the 3:07 / 3:12 PM "make sure you have clocked out" reminders (unless disabled)
@@ -168,7 +245,7 @@ export default function ClockInScreen() {
       setError(err instanceof Error ? err.message : 'Could not clock in.');
       setSubmitting(false);
     }
-  }, [profile, businessId, projectId, workLocation, location, selfieUri, router, projects]);
+  }, [profile, businessId, projectId, workLocation, location, address, selfieUri, router, projects]);
 
   // PRD §7 "Searchable dropdown": filter the project list by name / client.
   const visibleProjects = filterProjects(projects, projectSearch);
@@ -256,6 +333,10 @@ export default function ClockInScreen() {
             </Pressable>
           </View>
         </Card>
+
+        {offlineList ? (
+          <Text className="text-muted text-xs">No connection — showing the project list saved on this phone.</Text>
+        ) : null}
 
         {/* Business entity */}
         {loadingEntities ? (
