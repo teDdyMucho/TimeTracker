@@ -18,6 +18,7 @@ export default function AppLayout() {
       <Stack.Screen name="messages" options={{ title: 'Messages' }} />
       <Stack.Screen name="leave" options={{ title: 'Leave' }} />
       <Stack.Screen name="switch-project" options={{ title: 'Switch Project' }} />
+      <Stack.Screen name="approvals" options={{ title: 'Overtime approvals' }} />
     </Stack>
   );
 }

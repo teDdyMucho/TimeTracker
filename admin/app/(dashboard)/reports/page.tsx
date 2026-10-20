@@ -5,6 +5,8 @@ import ReportsFilter from './reports-filter'
 import { formatHours } from '@/lib/format'
 import { labourCost, money } from '@/lib/labour-cost'
 import { PAY_BAND_LABELS, type PayBand } from '@/lib/payroll'
+import { normalizePayCycle, periodContaining } from '@/lib/pay-cycle'
+import { fmtMelbourne } from '@/lib/report-rows'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,16 +19,31 @@ export const dynamic = 'force-dynamic'
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; entity?: string; employee?: string; project?: string }>
+  searchParams: Promise<{ from?: string; to?: string; entity?: string; employee?: string; project?: string; period?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' })
-  const from = params.from ?? thirtyDaysAgo
-  const to = params.to ?? today
+  // Pay periods (TV4 / TV7: "per pay period") from Settings → Pay cycle: the
+  // current one and the previous eleven. ?period=START_END sets the range.
+  const { data: cycleRow } = await adminClient.from('settings').select('value').eq('key', 'pay_cycle').maybeSingle()
+  const cycle = normalizePayCycle(cycleRow?.value)
+  const periods: { start: string; end: string; label: string }[] = []
+  {
+    let p = periodContaining(cycle, today)
+    for (let i = 0; i < 12; i++) {
+      periods.push({ start: p.start, end: p.end, label: `${p.start} → ${p.end}${i === 0 ? ' (current)' : ''}` })
+      const prevEnd = new Date(p.start + 'T00:00:00Z'); prevEnd.setUTCDate(prevEnd.getUTCDate() - 1)
+      p = periodContaining(cycle, prevEnd.toISOString().slice(0, 10))
+    }
+  }
+  const chosen = params.period && /^\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}$/.test(params.period) ? params.period.split('_') : null
+  const lastCompleted = periods[1] ?? periods[0]
+  const from = chosen ? chosen[0] : params.from ?? lastCompleted.start
+  const to = chosen ? chosen[1] : params.to ?? lastCompleted.end
+  const periodValue = periods.find((p) => p.start === from && p.end === to) ? `${from}_${to}` : ''
   const entityId = params.entity ?? ''
   const employeeId = params.employee ?? ''
   const projectId = params.project ?? ''
@@ -60,16 +77,28 @@ export default async function ReportsPage({
   const projectLabel = (p: { name: string; entityId: string }) =>
     (nameCount.get(p.name) ?? 0) > 1 ? `${p.name} (${entityName.get(p.entityId) ?? 'unknown'})` : p.name
 
-  const csvHref = (type: string) => {
+  const exportQuery = (type: string) => {
     const q = new URLSearchParams({ type, from, to })
     if (entityId) q.set('entity', entityId)
     if (employeeId) q.set('employee', employeeId)
     if (projectId) q.set('project', projectId)
-    return `/api/reports/csv?${q}`
+    return q.toString()
+  }
+  const csvHref = (type: string) => `/api/reports/csv?${exportQuery(type)}`
+  const xlsxHref = (type: string) => `/api/reports/xlsx?${exportQuery(type)}`
+  // TV5: one report per company — tabs keep every other filter.
+  const tabHref = (entity: string) => {
+    const q = new URLSearchParams({ from, to })
+    if (entity) q.set('entity', entity)
+    if (employeeId) q.set('employee', employeeId)
+    return `/reports?${q}`
   }
 
   const loc = cost.byLocation
-  const overtimeDays = cost.days.filter((d) => d.overtimeHours > 0 || d.overtimeStatus !== 'none')
+  const overtimeDays = cost.days.filter((d) => d.overtimeHours > 0 || d.pendingOvertimeHours > 0 || d.overtimeStatus !== 'none')
+  const approvedOt = cost.days.filter((d) => d.overtimeStatus === 'approved' && d.bandHours.overtime_t1 + d.bandHours.overtime_t2 > 0)
+  const approvedOtHours = approvedOt.reduce((s, d) => s + d.bandHours.overtime_t1 + d.bandHours.overtime_t2, 0)
+  const pendingDays = cost.days.filter((d) => d.pendingOvertimeHours > 0)
   const otBands: PayBand[] = ['overtime_t1', 'overtime_t2', 'saturday', 'sunday', 'public_holiday']
 
   return (
@@ -78,6 +107,23 @@ export default async function ReportsPage({
         title="Reports"
         subtitle="Labour hours and cost from approved attendance, costed the same way as payroll"
       />
+
+      {/* TV5: separate company reports */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[{ id: '', name: 'All companies' }, ...entities].map((e) => {
+          const on = (entityId || '') === e.id
+          return (
+            <a
+              key={e.id || 'all'}
+              href={tabHref(e.id)}
+              className="px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+              style={on ? { background: '#1C1A16', color: '#fff', borderColor: '#1C1A16' } : { background: '#fff', color: '#76716A', borderColor: '#ECEAE4' }}
+            >
+              {e.name}
+            </a>
+          )
+        })}
+      </div>
 
       <ReportsFilter
         from={from}
@@ -88,6 +134,8 @@ export default async function ReportsPage({
         entities={entities}
         employees={employees}
         projects={projects}
+        periods={periods}
+        period={periodValue}
       />
 
       {cost.unratedEmployees.length > 0 && (
@@ -99,9 +147,9 @@ export default async function ReportsPage({
       {/* Summary row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <SummaryCard
-          label="Hours"
+          label="Hours paid"
           value={formatHours(cost.paidHours)}
-          sub={cost.breakHours > 0 ? `${formatHours(cost.totalHours)} worked − ${formatHours(cost.breakHours)} unpaid breaks · ${cost.byEmployee.length} employees` : `${cost.byEmployee.length} employee${cost.byEmployee.length !== 1 ? 's' : ''}`}
+          sub={`${formatHours(cost.totalHours)} worked − ${formatHours(cost.breakHours)} unpaid breaks${cost.pendingOvertimeHours > 0 ? ` − ${formatHours(cost.pendingOvertimeHours)} OT awaiting approval` : ''} · ${cost.byEmployee.length} employee${cost.byEmployee.length !== 1 ? 's' : ''}`}
         />
         <SummaryCard label="Labour Cost" value={money(cost.totalCost)} sub={`Ordinary ${money(cost.ordinaryCost)}`} />
         <SummaryCard label="Overtime & Penalty Cost" value={money(cost.overtimeCost)} sub={`${formatHours(cost.overtimeHours)} on loaded rates`} />
@@ -249,12 +297,94 @@ export default async function ReportsPage({
         </div>
       </div>
 
+      {/* ── TV7: Hours by project (no dollar figures) ───────────────────────── */}
+      <Card className="mb-6">
+        <SectionHead
+          title="Hours by Project"
+          sub="Per pay period: project, employee, company, regular hours, overtime hours, total. Hours count against the project worked on; wages go to the employee's employer."
+          href={csvHref('hours-by-project')}
+          xlsxHref={xlsxHref('hours-by-project')}
+        />
+        {cost.byProjectEmployee.length === 0 ? (
+          <p className="text-muted text-sm">No approved hours for this period.</p>
+        ) : (
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[820px]">
+            <thead>
+              <tr className="text-left border-b border-slate-100">
+                <Th>Project</Th><Th>Employee</Th><Th>Company</Th><Th right>Regular</Th><Th right>Overtime</Th><Th right>OT awaiting approval</Th><Th right>Total (paid)</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {cost.byProjectEmployee.map((p) => (
+                <tr key={`${p.projectId}-${p.profileId}`}>
+                  <td className="py-2.5 pr-4 font-medium text-ink">{p.projectName}</td>
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap">{p.employeeName}</td>
+                  <td className="py-2.5 pr-4 text-muted whitespace-nowrap">{p.entityName}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{formatHours(p.regularHours)}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums text-muted">{p.overtimeHours > 0 ? formatHours(p.overtimeHours) : '—'}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums text-amber-700">{p.pendingOvertimeHours > 0 ? formatHours(p.pendingOvertimeHours) : '—'}</td>
+                  <td className="py-2.5 text-right tabular-nums font-bold text-ink">{formatHours(p.paidHours)}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-slate-200 font-bold text-ink">
+                <td className="pt-3" colSpan={3}>Total</td>
+                <td className="pt-3 pr-4 text-right tabular-nums">{formatHours(cost.byProjectEmployee.reduce((s, p) => s + p.regularHours, 0))}</td>
+                <td className="pt-3 pr-4 text-right tabular-nums">{formatHours(cost.byProjectEmployee.reduce((s, p) => s + p.overtimeHours, 0))}</td>
+                <td className="pt-3 pr-4 text-right tabular-nums text-amber-700">{formatHours(cost.byProjectEmployee.reduce((s, p) => s + p.pendingOvertimeHours, 0))}</td>
+                <td className="pt-3 text-right tabular-nums">{formatHours(cost.byProjectEmployee.reduce((s, p) => s + p.paidHours, 0))}</td>
+              </tr>
+            </tbody>
+          </table></div>
+        )}
+      </Card>
+
+      {/* ── TV4: Approved overtime per pay period ───────────────────────────── */}
+      <Card className="mb-6">
+        <SectionHead
+          title="Approved Overtime"
+          sub={`Approved weekday overtime in this period: ${formatHours(approvedOtHours)} over ${approvedOt.length} day${approvedOt.length === 1 ? '' : 's'}${pendingDays.length ? ` · ${pendingDays.length} day${pendingDays.length === 1 ? '' : 's'} still awaiting approval (${formatHours(cost.pendingOvertimeHours)}, unpaid)` : ''}`}
+          href={csvHref('approved-overtime')}
+          xlsxHref={xlsxHref('approved-overtime')}
+        />
+        {approvedOt.length === 0 ? (
+          <p className="text-muted text-sm">No approved overtime in this period.</p>
+        ) : (
+          <div className="overflow-x-auto"><table className="w-full text-sm min-w-[820px]">
+            <thead>
+              <tr className="text-left border-b border-slate-100">
+                <Th>Employee</Th><Th>Date</Th><Th>Company</Th><Th>Project</Th><Th right>Hours paid</Th><Th right>Approved OT</Th><Th>Approved by</Th><Th>When</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {approvedOt.map((d) => (
+                <tr key={`${d.profileId}-${d.date}-${d.entityId}`}>
+                  <td className="py-2.5 pr-4 font-medium text-ink whitespace-nowrap">{d.name}</td>
+                  <td className="py-2.5 pr-4 text-muted whitespace-nowrap">{d.date}</td>
+                  <td className="py-2.5 pr-4 text-muted whitespace-nowrap">{entityName.get(d.entityId) ?? '—'}</td>
+                  <td className="py-2.5 pr-4 text-muted max-w-[220px] truncate">{d.projectIds.map((id) => projectMeta.get(id)?.name ?? '—').join(', ')}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{formatHours(d.paidHours)}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums font-semibold text-ink">{formatHours(d.bandHours.overtime_t1 + d.bandHours.overtime_t2)}</td>
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap">{d.approverName ?? '—'}</td>
+                  <td className="py-2.5 text-muted whitespace-nowrap">{fmtMelbourne(d.decidedAt) || '—'}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-slate-200 font-bold text-ink">
+                <td className="pt-3" colSpan={5}>Total</td>
+                <td className="pt-3 pr-4 text-right tabular-nums">{formatHours(approvedOtHours)}</td>
+                <td colSpan={2} />
+              </tr>
+            </tbody>
+          </table></div>
+        )}
+      </Card>
+
       {/* ── Overtime report ────────────────────────────────────────────────── */}
       <Card>
         <SectionHead
           title="Overtime Report"
           sub="Each employee-day with overtime, weekend or public-holiday hours, its approval status and cost impact"
           href={csvHref('overtime')}
+          xlsxHref={xlsxHref('overtime')}
         />
         {overtimeDays.length === 0 ? (
           <p className="text-muted text-sm">No overtime in this period.</p>
@@ -264,7 +394,7 @@ export default async function ReportsPage({
               <tr className="text-left border-b border-slate-100">
                 <Th>Employee</Th><Th>Date</Th><Th>Project</Th><Th right>Day hours</Th>
                 {otBands.map((b) => <Th key={b} right>{PAY_BAND_LABELS[b]}</Th>)}
-                <Th>Approval</Th><Th right>Cost impact</Th>
+                <Th right>OT awaiting approval</Th><Th>Approval</Th><Th>Approver</Th><Th right>Cost impact</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -277,7 +407,9 @@ export default async function ReportsPage({
                   {otBands.map((b) => (
                     <td key={b} className="py-2.5 pr-4 text-right tabular-nums text-muted">{d.bandHours[b] > 0 ? formatHours(d.bandHours[b]) : '—'}</td>
                   ))}
+                  <td className="py-2.5 pr-4 text-right tabular-nums text-amber-700">{d.pendingOvertimeHours > 0 ? formatHours(d.pendingOvertimeHours) : '—'}</td>
                   <td className="py-2.5 pr-4"><Badge status={d.overtimeStatus === 'none' ? 'none' : d.overtimeStatus} /></td>
+                  <td className="py-2.5 pr-4 text-muted whitespace-nowrap">{d.approverName ?? '—'}</td>
                   <td className="py-2.5 text-right tabular-nums font-semibold text-ink">{d.overtimeCost > 0 ? money(d.overtimeCost) : '—'}</td>
                 </tr>
               ))}
@@ -285,36 +417,41 @@ export default async function ReportsPage({
                 <td className="pt-3" colSpan={3}>Total</td>
                 <td className="pt-3 pr-4 text-right tabular-nums">{formatHours(overtimeDays.reduce((s, d) => s + d.hours, 0))}</td>
                 {otBands.map((b) => <td key={b} className="pt-3 pr-4 text-right tabular-nums">{formatHours(cost.byBand[b].hours)}</td>)}
-                <td />
+                <td className="pt-3 pr-4 text-right tabular-nums text-amber-700">{formatHours(cost.pendingOvertimeHours)}</td>
+                <td /><td />
                 <td className="pt-3 text-right tabular-nums">{money(cost.overtimeCost)}</td>
               </tr>
             </tbody>
           </table></div>
         )}
         <p className="text-xs text-muted mt-3">
-          &ldquo;Approval&rdquo; is the worker&rsquo;s overtime request for that day. Cost impact is the loading above ordinary
-          rates only when the entity is set to pay overtime from hours; with &ldquo;overtime needs approval&rdquo; on,
-          unapproved weekday overtime is costed at the ordinary rate.
+          Weekday hours over 7.6 are overtime. They are paid at the overtime rates only once the approver has approved the
+          worker&rsquo;s request; until then they are listed as awaiting approval and are not paid or costed. Saturday, Sunday
+          and public-holiday hours are paid at their rate without a request.
         </p>
       </Card>
     </div>
   )
 }
 
-function SectionHead({ title, sub, href }: { title: string; sub: string; href: string }) {
+function SectionHead({ title, sub, href, xlsxHref }: { title: string; sub: string; href: string; xlsxHref?: string }) {
+  const btn = 'inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold border whitespace-nowrap hover:bg-stone transition-colors'
   return (
     <div className="flex items-start justify-between gap-3 mb-4">
       <div>
         <h2 className="font-semibold text-ink">{title}</h2>
         <p className="text-xs text-muted mt-0.5">{sub}</p>
       </div>
-      <a
-        href={href}
-        className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold border whitespace-nowrap hover:bg-stone transition-colors"
-        style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}
-      >
-        <Download size={12} /> CSV
-      </a>
+      <div className="flex gap-2 shrink-0">
+        {xlsxHref && (
+          <a href={xlsxHref} className={btn} style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}>
+            <Download size={12} /> Excel
+          </a>
+        )}
+        <a href={href} className={btn} style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000000' }}>
+          <Download size={12} /> CSV
+        </a>
+      </div>
     </div>
   )
 }

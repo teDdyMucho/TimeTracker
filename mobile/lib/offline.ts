@@ -277,12 +277,12 @@ async function doFlush(userId: string): Promise<FlushResult> {
           // and nobody has reviewed it yet, the worker's real time replaces it.
           const { data: s, error: sErr } = await supabase
             .from('clock_sessions')
-            .select('clocked_in_at, clocked_out_at, review_status')
+            .select('clocked_in_at, clocked_out_at, review_status, auto_closed')
             .eq('id', sessionId)
             .maybeSingle();
           if (sErr) throw sErr;
           if (s && s.review_status === 'pending') {
-            const fixed = reconcileClockOut({ clocked_in_at: s.clocked_in_at, clocked_out_at: s.clocked_out_at }, op.at);
+            const fixed = reconcileClockOut({ clocked_in_at: s.clocked_in_at, clocked_out_at: s.clocked_out_at, auto_closed: s.auto_closed }, op.at);
             if (fixed) {
               const { error: fixErr } = await supabase
                 .from('clock_sessions')
@@ -300,15 +300,18 @@ async function doFlush(userId: string): Promise<FlushResult> {
             .maybeSingle();
           if (tsErr) throw tsErr;
           if (ts) {
+            // One request per session: reuse one raised during the day (TV9) or by an earlier sync.
             const { data: existing } = await supabase
               .from('overtime_requests')
               .select('id')
-              .eq('timesheet_id', ts.id)
+              .or(`timesheet_id.eq.${ts.id},clock_session_id.eq.${sessionId}`)
               .limit(1);
             if (!existing || existing.length === 0) {
               const { error: otErr } = await supabase.from('overtime_requests').insert({
                 timesheet_id: ts.id,
+                clock_session_id: sessionId,
                 profile_id: op.userId,
+                supervisor_id: op.approverId ?? null,
                 reason: op.overtimeReason ?? '',
                 status: 'pending',
               });

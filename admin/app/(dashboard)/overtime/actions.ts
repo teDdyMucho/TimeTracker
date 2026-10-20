@@ -11,6 +11,8 @@ async function decideOvertime(
 ) {
   const admin = createAdminClient()
   const viewer = await getViewer()
+  // TV3: only a named approver decides; everyone else (e.g. Chanelle) can view.
+  if (!viewer.overtimeApprover) throw new Error('Only an overtime approver can approve or reject overtime. You can view requests but not decide them.')
 
   // Pull details for the employee notification before updating
   const { data: ts } = await admin
@@ -39,7 +41,7 @@ async function decideOvertime(
   if (ts?.profile_id) {
     const approved = decision === 'approved'
     const title = approved ? 'Overtime approved' : 'Overtime declined'
-    const body = `Your overtime on ${ts.work_date} (${formatHours(Number(ts.hours))}) was ${approved ? 'approved' : 'declined'}.`
+    const body = `${viewer.name} ${approved ? 'approved' : 'declined'} your overtime on ${ts.work_date} (${formatHours(Number(ts.hours))}).`
     await admin.from('notifications').insert({
       profile_id: ts.profile_id,
       type: approved ? 'overtime_approved' : 'overtime_rejected',

@@ -51,6 +51,11 @@ export async function createEmployeeAction(
   const employment_type = formData.get('employment_type') as string
   const entityIds = formData.getAll('entity_ids') as string[]
   const supervisor_id = ((formData.get('supervisor_id') as string | null) ?? '').trim() || null
+  // TV6: the company whose payroll pays this person (defaults to the first company they can clock into).
+  const employerRaw = ((formData.get('employer_entity_id') as string | null) ?? '').trim()
+  const employer_entity_id = employerRaw || entityIds[0] || null
+  if (employer_entity_id && !entityIds.includes(employer_entity_id)) return 'The employer must be one of the companies the employee can clock into.'
+  const overtime_approver = formData.get('overtime_approver') === 'on'
 
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email,
@@ -71,6 +76,8 @@ export async function createEmployeeAction(
     employment_type,
     business_access: entityIds,
     supervisor_id,
+    employer_entity_id,
+    overtime_approver,
     status: 'active',
     // Unchecked checkboxes are absent from FormData, so absence means false.
     flat_rate: formData.get('flat_rate') === 'on',
@@ -132,6 +139,11 @@ export async function updateEmployeeAction(
   const newPassword = (formData.get('new_password') as string | null)?.trim() ?? ''
   const supervisor_id = ((formData.get('supervisor_id') as string | null) ?? '').trim() || null
   if (supervisor_id === id) return 'An employee cannot be their own supervisor.'
+  // TV6 employer (payroll company) and TV3 approver flag.
+  const employerRaw = ((formData.get('employer_entity_id') as string | null) ?? '').trim()
+  const employer_entity_id = employerRaw || entityIds[0] || null
+  if (employer_entity_id && !entityIds.includes(employer_entity_id)) return 'The employer must be one of the companies the employee can clock into.'
+  const overtime_approver = formData.get('overtime_approver') === 'on'
 
   const adminClient = createAdminClient()
 
@@ -147,7 +159,7 @@ export async function updateEmployeeAction(
 
   const { error } = await adminClient
     .from('profiles')
-    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id })
+    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id, employer_entity_id, overtime_approver })
     .eq('id', id)
 
   if (error) return error.message

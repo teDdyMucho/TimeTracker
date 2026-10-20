@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/server'
 import { Card, Badge } from '@/components/ui'
 import { PAY_BANDS, PAY_BAND_LABELS } from '@/lib/payroll'
-import { UNPAID_BREAK_KEY } from '@/lib/labour-cost'
+import { UNPAID_BREAK_KEY, PENDING_OVERTIME_KEY} from '@/lib/labour-cost'
 import { formatHours } from '@/lib/format'
 import { ArrowLeft, Download, FileSpreadsheet } from 'lucide-react'
 import RecalculateRunButton from '../recalculate-run-button'
@@ -40,6 +40,9 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   // Which bands actually have hours anywhere — only show those columns
   const activeBands = PAY_BANDS.filter((b) => entries.some((e) => (e.band_hours?.[b] ?? 0) > 0))
   const anyBreak = entries.some((e) => (e.band_hours?.[UNPAID_BREAK_KEY] ?? 0) > 0)
+  // TV3: overtime still awaiting approval is listed (unpaid) so nothing is a surprise.
+  const anyPending = entries.some((e) => (e.band_hours?.[PENDING_OVERTIME_KEY] ?? 0) > 0)
+  const totalPending = entries.reduce((s, e) => s + Number(e.band_hours?.[PENDING_OVERTIME_KEY] || 0), 0)
   const totalGross = entries.reduce((s, e) => s + Number(e.gross_pay || 0), 0)
   const totalAllow = entries.reduce((s, e) => s + Number(e.allowances || 0), 0)
   const totalBreak = entries.reduce((s, e) => s + Number(e.band_hours?.[UNPAID_BREAK_KEY] || 0), 0)
@@ -126,8 +129,13 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                     </th>
                   ))}
                   {anyBreak && (
-                    <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right whitespace-nowrap" title="Unpaid meal breaks deducted before pay (Entities → Pay settings)">
+                    <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right whitespace-nowrap" title="30 min unpaid break on any day of 5 h or more">
                       Unpaid break
+                    </th>
+                  )}
+                  {anyPending && (
+                    <th className="pb-3 pr-4 text-[10px] font-semibold text-amber-700 uppercase tracking-widest text-right whitespace-nowrap" title="Weekday hours over 7.6 whose overtime request has not been approved — not paid in this run">
+                      OT awaiting approval
                     </th>
                   )}
                   <th className="pb-3 pr-4 text-[10px] font-semibold text-muted uppercase tracking-widest text-right">Allowances</th>
@@ -151,6 +159,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                         {(e.band_hours?.[UNPAID_BREAK_KEY] ?? 0) > 0 ? `−${formatHours(e.band_hours[UNPAID_BREAK_KEY])}` : '—'}
                       </td>
                     )}
+                    {anyPending && (
+                      <td className="py-3 pr-4 text-right tabular-nums text-amber-700">
+                        {(e.band_hours?.[PENDING_OVERTIME_KEY] ?? 0) > 0 ? formatHours(e.band_hours[PENDING_OVERTIME_KEY]) : '—'}
+                      </td>
+                    )}
                     <td className="py-3 pr-4 text-right">
                       <AllowanceCell runId={id} profileId={e.profile_id} value={Number(e.allowances || 0)} locked={exported} />
                     </td>
@@ -160,6 +173,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                 <tr className="border-t-2 border-slate-200">
                   <td className="pt-3 font-bold text-ink" colSpan={activeBands.length + 1}>Total</td>
                   {anyBreak && <td className="pt-3 pr-4 text-right font-semibold tabular-nums text-muted">−{formatHours(totalBreak)}</td>}
+                  {anyPending && <td className="pt-3 pr-4 text-right font-semibold tabular-nums text-amber-700">{formatHours(totalPending)}</td>}
                   <td className="pt-3 pr-4 text-right font-semibold tabular-nums text-ink">{totalAllow > 0 ? peso(totalAllow) : '—'}</td>
                   <td className="pt-3 pl-4 text-right font-black tabular-nums text-ink">{peso(totalGross)}</td>
                 </tr>
@@ -171,8 +185,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
 
       <p className="text-xs mt-4" style={{ color: '#A39C90' }}>
         Gross is computed from approved hours per band × each employee&rsquo;s hourly rate × the entity&rsquo;s
-        overtime / weekend / public-holiday multipliers, plus any allowances. Unpaid meal breaks are deducted
-        once per day before banding (Entities → Pay settings). Set rates in Employees; adjust multipliers, the
+        overtime / weekend / public-holiday multipliers, plus any allowances. A 30 min unpaid break is deducted on any day of 5 h or more, regular hours are capped at 7.6 a day, and overtime is paid only once its approver has approved it (overtime still awaiting approval is listed but not paid — approve it on the Overtime page, then Recalculate). Set rates in Employees; adjust multipliers, the
         break rule and the overtime-approval rule in Entities → Pay settings.
       </p>
     </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/server'
 import { PAY_BANDS, PAY_BAND_LABELS } from '@/lib/payroll'
-import { UNPAID_BREAK_KEY } from '@/lib/labour-cost'
+import { UNPAID_BREAK_KEY, PENDING_OVERTIME_KEY } from '@/lib/labour-cost'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   const rows: (string | number | null)[][] = [[
     'Entity', 'Period start', 'Period end', 'Employee', 'Email',
     ...PAY_BANDS.map((b) => `${PAY_BAND_LABELS[b]} (h)`),
-    'Unpaid break (h)', 'Paid hours', 'Allowances ($)', 'Gross pay ($)', 'Run status', 'Xero status',
+    'Unpaid break (h)', 'OT awaiting approval (h, unpaid)', 'Paid hours', 'Allowances ($)', 'Gross pay ($)', 'Run status', 'Xero status',
   ]]
 
   for (const r of (runs ?? []) as any[]) {
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
       rows.push([
         entityName, r.period_start, r.period_end, e.profiles?.name ?? '', e.profiles?.email ?? '',
         ...PAY_BANDS.map((b) => Number(bh[b] || 0)),
-        Number(bh[UNPAID_BREAK_KEY] || 0), Math.round(paid * 100) / 100,
+        Number(bh[UNPAID_BREAK_KEY] || 0), Number(bh[PENDING_OVERTIME_KEY] || 0), Math.round(paid * 100) / 100,
         Number(e.allowances || 0), Number(e.gross_pay || 0), r.status, r.xero_sync_status,
       ])
     }

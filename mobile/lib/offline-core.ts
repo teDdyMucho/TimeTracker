@@ -10,7 +10,12 @@ export const LOCAL_ID_PREFIX = 'local-'
 /** A queued item that keeps failing for a non-network reason is given up after this many tries. */
 export const MAX_SYNC_ATTEMPTS = 20
 
-/** Server-side auto clock-out cap (keep in step with AUTO_CLOCK_OUT_HOURS in queries.ts). */
+/**
+ * The server's nightly / 3:06 pm fallback closes a forgotten session as a
+ * 7:00 am – 3:06 pm day (TV9). A queued clock-out only overrides that when it
+ * looks like the automatic close; AUTO_CAP_HOURS is kept for older rows closed
+ * under the previous 16-hour rule.
+ */
 export const AUTO_CAP_HOURS = 16
 
 export interface QueuedClockIn {
@@ -47,6 +52,8 @@ export interface QueuedClockOut {
   sessionId: string
   overtimeRequested: boolean
   overtimeReason: string | null
+  /** TV3: approver the worker picked. */
+  approverId?: string | null
   attempts?: number
 }
 
@@ -173,7 +180,7 @@ export function resolveShownSession(queue: OfflineOp[], session: ClockSession | 
  * worker on another device — is left alone.
  */
 export function reconcileClockOut(
-  server: { clocked_in_at: string; clocked_out_at: string | null },
+  server: { clocked_in_at: string; clocked_out_at: string | null; auto_closed?: boolean | null },
   queuedAt: string,
   capHours = AUTO_CAP_HOURS,
 ): string | null {
@@ -182,7 +189,7 @@ export function reconcileClockOut(
   const outMs = Date.parse(server.clocked_out_at)
   const qMs = Date.parse(queuedAt)
   if ([inMs, outMs, qMs].some(Number.isNaN)) return null
-  const isAutoCap = Math.abs(outMs - (inMs + capHours * 3_600_000)) <= 90_000
+  const isAutoCap = server.auto_closed === true || Math.abs(outMs - (inMs + capHours * 3_600_000)) <= 90_000
   if (!isAutoCap) return null
   return qMs > inMs && qMs < outMs ? queuedAt : null
 }

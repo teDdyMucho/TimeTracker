@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/store/auth';
 import { isBiometricAvailable, getBiometricEnabled, authenticate } from '@/lib/biometric';
+import { installNotificationResponseHandler } from '@/lib/push';
 import AnimatedSplash from '@/components/animated-splash';
 
 function useProtectedRoute() {
@@ -99,8 +100,11 @@ function StartupHold() {
 export default function RootLayout() {
   const init = useAuth((s) => s.init);
   const initializing = useAuth((s) => s.initializing);
+  const router = useRouter();
   useEffect(() => init(), [init]);
   useProtectedRoute();
+  // TV3: Approve / Reject straight from the overtime push; tapping it opens Approvals.
+  useEffect(() => installNotificationResponseHandler(() => router.push('/approvals')), [router]);
   const { locked, tryUnlock } = useBiometricLock();
 
   // Branded open animation (logo → app). Shows once per cold start.

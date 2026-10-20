@@ -27,17 +27,13 @@ export default async function EntitiesPage({
       status: e.status,
       xero_tenant_id: e.xero_tenant_id,
       pay: {
-        standardDailyHours: regular?.toHour ?? t1?.fromHour ?? cfg.standardDailyHours,
-        t1To: t1?.toHour ?? 10,
+        standardDailyHours: regular?.toHour ?? cfg.standardDailyHours,
+        t1To: t1?.toHour ?? 9.6,
         t1Multiplier: t1?.multiplier ?? 1.5,
         t2Multiplier: t2?.multiplier ?? 2,
         saturdayMultiplier: cfg.saturdayMultiplier,
         sundayMultiplier: cfg.sundayMultiplier,
         publicHolidayMultiplier: cfg.publicHolidayMultiplier,
-        overtimeRequiresApproval: cfg.overtimeRequiresApproval === true,
-        breakEnabled: cfg.unpaidBreak?.enabled !== false,
-        breakMinutes: cfg.unpaidBreak?.minutes ?? 30,
-        breakAfterHours: cfg.unpaidBreak?.afterHours ?? 5,
       },
     }
   })

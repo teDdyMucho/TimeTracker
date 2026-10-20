@@ -10,7 +10,7 @@ export default async function EmployeesPage() {
   const [profilesRes, entitiesRes, ratesRes] = await Promise.all([
     adminClient
       .from('profiles')
-      .select('id, name, email, role, employment_type, business_access, status, created_at, flat_rate, supervisor_id')
+      .select('id, name, email, role, employment_type, business_access, status, created_at, flat_rate, supervisor_id, employer_entity_id, overtime_approver')
       .neq('role', 'admin')
       .order('name'),
     adminClient

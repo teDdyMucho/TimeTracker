@@ -9,6 +9,8 @@ export interface Viewer {
   role: ViewerRole
   /** Profile ids this viewer may act on. `null` = everyone (admin). */
   teamIds: string[] | null
+  /** TV3: only flagged approvers (Robbie, Mitch, Chris, Terry) may approve or reject overtime. */
+  overtimeApprover: boolean
 }
 
 /**
@@ -24,7 +26,7 @@ export async function getViewer(): Promise<Viewer> {
   const admin = createAdminClient()
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, name, email, role')
+    .select('id, name, email, role, overtime_approver')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -41,6 +43,7 @@ export async function getViewer(): Promise<Viewer> {
     email: user.email ?? '',
     role,
     teamIds,
+    overtimeApprover: profile?.overtime_approver === true,
   }
 }
 

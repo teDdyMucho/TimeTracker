@@ -4,11 +4,11 @@ import path from 'node:path'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createAdminClient } from '@/lib/server'
 import { TimesheetPdf, type TimesheetRow } from '@/lib/timesheet-pdf'
+import { labourCost } from '@/lib/labour-cost'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const STANDARD_DAY = 8 // hours before overtime kicks in
 
 const fmtDay = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
@@ -28,8 +28,10 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
  * Individual employee fortnightly timesheet PDF.
  *   /api/reports/timesheet?employee=<profileId>&from=YYYY-MM-DD&to=YYYY-MM-DD
  *
- * Built from clock_sessions (clock in/out, location, project). Overtime is any
- * time worked beyond the 8-hour standard day, aggregated per calendar day.
+ * Built from clock_sessions (clock in/out, location, project). Regular /
+ * overtime come from the shared pay engine: 30 min break on days of 5 h or
+ * more, 7.6 h regular a day, overtime paid once approved (pending overtime is
+ * counted in "total" but not in "overtime").
  */
 export async function GET(req: NextRequest) {
   const admin = createAdminClient()
@@ -56,32 +58,30 @@ export async function GET(req: NextRequest) {
 
   const raw = (sessions ?? []) as any[]
 
-  // Track per-day total worked hours so overtime (beyond 8h/day) is attributed
-  // to the last session(s) of that day — mirrors how a day's OT is earned.
-  const dayTotals = new Map<string, number>()
-  for (const s of raw) {
-    if (!s.clocked_out_at) continue
-    const worked = (new Date(s.clocked_out_at).getTime() - new Date(s.clocked_in_at).getTime()) / 3_600_000
-    dayTotals.set(s.work_date, round2((dayTotals.get(s.work_date) ?? 0) + Math.max(0, worked)))
+  // The engine's per-day figures (same rules as payroll), shared out across the
+  // day's sessions by hours worked.
+  const cost = await labourCost(admin, { from, to, employeeId, statuses: ['approved', 'locked'] })
+  const dayHours = new Map<string, number>()
+  const dayRegular = new Map<string, number>()
+  const dayOvertime = new Map<string, number>()
+  for (const d of cost.days) {
+    dayHours.set(d.date, round2((dayHours.get(d.date) ?? 0) + d.hours))
+    dayRegular.set(d.date, round2((dayRegular.get(d.date) ?? 0) + d.bandHours.regular))
+    dayOvertime.set(d.date, round2((dayOvertime.get(d.date) ?? 0) + d.overtimeHours))
   }
 
-  const dayRunning = new Map<string, number>() // hours already allocated per day
   const rows: TimesheetRow[] = []
   let entityName = '—'
 
   for (const s of raw) {
     if (s.business_entities?.name) entityName = s.business_entities.name
     const worked = s.clocked_out_at
-      ? Math.max(0, (new Date(s.clocked_out_at).getTime() - new Date(s.clocked_in_at).getTime()) / 3_600_000)
+      ? Math.max(0, Math.round(((new Date(s.clocked_out_at).getTime() - new Date(s.clocked_in_at).getTime()) / 60_000)) / 60)
       : 0
-
-    // Split this session's hours into regular vs overtime based on how much of
-    // the day's 8-hour regular allowance is left before this session.
-    const before = dayRunning.get(s.work_date) ?? 0
-    const regularLeft = Math.max(0, STANDARD_DAY - before)
-    const regular = round2(Math.min(worked, regularLeft))
-    const overtime = round2(Math.max(0, worked - regular))
-    dayRunning.set(s.work_date, before + worked)
+    const total = dayHours.get(s.work_date) ?? 0
+    const share = total > 0 ? worked / total : 0
+    const regular = round2((dayRegular.get(s.work_date) ?? 0) * share)
+    const overtime = round2((dayOvertime.get(s.work_date) ?? 0) * share)
 
     rows.push({
       date: fmtDay(s.work_date),

@@ -9,11 +9,17 @@ interface OvertimeRequest {
   id: string
   reason: string
   status: string
-  timesheet_id: string
+  timesheet_id: string | null
   created_at: string
+  approverName?: string | null
+  deciderName?: string | null
+  decided_at?: string | null
   profiles?: { name?: string; email?: string }
   timesheets?: { work_date?: string; hours?: number; work_location?: string; projects?: { name?: string } }
 }
+
+const fmtWhen = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
 
 interface Modal {
   type: 'success' | 'error'
@@ -24,10 +30,13 @@ export default function OvertimeClient({
   pending: initialPending,
   recent,
   view = 'pending',
+  canApprove = false,
 }: {
   pending: OvertimeRequest[]
   recent: any[]
   view?: 'pending' | 'reviewed'
+  /** TV3: only flagged approvers decide; others see the list read-only. */
+  canApprove?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const [actingOn, setActingOn] = useState<{ id: string; action: 'approve' | 'reject' } | null>(null)
@@ -37,12 +46,12 @@ export default function OvertimeClient({
   // Keep local list in sync when the server re-renders with new props (e.g. filters change).
   useEffect(() => { setPending(initialPending) }, [initialPending])
 
-  const handleAction = (id: string, timesheetId: string, action: 'approve' | 'reject') => {
+  const handleAction = (id: string, timesheetId: string | null, action: 'approve' | 'reject') => {
     if (isPending) return
     setActingOn({ id, action })
     const formData = new FormData()
     formData.append('id', id)
-    formData.append('timesheet_id', timesheetId)
+    formData.append('timesheet_id', timesheetId ?? '')
     startTransition(async () => {
       try {
         if (action === 'approve') {
@@ -86,12 +95,18 @@ export default function OvertimeClient({
                     <span className="text-muted text-sm">{req.profiles?.email}</span>
                   </div>
                   <div className="text-sm text-muted mb-2">
-                    {ts?.work_date} &middot; {formatHours(ts?.hours)} &middot; {ts?.work_location} &middot; {ts?.projects?.name}
+                    {ts ? (<>{ts.work_date} &middot; {formatHours(ts.hours)} &middot; {ts.work_location} &middot; {ts.projects?.name}</>) : 'Still on the clock — requested during the day'}
                   </div>
                   <div className="text-sm text-ink bg-slate-50 rounded-lg px-3 py-2">
                     &ldquo;{req.reason}&rdquo;
                   </div>
+                  <div className="text-xs text-muted mt-2">
+                    Sent to <span className="font-semibold text-ink">{req.approverName ?? 'any approver'}</span> · {fmtWhen(req.created_at)}
+                  </div>
                 </div>
+                {!canApprove ? (
+                  <div className="text-xs text-muted self-center shrink-0">View only</div>
+                ) : (
                 <div className="flex gap-2 sm:flex-col shrink-0">
                   <button
                     type="button"
@@ -120,6 +135,7 @@ export default function OvertimeClient({
                     Reject
                   </button>
                 </div>
+                )}
               </Card>
             )
           })}
@@ -142,7 +158,7 @@ export default function OvertimeClient({
             <div className="overflow-x-auto"><table className="w-full text-sm min-w-[860px]">
               <thead>
                 <tr className="text-left border-b border-slate-100">
-                  {['Employee', 'Date', 'Project', 'Hours', 'Reason', 'Decision', 'Reviewed'].map((h) => (
+                  {['Employee', 'Date', 'Project', 'Hours', 'Reason', 'Decision', 'Decided by', 'When'].map((h) => (
                     <th key={h} className="pb-3 pr-4 text-left text-[10px] font-semibold text-muted uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -162,11 +178,8 @@ export default function OvertimeClient({
                       )}
                     </td>
                     <td className="py-3 pr-4"><Badge status={req.status} /></td>
-                    <td className="py-3 text-muted whitespace-nowrap">
-                      {req.decided_at
-                        ? new Date(req.decided_at).toLocaleDateString('en-AU')
-                        : '—'}
-                    </td>
+                    <td className="py-3 pr-4 text-ink whitespace-nowrap">{req.deciderName ?? req.approverName ?? '—'}</td>
+                    <td className="py-3 text-muted whitespace-nowrap">{fmtWhen(req.decided_at)}</td>
                   </tr>
                 ))}
               </tbody>

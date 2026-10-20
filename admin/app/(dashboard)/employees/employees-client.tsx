@@ -16,6 +16,8 @@ interface Profile {
   business_access: string[]
   status: string
   hourly_rate?: number | null
+  employer_entity_id?: string | null
+  overtime_approver?: boolean
   flat_rate?: boolean
   supervisor_id?: string | null
 }
@@ -88,6 +90,7 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Type</th>
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Rate</th>
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">Supervisor</th>
+                <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap" title="Whose payroll pays this person (TV6)">Employer</th>
                 {/* Entities — click to filter by combo (grey-highlight dropdown) */}
                 <th className="pb-3 pr-4 font-medium text-muted whitespace-nowrap">
                   <Dropdown
@@ -107,8 +110,13 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 pr-4 font-medium">{p.name}</td>
                   <td className="py-3 pr-4 text-muted">{p.email}</td>
-                  <td className="py-3 pr-4">
+                  <td className="py-3 pr-4 whitespace-nowrap">
                     <Badge status={p.role} />
+                    {p.overtime_approver && (
+                      <span title="Can approve or reject overtime requests" className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink align-middle">
+                        OT approver
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 pr-4 capitalize text-muted">
                     {p.employment_type?.replace('_', ' ')}
@@ -130,6 +138,11 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                     {p.supervisor_id && supervisorName[p.supervisor_id]
                       ? supervisorName[p.supervisor_id]
                       : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="py-3 pr-4 text-xs whitespace-nowrap">
+                    {p.employer_entity_id && entityMap[p.employer_entity_id]
+                      ? <span className="font-semibold text-ink">{entityMap[p.employer_entity_id]}</span>
+                      : <span className="text-amber-600 font-semibold">No employer</span>}
                   </td>
                   <td className="py-3 pr-4 text-muted text-xs">
                     {entitiesLabel(p, entityMap)}

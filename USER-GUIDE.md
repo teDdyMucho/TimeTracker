@@ -14,8 +14,9 @@ Use your admin email and password. If you have set up an authenticator app (Sett
 1. **Attendance** shows each clock-in with the selfie, address, times and duration. Default view is today; use "All days" or a date range to see more.
 2. Check the photo and location, then **Approve** or **Reject**. Only approved attendance is paid. The worker gets a notification either way.
 3. Need to add or fix a record? **Add attendance** or the row's **Edit** button (admins only). Supervisors can approve and reject but cannot change times.
-4. **Overtime** lists overtime requests. Approve or reject them here. Whether an approval changes pay depends on the entity's "overtime must be approved" switch (see Settings below).
-5. **Leave** lists leave requests. Approved leave is sent to Xero with the next payroll push.
+4. **Overtime** lists overtime requests. Each one shows who the worker sent it to. Only the approvers (Robbie, Mitch, Chris, Terry — set under Employees) can approve or reject, here or from the push notification on their phone; everyone else can view. Overtime is unpaid until approved: the pay run lists it as "OT awaiting approval" and pays it once approved (click Recalculate on the run after approving). The timesheet shows the approver's name and time.
+5. **Download timesheets** (Attendance, above the table, and Reports): any employee or all employees, any period, as Excel, PDF or CSV.
+6. **Leave** lists leave requests. Approved leave is sent to Xero with the next payroll push.
 
 ### Every fortnight: payroll
 1. The morning after a pay period ends, a **draft pay run** is created automatically for each company and you get a "Pay run ready for review" notification (bell at the top right). If there was no approved attendance yet you get a reminder instead; approve it and click **Run now** in Settings → Automatic pay run, or create the run yourself with **+ New pay run**.
@@ -28,10 +29,12 @@ Use your admin email and password. If you have set up an authenticator app (Sett
 8. In Xero: approve the timesheets and run payroll as usual.
 
 ### Reports
-**Reports** shows labour cost by project (with budget variance), by employee, by business, site vs factory, and the overtime report, for any date range, with a CSV button on each table. The **Dashboard** shows this week's hours, labour cost, overtime cost and when payroll is next due.
+**Reports** has a tab per company (All / Build One / ARKO Joinery) and a **Pay period** picker. It shows labour cost by project (with budget variance), by employee, by business, site vs factory, **Hours by Project** (project, employee, company, regular, overtime, total — no dollar figures), **Approved Overtime** (per pay period, with who approved and when; Terry or Chanelle can run and export it) and the overtime report, with **Excel** and CSV buttons on each table. Hours count against the project worked on; wages always go to the employee's own employer. The **Dashboard** shows this week's hours, labour cost, overtime cost and when payroll is next due.
+
+**Pay rules (fixed):** 30 minutes unpaid break on any day of 5 hours or more; 7.6 hours regular a day; anything over is overtime and stays unpaid until approved. Entities → Pay settings only holds the overtime, weekend and public-holiday multipliers.
 
 ### Setting things up
-- **Employees:** invite a worker (they get an email with their login), set their hourly rate, flat rate if they have one, which companies they work for, and their **supervisor**. When you change a rate, pick the date it **applies from**: days worked before that date keep the old rate, and a pay run that spans both prices each day with the rate in force that day. Supervisors can sign in to the portal and see only their own team's attendance, overtime and leave.
+- **Employees:** invite a worker (they get an email with their login), set their hourly rate, flat rate if they have one, which companies they can clock into, their **employer** (the company whose payroll pays them, whatever project they work on), their **supervisor**, and whether they **can approve overtime**. When you change a rate, pick the date it **applies from**: days worked before that date keep the old rate, and a pay run that spans both prices each day with the rate in force that day. Supervisors can sign in to the portal and see only their own team's attendance, overtime and leave.
 - **Projects:** create projects, set a labour **budget** and dates with Edit. The list shows actual hours and cost against budget.
 - **Entities → Pay settings:** ordinary hours per day, overtime tiers, Saturday / Sunday / public-holiday rates, the **unpaid meal break** (default 30 minutes when a day is longer than 5 hours) and the **"overtime must be approved"** switch (off by default: overtime is paid from hours; on: only approved overtime is paid at overtime rates).
 - **Public Holidays:** Victorian holidays are loaded to the end of 2027. Add or remove dates as needed (the AFL Grand Final Friday is added once Victoria announces it).
@@ -55,10 +58,12 @@ iPhone: ask the office for the App Store link. Android: open https://timevera.ne
 
 ### During the day
 - **Switch Project** if you move to another job; your hours so far go to the first project.
-- Reminders: 6:50 and 7:10 in the morning if you have not clocked in, 3:07 and 3:12 pm to clock out (you can turn these off in Settings).
+- **Working overtime?** Switch **Overtime today?** on, give the reason, pick who should approve it (Robbie, Mitch, Chris or Terry) and tap **Send request now**. They get a notification with Approve / Reject. While your request is in, you will not be clocked out automatically at 3:06 pm.
+- Reminders on work days: 6:50 and 7:10 in the morning if you have not clocked in, and 2:55 pm to clock out (you can turn these off in Settings). No reminders on Saturdays or Sundays.
+- **3:06 pm rule:** anyone still clocked in at 3:06 pm with no overtime request is clocked out automatically and the day is recorded as 7:00 am – 3:06 pm.
 
 ### Clocking out
-Tap **Clock Out**. If you worked overtime, switch **Overtime worked?** on and give a reason first. You will see "Timesheet submitted — … logged". Your hours are paid once the office approves them.
+Tap **Clock Out**. If you worked overtime and have not sent a request yet, switch **Overtime today?** on, give the reason and pick the approver first; the request goes with your clock-out. You will see "Timesheet submitted — … logged". Your hours are paid once the office approves them; overtime is paid once your approver approves it (My Timesheets shows who approved it and when).
 
 ### No signal?
 You can still clock in and out. The app saves it on your phone and shows a yellow "saved on this phone" banner; it sends everything to the office automatically when you are back online (or tap **Sync now**). Switching projects needs a connection, so clock out and in again instead. The project list you see with no signal is the one saved from your last connection, so open the app once with signal before your first day on a new site.
@@ -73,5 +78,6 @@ You can still clock in and out. The app saves it on your phone and shows a yello
 - **Settings:** profile photo, reminders on/off, Face ID / fingerprint lock, change password.
 
 ### If something goes wrong
-- "Automatically clocked out": you were on the clock for 16 hours, so the app closed the shift at 16 hours. Tell your supervisor if you really worked longer.
+- "Automatically clocked out": you were still clocked in at 3:06 pm (or overnight) without an overtime request, so the day was recorded as 7:00 am – 3:06 pm. Tell the office if you really worked longer; they can correct it.
+- **Approvers (Robbie, Mitch, Chris, Terry):** Home shows "overtime requests to approve"; tap it, or use the Approve / Reject buttons on the notification itself.
 - Forgot your password: use "Forgot password?" on the sign-in screen, or ask the office to reset it.

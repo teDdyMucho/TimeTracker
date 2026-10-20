@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Image, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, Image, Pressable, RefreshControl, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Button, Card } from '@/components/ui';
+import OvertimeRequestForm from '@/components/overtime-request-form';
 import { useAuth } from '@/store/auth';
 import { Ionicons } from '@expo/vector-icons';
 import {
   clockOut,
-  autoClockOut,
-  isSessionExpired,
-  AUTO_CLOCK_OUT_HOURS,
   fetchActiveSession,
   fetchHomeSummary,
   fetchRecentTimesheets,
   fetchUnreadCount,
   fetchUnreadMessageCount,
+  fetchOvertimeApprovers,
+  fetchSessionOvertimeRequest,
+  fetchMyApprovals,
+  requestOvertimeForSession,
   type HomeSummary,
 } from '@/lib/queries';
 import { friendlyDate } from '@/lib/date';
@@ -23,15 +25,13 @@ import { cancelClockOutReminder, syncClockInReminders } from '@/lib/notify';
 import { clockOutMessage, workedLabel } from '@/lib/clock-feedback';
 import { cacheActiveSession, clearFailed, flushQueue, readCachedSession, readFailed, readQueue, queueClockOut } from '@/lib/offline';
 import { describeQueue, isLocalId, isNetworkError, resolveShownSession, type FailedOp } from '@/lib/offline-core';
-import type { ClockSession, Timesheet } from '@/lib/types';
+import type { ClockSession, OvertimeApprover, Timesheet } from '@/lib/types';
 
 // Build One palette constants
 const BRONZE   = '#1C1A16';
-const BRONZE_DK = '#000000';
 const INK      = '#18181B';
 const MUTED    = '#71717A';
 const LINE     = '#E4E4E7';
-const PAPER    = '#F4F4F5';
 
 function elapsedLabel(since: string): string {
   const ms = Date.now() - new Date(since).getTime();
@@ -39,6 +39,8 @@ function elapsedLabel(since: string): string {
   const m = Math.floor((ms % 3_600_000) / 60_000);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+
+type SessionOt = { id: string; status: string; supervisor_id: string | null; reason: string } | null;
 
 export default function Home() {
   const router = useRouter();
@@ -69,6 +71,12 @@ export default function Home() {
   const [clockingOut, setClockingOut] = useState(false);
   const [overtime, setOvertime] = useState(false);
   const [otReason, setOtReason] = useState('');
+  // TV3: who approves, and the request already raised for this session (TV9).
+  const [approvers, setApprovers] = useState<OvertimeApprover[]>([]);
+  const [approverId, setApproverId] = useState<string | null>(null);
+  const [sessionOt, setSessionOt] = useState<SessionOt>(null);
+  const [requestingOt, setRequestingOt] = useState(false);
+  const [approvalsCount, setApprovalsCount] = useState(0);
 
   // Offline queue (clock-ins / clock-outs saved on the phone, not yet sent).
   const [offline, setOffline] = useState(false);
@@ -78,9 +86,9 @@ export default function Home() {
   const [failed, setFailed] = useState<FailedOp[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoOutRef = useRef(false); // guards against double auto-clock-out
   const loadingRef = useRef(false);
   const rerunRef = useRef(false);
+  const approversRef = useRef<OvertimeApprover[]>([]);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -114,36 +122,35 @@ export default function Home() {
         const shown = resolveShownSession(queue, session);
         // Remember the open server session (if that is what is shown) so a
         // restart with no signal still shows "on the clock" instead of
-        // offering a second clock-in. Queued (local) sessions are not cached:
-        // they are rebuilt from the queue.
+        // offering a second clock-in. Queued (local) sessions are not cached.
         await cacheActiveSession(userId, shown);
 
-        // Forgot to clock out? If the server session has run past the auto
-        // clock-out limit (and no clock-out for it is waiting in the queue),
-        // close it automatically, capped at exactly that many hours, and reload.
-        if (session && shown?.id === session.id && isSessionExpired(session) && !autoOutRef.current) {
-          autoOutRef.current = true;
-          try {
-            await autoClockOut(session);
-            await cancelClockOutReminder();
-            await cacheActiveSession(userId, null);
-            Alert.alert(
-              'Automatically clocked out',
-              `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged a ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working past that, let your supervisor know.`,
-            );
-          } finally {
-            autoOutRef.current = false;
-          }
-          rerunRef.current = true;
+        // Forgotten clock-outs are closed by the SERVER (TV9): at 3:06 pm on a
+        // weekday, or overnight, as a 7:00 am – 3:06 pm day. Nothing to do here.
+        setOffline(false);
+        setSummary(s);
+        setRecent(r);
+        setActiveSession(shown);
+        setUnread(unreadCount);
+        setUnreadMsgs(unreadMsgCount);
+        if (shown) setElapsed(elapsedLabel(shown.clocked_in_at));
+
+        // Overtime: the request raised for this session (if any), the approver
+        // list, and — for approvers — how many requests are waiting on them.
+        // All best-effort: Home must never fail because of these.
+        if (shown && !isLocalId(shown.id)) {
+          setSessionOt(await fetchSessionOvertimeRequest(shown.id).catch(() => null));
         } else {
-          setOffline(false);
-          setSummary(s);
-          setRecent(r);
-          setActiveSession(shown);
-          setUnread(unreadCount);
-          setUnreadMsgs(unreadMsgCount);
-          if (shown) setElapsed(elapsedLabel(shown.clocked_in_at));
+          setSessionOt(null);
         }
+        if (approversRef.current.length === 0) {
+          const list = await fetchOvertimeApprovers().catch(() => [] as OvertimeApprover[]);
+          approversRef.current = list;
+          setApprovers(list);
+        }
+        // Always ask (the server answers with nothing for non-approvers), so the
+        // count is right even when the profile arrives after this first load.
+        setApprovalsCount((await fetchMyApprovals().catch(() => [])).length);
       } catch (e) {
         if (isNetworkError(e)) {
           // No connection: keep the hours on screen, show the queued or last
@@ -163,7 +170,7 @@ export default function Home() {
       rerunRef.current = false;
       await load();
     }
-  }, [userId]);
+  }, [userId, profile?.overtime_approver]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -182,9 +189,9 @@ export default function Home() {
   }, [queued, load]);
 
   // Keep the 6:50 / 7:10 morning clock-in reminders armed for the next two
-  // weeks. Cheap and idempotent, so it runs on every open. Skipped when the
-  // worker has turned notifications off, or while the profile hasn't loaded yet
-  // (we don't know their preference).
+  // weeks (weekdays only). Cheap and idempotent, so it runs on every open.
+  // Skipped when the worker has turned notifications off, or while the
+  // profile hasn't loaded yet (we don't know their preference).
   useEffect(() => {
     if (profile && profile.notifications_enabled !== false) void syncClockInReminders();
   }, [profile]);
@@ -192,17 +199,11 @@ export default function Home() {
   useEffect(() => {
     if (activeSession) {
       timerRef.current = setInterval(() => {
-        // If it crosses the limit while the app is open, auto clock out
-        // (server sessions only — a queued clock-in is closed when it syncs).
-        if (!isLocalId(activeSession.id) && isSessionExpired(activeSession)) {
-          load();
-          return;
-        }
         setElapsed(elapsedLabel(activeSession.clocked_in_at));
       }, 30_000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [activeSession, load]);
+  }, [activeSession]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -212,25 +213,61 @@ export default function Home() {
     setRefreshing(false);
   }, [load, profile, refreshProfile]);
 
+  const approverName = (id: string | null | undefined) => approvers.find((a) => a.id === id)?.name ?? 'an approver';
+
+  // TV9 / TV3: ask for overtime now, staying on the clock. A session with a
+  // pending or approved request is not clocked out automatically at 3:06 pm.
+  const requestOvertimeNow = useCallback(async () => {
+    if (!userId || !activeSession || isLocalId(activeSession.id)) return;
+    const reason = otReason.trim();
+    if (!reason) { Alert.alert('Reason needed', 'Please say why you are working overtime.'); return; }
+    if (approvers.length > 0 && !approverId) { Alert.alert('Who should approve it?', 'Pick one of the approvers.'); return; }
+    setRequestingOt(true);
+    try {
+      await requestOvertimeForSession({ userId, sessionId: activeSession.id, approverId: approverId ?? approvers[0]?.id ?? '', reason });
+      const ot = await fetchSessionOvertimeRequest(activeSession.id).catch(() => null);
+      setSessionOt(ot ?? { id: 'local', status: 'pending', supervisor_id: approverId, reason });
+      setOvertime(false);
+      Alert.alert(
+        'Overtime request sent',
+        `${approverName(approverId)} has been asked to approve it. You'll get a notification when it's decided, and you won't be clocked out automatically at 3:06 pm today.`,
+      );
+    } catch (e) {
+      if (isNetworkError(e)) Alert.alert('No connection', 'Could not send the request right now. You can still flag overtime when you clock out.');
+      else Alert.alert('Error', e instanceof Error ? e.message : 'Could not send the request.');
+    } finally {
+      setRequestingOt(false);
+    }
+  }, [userId, activeSession, otReason, approverId, approvers]);
+
   const handleClockOut = useCallback(async () => {
     if (!userId || !activeSession) return;
+    // Overtime at clock-out needs a reason and an approver unless a request is already in.
+    const wantsOvertime = overtime && !sessionOt;
+    const reason = wantsOvertime ? otReason.trim() : null;
+    if (wantsOvertime && !reason) { Alert.alert('Reason needed', 'Please say why you worked overtime.'); return; }
+    if (wantsOvertime && approvers.length > 0 && !approverId && !offline) { Alert.alert('Who should approve it?', 'Pick one of the approvers.'); return; }
     setClockingOut(true);
-    const reason = overtime ? otReason.trim() : null;
+    const otRequested = wantsOvertime || (!!sessionOt && sessionOt.status !== 'rejected');
+    const otReasonFinal = wantsOvertime ? reason : sessionOt?.reason ?? null;
+    const chosenApprover = wantsOvertime ? approverId : sessionOt?.supervisor_id ?? null;
 
     // Save the clock-out on the phone; it is sent when the connection is back.
     const saveOffline = async () => {
       await queueClockOut({
         userId,
         sessionId: activeSession.id,
-        overtimeRequested: overtime,
-        overtimeReason: reason,
+        overtimeRequested: otRequested,
+        overtimeReason: otReasonFinal,
+        approverId: chosenApprover,
       });
       await cancelClockOutReminder();
       const worked = workedLabel(activeSession.clocked_in_at);
       setActiveSession(null);
+      setSessionOt(null);
       setOvertime(false);
       setOtReason('');
-      const q = await readQueue();
+      const q = await readQueue(userId);
       setQueued(q.length);
       setQueuedText(describeQueue(q));
       Alert.alert(
@@ -253,13 +290,15 @@ export default function Home() {
         workLocation: activeSession.work_location,
         workDate: activeSession.work_date,
         clockedInAt: activeSession.clocked_in_at,
-        overtimeRequested: overtime,
-        overtimeReason: reason,
+        overtimeRequested: otRequested,
+        overtimeReason: otReasonFinal,
+        approverId: chosenApprover,
       });
       await cancelClockOutReminder();
       await cacheActiveSession(userId, null);
-      const msg = clockOutMessage(workedLabel(activeSession.clocked_in_at), overtime);
+      const msg = clockOutMessage(workedLabel(activeSession.clocked_in_at), otRequested);
       setActiveSession(null);
+      setSessionOt(null);
       setOvertime(false);
       setOtReason('');
       await load();
@@ -275,7 +314,7 @@ export default function Home() {
     } finally {
       setClockingOut(false);
     }
-  }, [userId, activeSession, overtime, otReason, offline, load]);
+  }, [userId, activeSession, overtime, otReason, approverId, approvers, sessionOt, offline, load]);
 
   const syncNow = useCallback(async () => {
     if (!userId) return;
@@ -362,6 +401,26 @@ export default function Home() {
           </Card>
         </View>
 
+        {/* TV3: approvers see what is waiting on them */}
+        {profile?.overtime_approver ? (
+          <Pressable
+            onPress={() => router.push('/approvals')}
+            className="flex-row items-center gap-3 rounded-2xl px-4 py-3.5 mb-4"
+            style={{ backgroundColor: approvalsCount > 0 ? '#FFFBEB' : '#fff', borderWidth: 1, borderColor: approvalsCount > 0 ? '#FDE68A' : LINE }}
+          >
+            <View className="items-center justify-center" style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(28,26,22,0.08)' }}>
+              <Ionicons name="checkmark-done-outline" size={20} color={INK} />
+            </View>
+            <View className="flex-1">
+              <Text className="font-semibold text-ink">
+                {approvalsCount > 0 ? `${approvalsCount} overtime request${approvalsCount > 1 ? 's' : ''} to approve` : 'Overtime approvals'}
+              </Text>
+              <Text className="text-muted text-xs">{approvalsCount > 0 ? 'Tap to approve or reject' : 'Nothing waiting for you'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={MUTED} />
+          </Pressable>
+        ) : null}
+
         {/* Overtime pending badge */}
         {summary.pendingOvertime > 0 ? (
           <Card className="mb-4" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>
@@ -439,34 +498,70 @@ export default function Home() {
               {activeSession.work_location === 'site' ? 'On Site' : 'Factory / Workshop'}
             </Text>
 
-            {/* Overtime toggle */}
+            {/* Overtime (TV3): either a request is already in, or ask now / at clock-out */}
             <View className="bg-white rounded-xl px-4 py-3 mb-3" style={{ borderWidth: 1, borderColor: LINE }}>
-              <View className="flex-row justify-between items-center">
-                <Text className="font-medium text-ink">Overtime worked?</Text>
-                <Switch
-                  value={overtime}
-                  onValueChange={(v) => setOvertime(v)}
-                  trackColor={{ true: BRONZE, false: '#D9D3C8' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-              {overtime ? (
-                <TextInput
-                  value={otReason}
-                  onChangeText={setOtReason}
-                  placeholder="Reason for overtime (required)"
-                  placeholderTextColor={MUTED}
-                  multiline
-                  className="rounded-xl px-3 py-2 mt-3 text-ink"
-                  style={{ borderWidth: 1, borderColor: LINE }}
-                />
-              ) : null}
+              {sessionOt && sessionOt.status !== 'rejected' ? (
+                <View>
+                  <Text className="font-medium text-ink">Overtime requested</Text>
+                  <Text className="text-muted text-xs mt-0.5">
+                    {sessionOt.status === 'approved'
+                      ? `Approved by ${approverName(sessionOt.supervisor_id)}.`
+                      : `Waiting for ${approverName(sessionOt.supervisor_id)} to approve. You won't be clocked out automatically at 3:06 pm.`}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View className="flex-row justify-between items-center">
+                    <Text className="font-medium text-ink">Overtime today?</Text>
+                    <Switch
+                      value={overtime}
+                      onValueChange={(v) => setOvertime(v)}
+                      trackColor={{ true: BRONZE, false: '#D9D3C8' }}
+                      thumbColor="#ffffff"
+                    />
+                  </View>
+                  {sessionOt?.status === 'rejected' ? (
+                    <Text className="text-muted text-xs mt-1">Your earlier request was declined. You can ask again with a reason.</Text>
+                  ) : null}
+                  {overtime ? (
+                    <>
+                      <OvertimeRequestForm
+                        approvers={approvers}
+                        approverId={approverId}
+                        onApprover={setApproverId}
+                        reason={otReason}
+                        onReason={setOtReason}
+                        disabled={requestingOt || clockingOut}
+                      />
+                      {!isLocalId(activeSession.id) && !offline ? (
+                        <Pressable
+                          onPress={requestOvertimeNow}
+                          disabled={requestingOt}
+                          className="items-center py-3 rounded-2xl mt-3"
+                          style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: BRONZE, opacity: requestingOt ? 0.6 : 1 }}
+                        >
+                          <Text className="font-semibold" style={{ color: BRONZE }}>
+                            {requestingOt ? 'Sending…' : 'Send request now (stay clocked in)'}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      <Text className="text-muted text-xs mt-2">
+                        Or just clock out when you finish — the request goes with your clock-out.
+                      </Text>
+                    </>
+                  ) : (
+                    <Text className="text-muted text-xs mt-1">
+                      Still clocked in at 3:06 pm with no overtime request? You&rsquo;ll be clocked out automatically and the day recorded as 7:00 am – 3:06 pm.
+                    </Text>
+                  )}
+                </>
+              )}
             </View>
 
             <Button
               label={clockingOut ? 'Clocking out…' : 'Clock Out'}
               loading={clockingOut}
-              disabled={clockingOut || (overtime && otReason.trim().length === 0)}
+              disabled={clockingOut || (overtime && !sessionOt && otReason.trim().length === 0)}
               onPress={handleClockOut}
             />
 

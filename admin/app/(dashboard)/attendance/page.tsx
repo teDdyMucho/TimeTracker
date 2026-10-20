@@ -102,7 +102,7 @@ export default async function AttendancePage({
     .from('clock_sessions')
     .select(`
       id, work_date, work_location, clocked_in_at, clocked_out_at,
-      clock_in_lat, clock_in_lng, clock_in_address, selfie_url, review_status,
+      clock_in_lat, clock_in_lng, clock_in_address, selfie_url, review_status, auto_closed,
       project_id,
       profiles ( name, email ),
       projects ( name ),
@@ -141,6 +141,41 @@ export default async function AttendancePage({
   const history = rows.filter((r) => r.clocked_out_at)
   const sorted = [...active, ...history]
 
+  // TV3: the overtime request behind each session — who it went to, who decided, when.
+  const otBySession = new Map<string, { status: string; approver: string | null; decidedAt: string | null }>()
+  if (sorted.length) {
+    const sessionIds = sorted.map((s) => s.id)
+    const [{ data: tsLinks }, { data: otDirect }] = await Promise.all([
+      admin.from('timesheets').select('id, clock_session_id').in('clock_session_id', sessionIds),
+      admin.from('overtime_requests').select('id, status, supervisor_id, decided_by, decided_at, clock_session_id, timesheet_id').in('clock_session_id', sessionIds),
+    ])
+    const tsIds = (tsLinks ?? []).map((t: any) => t.id)
+    const { data: otByTs } = tsIds.length
+      ? await admin.from('overtime_requests').select('id, status, supervisor_id, decided_by, decided_at, clock_session_id, timesheet_id').in('timesheet_id', tsIds)
+      : { data: [] }
+    const tsToSession = new Map((tsLinks ?? []).map((t: any) => [t.id, t.clock_session_id]))
+    const all = [...(otDirect ?? []), ...(otByTs ?? [])] as any[]
+    const who = [...new Set(all.flatMap((o) => [o.decided_by, o.supervisor_id]).filter(Boolean))]
+    const { data: names } = who.length ? await admin.from('profiles').select('id, name').in('id', who) : { data: [] }
+    const nm = new Map((names ?? []).map((p: any) => [p.id, p.name as string]))
+    for (const o of all) {
+      const sid = o.clock_session_id ?? tsToSession.get(o.timesheet_id)
+      if (!sid || otBySession.has(sid)) continue
+      const person = o.decided_by ?? o.supervisor_id
+      otBySession.set(sid, { status: o.status, approver: person ? (nm.get(person) ?? null) : null, decidedAt: o.decided_at })
+    }
+  }
+  const fmtWhen = (iso: string) => new Date(iso).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
+  // TV10: download the timesheets behind the current filter.
+  const expFrom = hasRange ? fromDate : date || today
+  const expTo = hasRange ? toDate : date || today
+  const expQuery = (format: string) => {
+    const q = new URLSearchParams({ format, from: selection === 'all' && !hasRange ? new Date(Date.now() - 13 * 86400_000).toLocaleDateString('en-CA', { timeZone: 'Australia/Melbourne' }) : expFrom, to: expTo })
+    if (employeeId) q.set('employee', employeeId)
+    if (entityId) q.set('entity', entityId)
+    return `/api/timesheets/export?${q}`
+  }
+
   return (
     <div>
       <AutoRefresh intervalSeconds={30} />
@@ -168,6 +203,17 @@ export default async function AttendancePage({
         employeeId={employeeId}
         entityId={entityId}
       />
+
+      {/* TV10: any employee or all, any period, as Excel / PDF */}
+      <div className="flex flex-wrap items-center gap-2 mb-5 text-sm">
+        <span className="text-muted">Download timesheets ({employeeId ? employees.find((e) => e.id === employeeId)?.name ?? 'employee' : 'all employees'}{selection === 'all' && !hasRange ? ', last 14 days' : ''}):</span>
+        {[['xlsx', 'Excel'], ['pdf', 'PDF'], ['csv', 'CSV']].map(([f, label]) => (
+          <a key={f} href={expQuery(f)} className="inline-flex items-center h-8 px-3 rounded-lg text-xs font-semibold border hover:bg-stone transition-colors" style={{ borderColor: 'rgba(28,26,22,0.35)', color: '#000' }}>
+            {label}
+          </a>
+        ))}
+        <span className="text-xs text-muted">Pick a date range above for a pay period.</span>
+      </div>
 
       <Card>
         {sorted.length === 0 ? (
@@ -277,11 +323,25 @@ export default async function AttendancePage({
                         )}
                       </td>
 
-                      {/* Duration */}
+                      {/* Duration + overtime approval (TV3) + auto clock-out marker (TV9) */}
                       <td className="py-3 pr-4 font-semibold text-ink whitespace-nowrap text-xs">
                         {s.clocked_out_at
                           ? formatDuration(s.clocked_in_at, s.clocked_out_at)
                           : <span className="text-slate-300">&mdash;</span>}
+                        {s.auto_closed && (
+                          <span title="Still clocked in at 3:06 pm with no overtime request — recorded as 7:00 am to 3:06 pm" className="ml-2 inline-block rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide align-middle">
+                            auto
+                          </span>
+                        )}
+                        {(() => {
+                          const ot = otBySession.get(s.id)
+                          if (!ot) return null
+                          return (
+                            <div className="font-normal text-muted mt-1">
+                              OT {ot.status}{ot.approver ? ` · ${ot.approver}` : ''}{ot.decidedAt ? ` · ${fmtWhen(ot.decidedAt)}` : ot.status === 'pending' ? ' · awaiting' : ''}
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       {/* Address — clicking opens Google Maps */}

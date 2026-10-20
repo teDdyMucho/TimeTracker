@@ -19,6 +19,7 @@ const ICONS: Record<string, { icon: typeof Bell; color: string; href: string }> 
   labour_cost_threshold:  { icon: AlertTriangle, color: '#B45309', href: '/projects' },
   timesheet_missing_team: { icon: UserX,         color: '#B45309', href: '/attendance' },
   overtime:               { icon: Timer,         color: '#71717A', href: '/overtime' },
+  overtime_request:       { icon: Timer,         color: '#B45309', href: '/overtime' },
   leave:                  { icon: Timer,         color: '#71717A', href: '/leave' },
   message:                { icon: Inbox,         color: '#71717A', href: '/messages' },
 }

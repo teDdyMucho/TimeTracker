@@ -18,6 +18,41 @@ export interface Profile {
   expo_push_token: string | null;
   avatar_url: string | null;
   notifications_enabled: boolean;
+  /** TV3: may approve / reject overtime requests (Robbie, Mitch, Chris, Terry). */
+  overtime_approver?: boolean;
+  /** TV6: the company whose payroll pays this person. */
+  employer_entity_id?: string | null;
+}
+
+/** Someone a worker can send an overtime request to. */
+export interface OvertimeApprover { id: string; name: string }
+
+/** A pending request addressed to the signed-in approver (list_my_overtime_approvals). */
+export interface OvertimeApproval {
+  id: string;
+  profile_id: string;
+  worker_name: string;
+  work_date: string | null;
+  hours: number | null;
+  project_name: string | null;
+  reason: string;
+  status: OvertimeStatus;
+  created_at: string;
+  still_on_clock: boolean;
+}
+
+/** One of the signed-in worker's own requests (list_my_overtime_requests). */
+export interface MyOvertimeRequest {
+  id: string;
+  status: OvertimeStatus;
+  reason: string;
+  created_at: string;
+  decided_at: string | null;
+  approver_name: string | null;
+  decider_name: string | null;
+  timesheet_id: string | null;
+  clock_session_id: string | null;
+  work_date: string | null;
 }
 
 export interface BusinessEntity {

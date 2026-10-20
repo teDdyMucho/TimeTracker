@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { isNetworkError } from './offline-core';
-import type { BusinessEntity, ClockSession, Profile, Project, Timesheet, TimesheetLine, WorkLocation } from './types';
+import type { BusinessEntity, ClockSession, MyOvertimeRequest, OvertimeApproval, OvertimeApprover, Profile, Project, Timesheet, TimesheetLine, WorkLocation } from './types';
 import { startOfWeek, todayISO } from './date';
 
 // The entity and project lists are kept on the phone so Clock In still works
@@ -26,7 +26,7 @@ export interface CachedResult<T> { data: T; fromCache: boolean }
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, email, role, status, business_access, expo_push_token, avatar_url, notifications_enabled')
+    .select('id, name, email, role, status, business_access, expo_push_token, avatar_url, notifications_enabled, overtime_approver, employer_entity_id')
     .eq('id', userId)
     .single();
   if (error) {
@@ -468,24 +468,87 @@ export interface ClockOutInput {
   clockedInAt: string;
   overtimeRequested: boolean;
   overtimeReason: string | null;
+  /** TV3: who the worker chose to approve the overtime. */
+  approverId?: string | null;
+}
+
+// ── Overtime approval (TV3) ─────────────────────────────────────────────────
+
+/** Robbie, Mitch, Chris, Terry — whoever is flagged "can approve overtime". */
+export async function fetchOvertimeApprovers(): Promise<OvertimeApprover[]> {
+  const { data, error } = await supabase.rpc('list_overtime_approvers');
+  if (error) throw error;
+  return (data ?? []) as OvertimeApprover[];
+}
+
+/** The request already raised for this session (while on the clock), if any. */
+export async function fetchSessionOvertimeRequest(sessionId: string): Promise<{ id: string; status: string; supervisor_id: string | null; reason: string } | null> {
+  const { data, error } = await supabase
+    .from('overtime_requests')
+    .select('id, status, supervisor_id, reason')
+    .eq('clock_session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as any;
 }
 
 /**
- * A forgotten clock-in is auto-closed after this many hours (client raised this
- * 8h → 12h → 16h to cover long construction shifts). A session left open longer
- * than this is capped to a 16-hour shift so payroll never gets a bogus long day.
- * Keep in step with auto_clock_out_stale_sessions() in the 0018 migration.
+ * Ask for overtime while still on the clock (TV9: a session with a pending or
+ * approved request is not auto-closed at 3:06 pm). Linked to the timesheet
+ * automatically when the session closes.
+ */
+export async function requestOvertimeForSession(input: { userId: string; sessionId: string; approverId: string; reason: string }): Promise<void> {
+  const existing = await fetchSessionOvertimeRequest(input.sessionId);
+  if (existing && existing.status !== 'rejected') return;
+  const { error } = await supabase.from('overtime_requests').insert({
+    profile_id: input.userId,
+    clock_session_id: input.sessionId,
+    supervisor_id: input.approverId,
+    reason: input.reason,
+    status: 'pending',
+  });
+  if (error) throw error;
+  await supabase.from('clock_sessions').update({ overtime_requested: true, overtime_reason: input.reason }).eq('id', input.sessionId);
+}
+
+/** Requests waiting on the signed-in approver. */
+export async function fetchMyApprovals(): Promise<OvertimeApproval[]> {
+  const { data, error } = await supabase.rpc('list_my_overtime_approvals');
+  if (error) throw error;
+  return (data ?? []) as OvertimeApproval[];
+}
+
+/** Approve or reject (approvers only; the server checks). */
+export async function decideOvertime(requestId: string, decision: 'approved' | 'rejected'): Promise<void> {
+  const { error } = await supabase.rpc('decide_overtime_request', { p_request: requestId, p_decision: decision });
+  if (error) throw error;
+}
+
+/** The worker's own requests with the approver's name and decision time. */
+export async function fetchMyOvertimeRequests(): Promise<MyOvertimeRequest[]> {
+  const { data, error } = await supabase.rpc('list_my_overtime_requests');
+  if (error) throw error;
+  return (data ?? []) as MyOvertimeRequest[];
+}
+
+/**
+ * A cached session older than this is ignored by the "already clocked in"
+ * guard. Forgotten clock-outs are closed by the SERVER (TV9): at 3:06 pm on a
+ * weekday, or overnight, as a 7:00 am – 3:06 pm day — never as overtime.
  */
 export const AUTO_CLOCK_OUT_HOURS = 16;
 
 /**
  * Shared write for closing a session: stamps clocked_out_at (the DB then
- * writes the timesheet) and raises an overtime request if flagged.
+ * writes the timesheet) and raises an overtime request if flagged — addressed
+ * to the approver the worker picked (TV3). A request raised earlier in the day
+ * for this session is reused, never duplicated.
  */
 async function writeClockOut(
   input: ClockOutInput,
   clockOutAtISO: string,
-  auto: boolean,
 ): Promise<void> {
   const { data: closed, error: sessionErr } = await supabase
     .from('clock_sessions')
@@ -514,60 +577,28 @@ async function writeClockOut(
     .maybeSingle();
 
   if (input.overtimeRequested && ts) {
-    await supabase.from('overtime_requests').insert({
-      timesheet_id: ts.id,
-      profile_id: input.userId,
-      reason: input.overtimeReason ?? '',
-      status: 'pending',
-    });
-  }
-
-  // Notify the employee (and admin, via the record) that we auto-closed it.
-  if (auto) {
-    await supabase.from('notifications').insert({
-      profile_id: input.userId,
-      type: 'auto_clock_out',
-      title: 'Automatically clocked out',
-      body: `You reached ${AUTO_CLOCK_OUT_HOURS} hours on the clock, so we clocked you out and logged a ${AUTO_CLOCK_OUT_HOURS}-hour shift. If you kept working, tell your supervisor.`,
-    });
+    const existing = await fetchSessionOvertimeRequest(input.sessionId);
+    if (!existing) {
+      const { error: otErr } = await supabase.from('overtime_requests').insert({
+        timesheet_id: ts.id,
+        clock_session_id: input.sessionId,
+        profile_id: input.userId,
+        supervisor_id: input.approverId ?? null,
+        reason: input.overtimeReason ?? '',
+        status: 'pending',
+      });
+      if (otErr) throw otErr;
+    }
   }
 }
 
 export async function clockOut(input: ClockOutInput): Promise<void> {
   // The DB computes the paid hours from clocked_in_at → clocked_out_at
   // (rounded to the nearest minute, min ~1 min, max 24h).
-  await writeClockOut(input, new Date().toISOString(), false);
+  await writeClockOut(input, new Date().toISOString());
 }
 
-/**
- * Auto clock-out for a forgotten session that has run past the limit. The
- * clock-out time is CAPPED at exactly clock-in + AUTO_CLOCK_OUT_HOURS (not
- * "now"), so a session left open for 30 hours still only logs one 16-hour
- * shift. Overtime is never auto-requested — the worker didn't confirm it.
- */
-export async function autoClockOut(session: ClockSession): Promise<void> {
-  const cappedOutAt = new Date(
-    new Date(session.clocked_in_at).getTime() + AUTO_CLOCK_OUT_HOURS * 3_600_000,
-  ).toISOString();
-
-  await writeClockOut(
-    {
-      sessionId: session.id,
-      userId: session.profile_id,
-      businessEntityId: session.business_entity_id,
-      projectId: session.project_id,
-      workLocation: session.work_location,
-      workDate: session.work_date,
-      clockedInAt: session.clocked_in_at,
-      overtimeRequested: false,
-      overtimeReason: null,
-    },
-    cappedOutAt,
-    true,
-  );
-}
-
-/** True if a session has been open for at least the auto clock-out threshold. */
+/** True if a (cached) session is older than the stale threshold. */
 export function isSessionExpired(session: ClockSession): boolean {
   const elapsedMs = Date.now() - new Date(session.clocked_in_at).getTime();
   return elapsedMs >= AUTO_CLOCK_OUT_HOURS * 3_600_000;

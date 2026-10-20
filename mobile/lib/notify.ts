@@ -7,14 +7,16 @@ const REMINDER_KEY = 'clockOutReminderIds';
 const DAILY_KEY = 'dailyTimesheetReminderId';
 
 /**
- * Fixed end-of-day "make sure you have clocked out" reminders. The site day
- * runs 7:00 AM – 3:06 PM (7.6 h), so the client asked for nudges at 3:07 PM
- * and 3:12 PM device-local time, not "8 hours after clock-in".
+ * End-of-day reminder (TV9): 2:55 pm device-local. Anyone still clocked in at
+ * 3:06 pm without an overtime request is clocked out automatically by the
+ * server and recorded as 7:00 am – 3:06 pm (a standard 7.6 h day).
  */
 export const CLOCK_OUT_REMINDERS: { hour: number; minute: number }[] = [
-  { hour: 15, minute: 7 },
-  { hour: 15, minute: 12 },
+  { hour: 14, minute: 55 },
 ];
+
+/** TV8: no notifications on Saturday or Sunday (JS getDay: 0 = Sunday, 6 = Saturday). */
+export const isWeekend = (d: Date): boolean => d.getDay() === 0 || d.getDay() === 6;
 
 /** Ask for notification permission (no-op if already granted). Returns true if allowed. */
 export async function ensureNotifPermission(): Promise<boolean> {
@@ -25,10 +27,11 @@ export async function ensureNotifPermission(): Promise<boolean> {
 }
 
 /**
- * Schedule the 3:07 PM and 3:12 PM "make sure you have clocked out" reminders
- * for the day of this clock-in. Fires even if the app is closed; cancelled on
- * clock-out. Replaces any existing reminders. Times already past (a clock-in
- * at 4 PM) are skipped. Returns true if at least one was scheduled.
+ * Schedule the 2:55 pm "clock out by 3:06" reminder for the day of this
+ * clock-in. Fires even if the app is closed; cancelled on clock-out. Replaces
+ * any existing reminder. A time already past (a clock-in at 4 pm) is skipped,
+ * and nothing is scheduled on a Saturday or Sunday (TV8). Returns true if
+ * scheduled.
  */
 export async function scheduleClockOutReminder(clockedInAtISO: string): Promise<boolean> {
   try {
@@ -36,6 +39,7 @@ export async function scheduleClockOutReminder(clockedInAtISO: string): Promise<
     await cancelClockOutReminder();
 
     const clockIn = new Date(clockedInAtISO);
+    if (isWeekend(clockIn)) return false;
     const ids: string[] = [];
     for (const r of CLOCK_OUT_REMINDERS) {
       const fireAt = new Date(clockIn);
@@ -43,8 +47,8 @@ export async function scheduleClockOutReminder(clockedInAtISO: string): Promise<
       if (fireAt.getTime() <= Date.now() + 1000) continue;
       const id = await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Make sure you have clocked out',
-          body: `It's ${formatClock(r.hour, r.minute)} — if you've finished for the day, clock out now.`,
+          title: 'Clock out by 3:06 pm',
+          body: `It's ${formatClock(r.hour, r.minute)}. If you've finished, clock out now. Still clocked in at 3:06 pm with no overtime request = clocked out automatically as 7:00 am – 3:06 pm.`,
           sound: true,
         },
         // A trigger without `type` matches no parser in expo-notifications and
@@ -82,21 +86,25 @@ function formatClock(hour: number, minute: number): string {
   return `${h12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
 }
 
+/** 5:00 pm "log your hours" reminder, Monday to Friday only (TV8). */
 export async function scheduleDailyTimesheetReminder(): Promise<void> {
   try {
     if (!(await ensureNotifPermission())) return;
     await cancelDailyTimesheetReminder();
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Log your hours',
-        body: "Don't forget to log today's hours before you finish up.",
-        sound: true,
-      },
-      // Typed DAILY trigger: every day at 5:00 PM device-local time. (Untyped, it
-      // fired once immediately when the toggle was switched on, and never again.)
-      trigger: { type: SchedulableTriggerInputTypes.DAILY, hour: 17, minute: 0 },
-    });
-    await SecureStore.setItemAsync(DAILY_KEY, id);
+    const ids: string[] = [];
+    // expo weekday: 1 = Sunday … 7 = Saturday → Monday (2) to Friday (6).
+    for (const weekday of [2, 3, 4, 5, 6]) {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Log your hours',
+          body: "Don't forget to log today's hours before you finish up.",
+          sound: true,
+        },
+        trigger: { type: SchedulableTriggerInputTypes.WEEKLY, weekday, hour: 17, minute: 0 },
+      });
+      ids.push(id);
+    }
+    await SecureStore.setItemAsync(DAILY_KEY, JSON.stringify(ids));
   } catch (e) {
     console.warn('[notify] daily reminder failed', e);
   }
@@ -104,9 +112,12 @@ export async function scheduleDailyTimesheetReminder(): Promise<void> {
 
 export async function cancelDailyTimesheetReminder(): Promise<void> {
   try {
-    const id = await SecureStore.getItemAsync(DAILY_KEY);
-    if (id) {
-      await Notifications.cancelScheduledNotificationAsync(id);
+    const raw = await SecureStore.getItemAsync(DAILY_KEY);
+    if (raw) {
+      // Older builds stored a single id as a bare string.
+      let ids: string[] = [];
+      try { ids = JSON.parse(raw); } catch { ids = [raw]; }
+      for (const id of ids) await Notifications.cancelScheduledNotificationAsync(id);
       await SecureStore.deleteItemAsync(DAILY_KEY);
     }
   } catch (e) {
@@ -139,8 +150,8 @@ export const CLOCK_IN_REMINDERS: ClockInReminder[] = [
   },
 ];
 
-/** Days the reminders fire — JS getDay(): 0 = Sunday … 6 = Saturday. Every day, as requested. */
-export const CLOCK_IN_REMINDER_DAYS: number[] = [0, 1, 2, 3, 4, 5, 6];
+/** Days the reminders fire — JS getDay(): 0 = Sunday … 6 = Saturday. Monday to Friday (TV8: nothing at weekends). */
+export const CLOCK_IN_REMINDER_DAYS: number[] = [1, 2, 3, 4, 5];
 
 /** How many days ahead to keep scheduled. iOS allows 64 pending local notifications. */
 export const CLOCK_IN_HORIZON_DAYS = 14;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/server'
 import { PAY_BANDS } from '@/lib/payroll'
-import { aggregateEmployeeBandsByDay, normalizePayConfig } from '@/lib/labour-cost'
+import { aggregateEmployeeBandsByDay, employerMap, normalizePayConfig } from '@/lib/labour-cost'
 import {
   getValidXeroToken,
   fetchXeroEmployees,
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   //    only this entity's rows contribute hours (see aggregateEmployeeBandsByDay).
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status)')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id)')
     .eq('profiles.status', 'active') // deactivated staff are never pushed
     .gte('work_date', from).lte('work_date', to)
     .eq('status', 'approved') // only approved attendance is paid
@@ -113,7 +113,8 @@ export async function POST(req: NextRequest) {
   const flatRateIds = new Set(
     ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
   )
-  const employees = aggregateEmployeeBandsByDay((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds, { entityId: entity.id })
+  // TV6: an employee's hours go to their EMPLOYER's Xero payroll, whichever company's project they worked on.
+  const employees = aggregateEmployeeBandsByDay((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds, { entityId: entity.id, employerOf: employerMap((tsRows ?? []) as any) })
 
   // The hours sent to Xero are recomputed from attendance, so they must match
   // what the run page / PDF / CSV show. If attendance was approved (or the pay

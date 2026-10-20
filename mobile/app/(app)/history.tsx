@@ -2,10 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Card } from '@/components/ui';
 import { useAuth } from '@/store/auth';
-import { fetchRecentTimesheets, fetchClockSessions } from '@/lib/queries';
+import { fetchRecentTimesheets, fetchClockSessions, fetchMyOvertimeRequests } from '@/lib/queries';
 import { friendlyDate } from '@/lib/date';
 import { formatHours, formatTime } from '@/lib/format';
-import type { ClockSession, Timesheet } from '@/lib/types';
+import type { ClockSession, MyOvertimeRequest, Timesheet } from '@/lib/types';
+
+/** TV3: "Approved by Robbie · 3:42 pm 20 Oct" / "Sent to Chris · waiting". */
+function overtimeLine(r: MyOvertimeRequest | undefined): string | null {
+  if (!r) return null;
+  const when = r.decided_at
+    ? new Date(r.decided_at).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
+    : null;
+  if (r.status === 'approved') return `Approved by ${r.decider_name ?? r.approver_name ?? 'approver'}${when ? ` · ${when}` : ''}`;
+  if (r.status === 'rejected') return `Declined by ${r.decider_name ?? r.approver_name ?? 'approver'}${when ? ` · ${when}` : ''}`;
+  return `Sent to ${r.approver_name ?? 'approvers'} · waiting for approval`;
+}
 
 const BRONZE = '#1C1A16';
 const LINE = '#E4E4E7';
@@ -14,21 +25,27 @@ export default function History() {
   const profile = useAuth((s) => s.profile);
   const [rows, setRows] = useState<Timesheet[]>([]);
   const [sessions, setSessions] = useState<ClockSession[]>([]);
+  const [otRequests, setOtRequests] = useState<MyOvertimeRequest[]>([]);
   const [viewer, setViewer] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!profile) return;
     try {
-      const [ts, ses] = await Promise.all([
+      const [ts, ses, ots] = await Promise.all([
         fetchRecentTimesheets(profile.id, 100),
         fetchClockSessions(profile.id, 100),
+        fetchMyOvertimeRequests().catch(() => [] as MyOvertimeRequest[]),
       ]);
       setRows(ts);
       setSessions(ses);
+      setOtRequests(ots);
     } catch (e) {
       console.warn('[history] load', e);
     }
   }, [profile]);
+
+  const requestFor = (t: Timesheet, s: ClockSession | undefined) =>
+    otRequests.find((r) => r.timesheet_id === t.id) ?? (s ? otRequests.find((r) => r.clock_session_id === s.id) : undefined);
 
   useEffect(() => { load(); }, [load]);
 
@@ -103,6 +120,9 @@ export default function History() {
                       <Text className="text-muted text-xs capitalize mt-0.5">
                         {t.overtime_requested ? `Overtime · ${t.overtime_status}` : t.status}
                       </Text>
+                      {t.overtime_requested && overtimeLine(requestFor(t, s)) ? (
+                        <Text className="text-muted text-xs mt-0.5">{overtimeLine(requestFor(t, s))}</Text>
+                      ) : null}
                       {s ? (
                         <Text className="text-xs mt-0.5" style={{ color: BRONZE }}>
                           {formatTime(s.clocked_in_at)}

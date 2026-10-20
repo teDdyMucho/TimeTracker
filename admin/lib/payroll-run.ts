@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { grossPay } from '@/lib/payroll'
-import { aggregateEmployeeBandsByDay, buildRateHistory, rateOn, normalizePayConfig, labourCost, money, UNPAID_BREAK_KEY, type RateRow } from '@/lib/labour-cost'
+import { aggregateEmployeeBandsByDay, buildRateHistory, rateOn, normalizePayConfig, labourCost, money, employerMap, UNPAID_BREAK_KEY, PENDING_OVERTIME_KEY, type RateRow } from '@/lib/labour-cost'
 import { PAY_BANDS, type PayBand } from '@/lib/payroll'
 import { notifyAdmins } from '@/lib/notify-admins'
 
@@ -40,20 +40,22 @@ export async function computePayrollEntries(
   if (!entity) return { error: 'Entity not found.' }
 
   // Only APPROVED attendance is paid — pending review is excluded (client rule).
-  // Rows from ALL entities are loaded so the unpaid break is deducted once per
-  // day even when someone worked for both companies; only this entity's rows
-  // contribute hours to the run. overtime_status feeds the PRD §10 rule.
+  // Rows from ALL companies are loaded: wages go to the employee's own
+  // employer (TV6), whichever company's project they worked on, and the
+  // unpaid break is deducted once per day. overtime_status feeds TV3.
   const { data: allRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status)')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id)')
     .eq('profiles.status', 'active') // deactivated staff are never paid
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)
     .eq('status', 'approved') // only approved attendance is paid
 
   const tsRows = (allRows ?? []) as any[]
-  if (!tsRows.some((r) => r.business_entity_id === businessEntityId)) {
-    return { error: 'No approved attendance found for this period. Approve the attendance on the Attendance page first — only approved hours are paid.' }
+  const employerOf = employerMap(tsRows)
+  const paidHere = (r: any) => (employerOf[r.profile_id] ?? r.business_entity_id) === businessEntityId
+  if (!tsRows.some(paidHere)) {
+    return { error: 'No approved attendance found for this period for anyone employed by this company. Approve the attendance on the Attendance page first — only approved hours are paid.' }
   }
 
   // Public holidays in range → drive day classification
@@ -73,7 +75,7 @@ export async function computePayrollEntries(
   // Banded per day so each day can be priced with the rate in force that day
   // (PRD task "Apply pay rates effective on the worked date"): a pay rise
   // part-way through the period applies only from its effective date.
-  const employees = aggregateEmployeeBandsByDay(tsRows, holidays, payConfig, flatRateIds, { entityId: businessEntityId })
+  const employees = aggregateEmployeeBandsByDay(tsRows, holidays, payConfig, flatRateIds, { entityId: businessEntityId, employerOf })
 
   const profileIds = employees.map((e) => e.profileId)
   const { data: rateRows } = await admin
@@ -104,7 +106,9 @@ export async function computePayrollEntries(
       profile_id: e.profileId,
       // The deducted break rides along in band_hours under its own key so the
       // run page / CSV can show it; PAY_BANDS-based totals ignore it.
-      band_hours: { ...bandHours, [UNPAID_BREAK_KEY]: e.breakHours },
+      // The deducted break and the overtime still awaiting approval (unpaid
+      // until approved — TV3) ride along under their own keys.
+      band_hours: { ...bandHours, [UNPAID_BREAK_KEY]: e.breakHours, [PENDING_OVERTIME_KEY]: e.pendingOvertimeHours },
       band_cost: bandCost,
       allowances,
       gross_pay: round2(gross + allowances),

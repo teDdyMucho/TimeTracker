@@ -83,6 +83,8 @@ export function PayrollPdf({ buildOneLogo, arkoLogo, heading, meta, generatedAt,
   const allEntries = sections.flatMap((s) => s.entries)
   const activeBands = PAY_BANDS.filter((b) => allEntries.some((e) => (e.bandHours?.[b] ?? 0) > 0))
   const bandsToShow: PayBand[] = activeBands.length > 0 ? activeBands : ['regular']
+  // Overtime still awaiting approval is shown (unpaid) so the figure is not a surprise.
+  const anyPending = allEntries.some((e) => (e.bandHours?.pending_overtime ?? 0) > 0)
   const grandTotal = allEntries.reduce((s, e) => s + Number(e.gross || 0), 0)
 
   return (
@@ -121,6 +123,7 @@ export function PayrollPdf({ buildOneLogo, arkoLogo, heading, meta, generatedAt,
                 {bandsToShow.map((b) => (
                   <Text key={b} style={[styles.th, styles.band]}>{PAY_BAND_LABELS[b]}</Text>
                 ))}
+                {anyPending && <Text style={[styles.th, styles.band]}>OT pending (unpaid)</Text>}
                 <Text style={[styles.th, styles.gross]}>Gross</Text>
               </View>
 
@@ -139,6 +142,9 @@ export function PayrollPdf({ buildOneLogo, arkoLogo, heading, meta, generatedAt,
                         {(e.bandHours?.[b] ?? 0) > 0 ? hrs(e.bandHours[b]) : '—'}
                       </Text>
                     ))}
+                    {anyPending && (
+                      <Text style={styles.band}>{(e.bandHours?.pending_overtime ?? 0) > 0 ? hrs(e.bandHours.pending_overtime) : '—'}</Text>
+                    )}
                     <Text style={styles.gross}>{money(e.gross)}</Text>
                   </View>
                 ))

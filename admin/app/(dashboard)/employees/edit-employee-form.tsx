@@ -16,6 +16,8 @@ interface Props {
     hourly_rate?: number | null
     flat_rate?: boolean
     supervisor_id?: string | null
+    employer_entity_id?: string | null
+    overtime_approver?: boolean
   }
   entities: BusinessEntity[]
   supervisors?: { id: string; name: string }[]
@@ -31,6 +33,8 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
   const [supervisorId, setSupervisorId] = useState(employee.supervisor_id ?? '')
   const [employmentType, setEmploymentType] = useState(employee.employment_type)
   const [flatRate, setFlatRate] = useState(employee.flat_rate ?? false)
+  const [employer, setEmployer] = useState(employee.employer_entity_id ?? '')
+  const [approver, setApprover] = useState(employee.overtime_approver ?? false)
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const prevPendingRef = useRef(false)
@@ -121,6 +125,37 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
               ]}
             />
           </div>
+
+          <div>
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Employer (payroll)</span>
+            <Dropdown
+              name="employer_entity_id"
+              value={employer}
+              onChange={setEmployer}
+              options={[
+                { value: '', label: 'First company below' },
+                ...entities.filter((e) => selectedEntities.includes(e.id)).map((e) => ({ value: e.id, label: e.name })),
+              ]}
+            />
+            <p className="text-[11px] text-muted mt-1.5 leading-snug">
+              Wages always go to this company&rsquo;s Xero payroll, whichever company&rsquo;s project the hours were worked on. Hours still count against the project.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="overtime_approver"
+              checked={approver}
+              onChange={(e) => setApprover(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-brand cursor-pointer"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">Can approve overtime</span>
+              <span className="block text-xs text-muted mt-0.5">Workers can send their overtime request to this person; they get a push with Approve / Reject.</span>
+            </span>
+          </label>
 
           <div className="grid grid-cols-2 gap-3">
             <Input

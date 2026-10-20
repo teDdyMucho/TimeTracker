@@ -38,12 +38,12 @@ export default async function OvertimePage({
   // Fetch overtime requests with no joins first (avoid FK ambiguity)
   let pendingQ = admin
     .from('overtime_requests')
-    .select('id, reason, status, created_at, timesheet_id, profile_id')
+    .select('id, reason, status, created_at, timesheet_id, profile_id, supervisor_id, decided_by, decided_at, clock_session_id')
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
   let recentQ = admin
     .from('overtime_requests')
-    .select('id, reason, status, decided_at, timesheet_id, profile_id')
+    .select('id, reason, status, created_at, decided_at, timesheet_id, profile_id, supervisor_id, decided_by, clock_session_id')
     .in('status', ['approved', 'rejected'])
     .order('decided_at', { ascending: false })
     .limit(20)
@@ -58,7 +58,7 @@ export default async function OvertimePage({
 
   // Collect unique IDs to batch-fetch related data
   const timesheetIds = [...new Set(allRequests.map((r) => r.timesheet_id).filter(Boolean))]
-  const profileIds = [...new Set(allRequests.map((r) => r.profile_id).filter(Boolean))]
+  const profileIds = [...new Set(allRequests.flatMap((r: any) => [r.profile_id, r.supervisor_id, r.decided_by]).filter(Boolean))]
 
   const [timesheetsRes, profilesRes] = await Promise.all([
     timesheetIds.length > 0
@@ -101,6 +101,9 @@ export default async function OvertimePage({
       ...r,
       profiles: profileMap.get(r.profile_id) ?? null,
       timesheets: timesheetMap.get(r.timesheet_id) ?? null,
+      // TV3: who the worker sent it to, and who decided it
+      approverName: (profileMap.get(r.supervisor_id) as any)?.name ?? null,
+      deciderName: (profileMap.get(r.decided_by) as any)?.name ?? null,
     }
   }
 
@@ -136,7 +139,12 @@ export default async function OvertimePage({
         pendingCount={pending.length}
         reviewedCount={recent.length}
       />
-      <OvertimeClient pending={pending} recent={recent} view={view} />
+      {!viewer.overtimeApprover && (
+        <div className="rounded-2xl px-5 py-3 text-sm mb-5" style={{ background: '#FAF9F6', border: '1px solid #ECEAE4', color: '#76716A' }}>
+          View only — overtime is approved or rejected by the named approvers (Robbie, Mitch, Chris, Terry). Admins can change who approves in Employees → Edit.
+        </div>
+      )}
+      <OvertimeClient pending={pending} recent={recent} view={view} canApprove={viewer.overtimeApprover} />
     </div>
   )
 }
