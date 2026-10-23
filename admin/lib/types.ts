@@ -3,7 +3,7 @@ export type WorkLocation = 'site' | 'workshop'
 export type OvertimeStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type TimesheetStatus = 'submitted' | 'approved' | 'rejected' | 'locked'
 export type PayrollStatus = 'draft' | 'reviewed' | 'approved' | 'exported'
-export type XeroSyncStatus = 'not_synced' | 'pending' | 'success' | 'failed'
+export type XeroSyncStatus = 'not_synced' | 'pending' | 'success' | 'partial' | 'failed'
 export type EmploymentType = 'full_time' | 'part_time' | 'casual' | 'contractor' | 'labour_hire'
 export type EntityStatus = 'active' | 'archived'
 

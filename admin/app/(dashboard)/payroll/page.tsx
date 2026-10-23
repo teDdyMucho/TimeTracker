@@ -50,7 +50,7 @@ export default async function PayrollPage({
     adminClient
       .from('payroll_runs')
       .select(
-        'id, period_start, period_end, status, xero_sync_status, created_at, business_entity_id, payroll_entries(profile_id, band_hours, gross_pay)',
+        'id, period_start, period_end, status, xero_sync_status, xero_sync_note, xero_synced_at, created_at, business_entity_id, payroll_entries(profile_id, band_hours, gross_pay)',
       )
       .order('period_end', { ascending: false }),
     supabase
@@ -127,7 +127,18 @@ export default async function PayrollPage({
                     {totalGross > 0 ? `$${totalGross.toLocaleString('en-AU', { minimumFractionDigits: 2 })}` : <span className="text-muted font-normal">—</span>}
                   </td>
                   <td className="py-3 pr-4"><Badge status={r.status} /></td>
-                  <td className="py-3 pr-4"><Badge status={r.xero_sync_status} /></td>
+                  <td className="py-3 pr-4 align-top">
+                    <Badge status={r.xero_sync_status} />
+                    {/* The real outcome of the last push (0033): who was left out and why, or what went through. */}
+                    {r.xero_sync_note && (
+                      <p
+                        title={r.xero_sync_note}
+                        className={`mt-1 max-w-[260px] text-[11px] leading-snug ${r.xero_sync_status === 'success' ? 'text-muted' : 'text-amber-700'}`}
+                      >
+                        {r.xero_sync_note.length > 140 ? r.xero_sync_note.slice(0, 137) + '…' : r.xero_sync_note}
+                      </p>
+                    )}
+                  </td>
                   <td className="py-3">
                     <div className="flex gap-1.5 items-center justify-end flex-nowrap">
                       <Link

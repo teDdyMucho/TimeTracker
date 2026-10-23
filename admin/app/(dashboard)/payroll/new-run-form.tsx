@@ -37,8 +37,8 @@ export default function NewPayrollRunForm({
     <>
       <Button label="+ New pay run" onClick={() => setOpen(true)} />
       {open && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="glass-panel rounded-2xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="glass-panel rounded-2xl p-6 w-full max-w-md my-auto">
             <h2 className="text-lg font-bold text-ink mb-1">Generate Pay Run</h2>
             <p className="text-muted text-sm mb-5">
               Aggregates each employee&rsquo;s approved hours for the period into pay bands

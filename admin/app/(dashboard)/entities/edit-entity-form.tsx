@@ -29,12 +29,12 @@ export default function EditEntityForm({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto"
       style={{ background: 'rgba(2,6,23,0.55)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div
-        className="glass-panel rounded-3xl w-full max-w-md animate-scale-in"
+        className="glass-panel rounded-3xl w-full max-w-md animate-scale-in my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

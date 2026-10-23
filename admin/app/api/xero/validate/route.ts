@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (me?.role !== 'admin') return NextResponse.json({ error: 'admin_only' }, { status: 403 })
+  const { data: me } = await supabase.from('profiles').select('role, portal_admin').eq('id', user.id).maybeSingle()
+  if (!(me?.role === 'admin' || me?.portal_admin === true)) return NextResponse.json({ error: 'admin_only' }, { status: 403 })
 
   const runId = req.nextUrl.searchParams.get('run')
   if (!runId) return NextResponse.json({ error: 'missing_params', hint: 'Pass ?run=<id>.' }, { status: 400 })

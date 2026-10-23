@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/server'
  */
 export async function notifyAdmins(type: string, title: string, body: string): Promise<void> {
   const admin = createAdminClient()
-  const { data: admins } = await admin.from('profiles').select('id').eq('role', 'admin').eq('status', 'active')
+  const { data: admins } = await admin.from('profiles').select('id').or('role.eq.admin,portal_admin.eq.true').eq('status', 'active')
   const rows = (admins ?? []).map((a: any) => ({ profile_id: a.id, type, title, body }))
   if (rows.length === 0) return
   await admin.from('notifications').insert(rows)

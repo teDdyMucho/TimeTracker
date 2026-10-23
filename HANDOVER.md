@@ -77,14 +77,18 @@ Source code: GitHub `teDdyMucho/TimeTracker` (monorepo: `admin/`, `mobile/`, `su
 | --- | --- |
 | Pay run shows $0 for someone | Employees → that person has no hourly rate |
 | Hours missing from a pay run | Attendance must be **approved**; then Recalculate the run |
-| "No matching employee" on Xero push | Name or email differs between Timevera and Xero payroll |
-| Xero push failed | Admin bell shows the reason; Entities → Reconnect Xero if the token expired; `/xero` lists live employees and earnings rates |
+| "Not in … Xero payroll" on Xero push | Name or email differs between Timevera and that company's Xero payroll, or the person is not on any Xero payroll (a director). Add them in Xero, or untick **Paid through Xero payroll** on their profile so the push skips them. |
+| Xero push said "This timesheet already exists" (before 24 Oct 2026) | Fixed: the push now looks up what Xero already holds per employee and period — drafts are updated in place, approved/paid timesheets are left alone (flagged only if the hours differ), leave is not filed twice. Just push again. `?dryRun=1` on the push route shows the plan without writing. |
+| Xero column says **Partly sent** | Most people went through; the note under the badge names who was left out and why (usually "Not in … Xero payroll"). Fix that person (add in Xero, or untick Paid through Xero payroll) and push again — nothing is duplicated. The run only becomes Exported when everyone is through. |
+| Xero push failed | Nothing was sent; the note under the badge (and the admin bell) gives the reason. Entities → Reconnect Xero if the token expired; `/xero` lists live employees and earnings rates |
+| An admin form cannot be saved / the Save button is off-screen | Fixed 24 Oct 2026: every modal scrolls inside the overlay. If it recurs on a new form, give the overlay `overflow-y-auto` and the panel `my-auto`. |
 | Xero push says "hours no longer match the approved attendance" | Attendance was approved (or pay rules changed) after the run was created. Recalculate the run, check it, push again. The push always sends what the run page shows. |
 | Worker's phone shows a red "could not be sent" card | The server refused a queued clock-in/out (for example a constraint). The hours are not in the system: add them with Attendance → Add attendance, then the worker taps Dismiss. |
 | Worker gets "Already clocked in" with no signal | The phone still holds an open session from earlier (or a queued clock-in). They should clock out on Home first; if the session was closed elsewhere, pull down on Home once they have signal. |
 | Worker was clocked out at 3:06 pm but really worked late | They had no overtime request in for that session. Attendance → Edit the session's clock-out time; the row shows an "auto" marker. Next time they tap "Overtime today?" → Send request before 3:06 pm. |
 | Approver did not get the overtime push | The approver must have the app installed and signed in (push token on their profile) with notifications on; the push carries Approve / Reject buttons. Overtime pushes are the only ones sent at weekends. The request is also on the Overtime page and the app's Approvals screen. |
 | Someone cannot approve overtime on the Overtime page | Only people with "Can approve overtime" ticked (Employees → Edit) decide; everyone else sees the page read-only. |
+| Someone needs full dashboard access but must stay on the employee list | Set `profiles.portal_admin = true` for them (SQL Editor; shown as the "Dashboard admin" badge on Employees). `is_admin()` and every dashboard gate honour it; their role, pay and app stay as they are. Changing `role` to admin instead would drop them from pay runs and the pickers. |
 | A pay run looks short for someone | Overtime awaiting approval is listed on the run but not paid. Approve it on the Overtime page, then Recalculate the run. |
 | Worker stuck on the selfie step | Fixed in 7.5 (no GPS fix no longer blocks); ask them to update |
 | Worker's hours "saved on phone" | Offline mode (7.6): they sync when the phone is back online; the Home banner has Sync now |

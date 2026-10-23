@@ -20,6 +20,10 @@ interface Profile {
   overtime_approver?: boolean
   flat_rate?: boolean
   supervisor_id?: string | null
+  /** false = not on any Xero payroll; the Xero push skips them. */
+  xero_payroll?: boolean
+  /** Full dashboard (admin) access while staying an employee / supervisor. */
+  portal_admin?: boolean
 }
 
 interface Props {
@@ -112,6 +116,11 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                   <td className="py-3 pr-4 text-muted">{p.email}</td>
                   <td className="py-3 pr-4 whitespace-nowrap">
                     <Badge status={p.role} />
+                    {p.portal_admin && (
+                      <span title="Full administrator access to this dashboard, while keeping their employee profile" className="ml-2 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 align-middle">
+                        Dashboard admin
+                      </span>
+                    )}
                     {p.overtime_approver && (
                       <span title="Can approve or reject overtime requests" className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink align-middle">
                         OT approver
@@ -143,6 +152,11 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                     {p.employer_entity_id && entityMap[p.employer_entity_id]
                       ? <span className="font-semibold text-ink">{entityMap[p.employer_entity_id]}</span>
                       : <span className="text-amber-600 font-semibold">No employer</span>}
+                    {p.xero_payroll === false && (
+                      <span title="Not on any Xero payroll — the Xero push skips this person" className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted align-middle">
+                        Not via Xero
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 pr-4 text-muted text-xs">
                     {entitiesLabel(p, entityMap)}

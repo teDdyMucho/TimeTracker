@@ -26,11 +26,11 @@ export async function getViewer(): Promise<Viewer> {
   const admin = createAdminClient()
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, name, email, role, overtime_approver')
+    .select('id, name, email, role, overtime_approver, portal_admin')
     .eq('id', user.id)
     .maybeSingle()
 
-  const role: ViewerRole = profile?.role === 'supervisor' ? 'supervisor' : 'admin'
+  const role: ViewerRole = profile?.role === 'supervisor' && !profile?.portal_admin ? 'supervisor' : 'admin' // portal_admin: full admin while keeping an employee/supervisor profile
   let teamIds: string[] | null = null
   if (role === 'supervisor') {
     const { data: team } = await admin.from('profiles').select('id').eq('supervisor_id', user.id)

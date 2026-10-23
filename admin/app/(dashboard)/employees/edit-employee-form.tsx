@@ -18,6 +18,8 @@ interface Props {
     supervisor_id?: string | null
     employer_entity_id?: string | null
     overtime_approver?: boolean
+    xero_payroll?: boolean
+    portal_admin?: boolean
   }
   entities: BusinessEntity[]
   supervisors?: { id: string; name: string }[]
@@ -35,6 +37,7 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
   const [flatRate, setFlatRate] = useState(employee.flat_rate ?? false)
   const [employer, setEmployer] = useState(employee.employer_entity_id ?? '')
   const [approver, setApprover] = useState(employee.overtime_approver ?? false)
+  const [xeroPayroll, setXeroPayroll] = useState(employee.xero_payroll !== false)
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const prevPendingRef = useRef(false)
@@ -67,8 +70,8 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm my-auto">
         <h2 className="text-lg font-bold text-ink mb-1">Edit Employee</h2>
         <p className="text-muted text-sm mb-5">{employee.name}</p>
 
@@ -197,6 +200,25 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
               <span className="block text-xs text-muted mt-0.5">
                 Every hour is paid at the rate above. Overtime, weekend and public-holiday
                 rates are not applied.
+              </span>
+            </span>
+          </label>
+
+          {/* Xero: directors and anyone paid outside Xero must not block the
+              payroll push ("Not in Xero payroll" used to fail the whole run). */}
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="xero_payroll"
+              checked={xeroPayroll}
+              onChange={(e) => setXeroPayroll(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-brand cursor-pointer"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">Paid through Xero payroll</span>
+              <span className="block text-xs text-muted mt-0.5">
+                Untick for a director or anyone not on a Xero payroll: the Xero push then skips them instead of failing. Their hours still count against projects.
               </span>
             </span>
           </label>

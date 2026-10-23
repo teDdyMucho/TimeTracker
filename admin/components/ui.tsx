@@ -115,6 +115,7 @@ const BADGE_STYLES: Record<string, string> = {
   finalised:  'bg-brand/10   text-brand',
   paid:       'bg-brand/10   text-brand',
   failed:     'bg-red-50     text-red-700',
+  partial:    'bg-amber-50   text-amber-700',
   success:    'bg-brand/10   text-brand',
   not_synced: 'bg-stone      text-faint',
   active:     'bg-brand/10   text-brand',
@@ -128,8 +129,13 @@ const BADGE_STYLES: Record<string, string> = {
   labour_hire: 'bg-teal-50    text-teal-700',
 }
 
+const BADGE_LABELS: Record<string, string> = {
+  partial: 'Partly sent',
+  success: 'Synced',
+}
+
 export function Badge({ status }: { status: string }) {
-  const display = status.replace(/_/g, ' ')
+  const display = BADGE_LABELS[status] ?? status.replace(/_/g, ' ')
   return (
     <span
       className={clsx(
@@ -301,12 +307,12 @@ export function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto"
       style={{ background: 'rgba(31,29,26,0.50)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-modal animate-scale-in"
+        className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-modal animate-scale-in my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

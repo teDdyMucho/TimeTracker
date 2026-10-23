@@ -144,6 +144,8 @@ export async function updateEmployeeAction(
   const employer_entity_id = employerRaw || entityIds[0] || null
   if (employer_entity_id && !entityIds.includes(employer_entity_id)) return 'The employer must be one of the companies the employee can clock into.'
   const overtime_approver = formData.get('overtime_approver') === 'on'
+  // Xero: unticked = not on any Xero payroll (director etc.) → the push skips them.
+  const xero_payroll = formData.get('xero_payroll') === 'on'
 
   const adminClient = createAdminClient()
 
@@ -159,7 +161,7 @@ export async function updateEmployeeAction(
 
   const { error } = await adminClient
     .from('profiles')
-    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id, employer_entity_id, overtime_approver })
+    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id, employer_entity_id, overtime_approver, xero_payroll })
     .eq('id', id)
 
   if (error) return error.message

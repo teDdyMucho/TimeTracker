@@ -10,6 +10,9 @@ import {
   fetchTimesheetTracking,
   fetchXeroPayCalendars,
   fetchXeroEmployeeCalendarId,
+  fetchXeroTimesheets,
+  fetchXeroLeaveApplications,
+  decideExistingTimesheet,
   alignToOneCalendar,
   matchEarningsRateId,
   matchLeaveTypeId,
@@ -53,12 +56,15 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (me?.role !== 'admin') return NextResponse.json({ error: 'admin_only' }, { status: 403 })
+  const { data: me } = await supabase.from('profiles').select('role, portal_admin').eq('id', user.id).maybeSingle()
+  if (!(me?.role === 'admin' || me?.portal_admin === true)) return NextResponse.json({ error: 'admin_only' }, { status: 403 })
 
   const admin = createAdminClient()
   const sp = req.nextUrl.searchParams
   const runId = sp.get('run')
+  // ?dryRun=1 — do every read and decision but write nothing to Xero or the run
+  // (used to check what a push WOULD do: create / update / keep / skip).
+  const dryRun = sp.get('dryRun') === '1'
   let entityId = sp.get('entity') ?? ''
   let from = sp.get('from') ?? ''
   let to = sp.get('to') ?? ''
@@ -87,12 +93,14 @@ export async function POST(req: NextRequest) {
 
   // PRD §16 sync status: mark the run pending while we talk to Xero, then
   // success / failed below. Any thrown error also lands as 'failed'.
-  const setSync = async (status: 'pending' | 'success' | 'failed', exported = false) => {
+  // The outcome is recorded ON the run (xero_sync_note, 0033) so the pay-run
+  // list says why a push is "Partly sent" or "Failed", not just the word.
+  const setSync = async (status: 'pending' | 'success' | 'partial' | 'failed', exported = false, note?: string) => {
     if (!runId) return
-    await admin
-      .from('payroll_runs')
-      .update(exported ? { xero_sync_status: status, status: 'exported' } : { xero_sync_status: status })
-      .eq('id', runId)
+    const patch: Record<string, unknown> = { xero_sync_status: status }
+    if (exported) patch.status = 'exported'
+    if (note !== undefined) { patch.xero_sync_note = note.slice(0, 2000); patch.xero_synced_at = new Date().toISOString() }
+    await admin.from('payroll_runs').update(patch).eq('id', runId)
   }
   // 1. Aggregate our timesheet hours into per-employee pay bands. overtime_status
   //    feeds the entity's "overtime must be approved" rule (PRD §10). Rows from
@@ -100,7 +108,7 @@ export async function POST(req: NextRequest) {
   //    only this entity's rows contribute hours (see aggregateEmployeeBandsByDay).
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id)')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id, xero_payroll)')
     .eq('profiles.status', 'active') // deactivated staff are never pushed
     .gte('work_date', from).lte('work_date', to)
     .eq('status', 'approved') // only approved attendance is paid
@@ -112,6 +120,12 @@ export async function POST(req: NextRequest) {
   // overtime/weekend lines for them.
   const flatRateIds = new Set(
     ((tsRows ?? []) as any[]).filter((r) => r.profiles?.flat_rate).map((r) => r.profile_id as string),
+  )
+  // People not paid through Xero (directors, anyone paid another way): their
+  // hours still cost the project, but the push lists them as skipped instead
+  // of failing the whole run because Xero has no such employee.
+  const notOnXero = new Set(
+    ((tsRows ?? []) as any[]).filter((r) => r.profiles?.xero_payroll === false).map((r) => r.profile_id as string),
   )
   // TV6: an employee's hours go to their EMPLOYER's Xero payroll, whichever company's project they worked on.
   const employees = aggregateEmployeeBandsByDay((tsRows ?? []) as any, holidays, normalizePayConfig(entity.pay_config), flatRateIds, { entityId: entity.id, employerOf: employerMap((tsRows ?? []) as any) })
@@ -142,17 +156,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const failRun = async (reason: string) => {
-    await setSync('failed')
+  // 'partial' = some people went through and some did not (the run keeps its
+  // draft status; push again after fixing the reasons). 'failed' = nothing sent.
+  const failRun = async (reason: string, status: 'failed' | 'partial' = 'failed') => {
+    await setSync(status, false, reason)
     // PRD §18 admin notification: "Failed Xero Sync".
-    const { data: admins } = await admin.from('profiles').select('id').eq('role', 'admin').eq('status', 'active')
+    const { data: admins } = await admin.from('profiles').select('id').or('role.eq.admin,portal_admin.eq.true').eq('status', 'active')
     const rows = (admins ?? []).map((a: any) => ({
-      profile_id: a.id, type: 'xero_sync_failed', title: `Xero push failed — ${entity.name}`,
+      profile_id: a.id, type: 'xero_sync_failed',
+      title: `${status === 'partial' ? 'Xero push partly sent' : 'Xero push failed'} — ${entity.name}`,
       body: `${from} – ${to}: ${reason}`.slice(0, 500),
     }))
     if (rows.length) await admin.from('notifications').insert(rows)
   }
-  await setSync('pending')
+  if (!dryRun) await setSync('pending')
 
   try {
   // 2. Pull Xero employees + earnings rates + (if required) job tracking + calendars.
@@ -186,9 +203,13 @@ export async function POST(req: NextRequest) {
   let lastXeroTo = to
 
   for (const emp of employees) {
+    if (notOnXero.has(emp.profileId)) {
+      results.push({ employee: emp.name, ok: true, action: 'skipped', note: 'Not paid through Xero payroll (Employees → Edit → "Paid through Xero payroll").' })
+      continue
+    }
     const xe = (emp.email && byEmail.get(emp.email.toLowerCase())) || byName.get(emp.name.toLowerCase())
     if (!xe) {
-      results.push({ employee: emp.name, ok: false, reason: `Not in ${entity.name}'s Xero payroll — add them in Xero with the same name or email.` })
+      results.push({ employee: emp.name, ok: false, reason: `Not in ${entity.name}'s Xero payroll — add them in Xero with the same name or email, or untick "Paid through Xero payroll" on their profile if they are paid another way.` })
       continue
     }
 
@@ -241,8 +262,44 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // Idempotent push: look at what Xero already holds for this employee and
+    // period. A draft from an earlier (partly failed) push is UPDATED in place;
+    // a timesheet the client has already approved or paid is left alone and
+    // counts as done when the hours agree. This is what used to fail with
+    // "This timesheet already exists, please provide the timesheet ID".
+    const ourHours = Math.round(lines.reduce((a, l) => a + l.numberOfUnits.reduce((x, y) => x + y, 0), 0) * 100) / 100
+    const existing = await fetchXeroTimesheets(token, entity.xero_tenant_id, xe.id)
+    const decision = decideExistingTimesheet(existing, { startDate: xeroFrom, endDate: xeroTo }, ourHours)
+    if (decision.action === 'keep') {
+      const label = decision.status === 'PROCESSED' ? 'already paid in Xero' : 'already approved in Xero'
+      if (decision.status === 'PROCESSED') {
+        // Paid: Xero will not change it, so it never blocks the run. A
+        // difference is shown as a warning for the next Xero pay run.
+        results.push({
+          employee: emp.name, ok: true, action: 'paid', unmapped: unmapped.length ? unmapped : undefined,
+          note: `${label} (${decision.xeroHours} h) — not changed.`,
+          warning: decision.mismatch ? `This run has ${ourHours} h but Xero paid ${decision.xeroHours} h — adjust the difference in the next Xero pay run.` : undefined,
+        })
+      } else if (decision.mismatch) {
+        // Approved but not yet paid: the client can still revert it to draft in Xero.
+        results.push({
+          employee: emp.name, ok: false, action: 'mismatch', status: decision.status,
+          reason: `${label} with ${decision.xeroHours} h, but this run has ${ourHours} h. Revert it to draft in Xero and push again, or accept the Xero figure.`,
+        })
+      } else {
+        results.push({ employee: emp.name, ok: true, action: 'approved', note: `${label} (${decision.xeroHours} h) — not changed.`, unmapped: unmapped.length ? unmapped : undefined })
+      }
+      continue
+    }
+    const timesheetId = decision.action === 'update' ? decision.timesheetId : null
+    const actionLabel = timesheetId ? 'updated' : 'created'
+    if (dryRun) {
+      results.push({ employee: emp.name, ok: true, action: `would be ${actionLabel}`, note: `${ourHours} h, ${xeroFrom} – ${xeroTo}`, unmapped: unmapped.length ? unmapped : undefined })
+      continue
+    }
+
     const post = (trackingItemId: string | null) => postXeroTimesheet(token, entity.xero_tenant_id, {
-      employeeId: xe.id, startDate: xeroFrom, endDate: xeroTo,
+      employeeId: xe.id, startDate: xeroFrom, endDate: xeroTo, timesheetId,
       lines: lines.map((l) => ({ ...l, trackingItemId })),
     })
     let res = await post(defaultTrackingId)
@@ -260,6 +317,8 @@ export async function POST(req: NextRequest) {
     results.push({
       employee: emp.name,
       ok: res.ok,
+      action: res.ok ? actionLabel : undefined,
+      note: res.ok ? `${ourHours} h as a draft, ${xeroFrom} – ${xeroTo}` : undefined,
       status: res.status,
       unmapped: unmapped.length ? unmapped : undefined,
       error: res.ok ? undefined : xeroErrorText(res.body),
@@ -285,6 +344,17 @@ export async function POST(req: NextRequest) {
       if (!xe) { leaveResults.push({ employee: name, ok: false, reason: 'No matching Xero employee.' }); continue }
       const leaveTypeId = matchLeaveTypeId(l.leave_type, leaveTypes)
       if (!leaveTypeId) { leaveResults.push({ employee: name, ok: false, reason: `No Xero leave type for "${l.leave_type}".` }); continue }
+      // Already filed by an earlier push → do not file it twice.
+      const filed = await fetchXeroLeaveApplications(token, entity.xero_tenant_id, xe.id)
+      const dup = filed.find((f) => f.leaveTypeId === leaveTypeId && f.startDate === l.start_date && f.endDate === l.end_date)
+      if (dup) {
+        leaveResults.push({ employee: name, leaveType: l.leave_type, dates: l.start_date === l.end_date ? l.start_date : `${l.start_date} – ${l.end_date}`, ok: true, action: 'already in Xero' })
+        continue
+      }
+      if (dryRun) {
+        leaveResults.push({ employee: name, leaveType: l.leave_type, dates: l.start_date === l.end_date ? l.start_date : `${l.start_date} – ${l.end_date}`, ok: true, action: 'would be filed' })
+        continue
+      }
       const lr = await postXeroLeave(token, entity.xero_tenant_id, {
         employeeId: xe.id, leaveTypeId,
         title: LEAVE_TITLES[l.leave_type] ?? 'Leave',
@@ -302,24 +372,45 @@ export async function POST(req: NextRequest) {
 
   // Record the outcome on the run (PRD §16): every employee pushed → success and
   // the run becomes "exported"; anything else → failed, with an admin alert.
-  if (results.length > 0 && pushed === results.length) {
-    await setSync('success', true)
+  const failed = results.filter((r) => !r.ok).map((r) => `${r.employee}: ${r.reason ?? (typeof r.error === 'string' ? r.error : 'error')}`)
+  const sent = results.filter((r) => r.ok && (r.action === 'created' || r.action === 'updated')).length
+  // Plain-English summary stored on the run: what happened to whom.
+  const countBy = (a: string) => results.filter((r) => r.ok && r.action === a).length
+  const parts = [
+    countBy('created') && `${countBy('created')} sent`,
+    countBy('updated') && `${countBy('updated')} updated`,
+    countBy('approved') && `${countBy('approved')} already approved in Xero`,
+    countBy('paid') && `${countBy('paid')} already paid in Xero${results.some((r) => r.action === 'paid' && r.warning) ? ` (${results.filter((r) => r.action === 'paid' && r.warning).length} with different hours — see the push result)` : ''}`,
+    countBy('skipped') && `${countBy('skipped')} not paid through Xero`,
+  ].filter(Boolean) as string[]
+  const summary = parts.length ? parts.join(', ') : 'nothing to send'
+  if (dryRun) {
+    // Nothing was written; just report the plan.
+  } else if (results.length > 0 && pushed === results.length) {
+    await setSync('success', true, `${pushed} of ${results.length} employees: ${summary}.`)
+  } else if (pushed > 0) {
+    await failRun(`${failed.length} of ${results.length} employees failed — ${failed.join('; ')}. Went through: ${summary}.`, 'partial')
   } else {
-    const failed = results.filter((r) => !r.ok).map((r) => `${r.employee}: ${r.reason ?? (typeof r.error === 'string' ? r.error : 'error')}`)
     await failRun(results.length === 0 ? 'No employees with approved hours to push.' : `${failed.length} of ${results.length} employees failed — ${failed.join('; ')}`)
   }
+  const note = dryRun
+    ? 'Dry run — nothing was sent to Xero. This is what a push would do.'
+    : results.length > 0 && pushed === results.length
+      ? (sent > 0
+          ? 'Done. New or updated timesheets are drafts in Xero — review and approve them there, then run payroll. Timesheets already approved or paid in Xero were left as they are.'
+          : 'Done. Every timesheet for this period was already approved or paid in Xero, so nothing needed sending.')
+      : `${failed.length} of ${results.length} employees could not be pushed — see the reasons below, fix them, then push again (what already went through is kept, not duplicated).`
 
   return NextResponse.json({
     entity: entity.name,
     period: { from, to },
     xeroPeriod: { from: lastXeroFrom, to: lastXeroTo },
+    dryRun,
     pushed,
     total: results.length,
     leavePushed,
     leaveTotal: leaveResults.length,
-    note: pushed > 0 || leavePushed > 0
-      ? 'Sent to Xero as drafts. Review and approve the timesheets in Xero, then run payroll — hours and leave will appear on the payslips.'
-      : 'Nothing pushed. See per-employee reasons below.',
+    note,
     results,
     leaveResults,
   })

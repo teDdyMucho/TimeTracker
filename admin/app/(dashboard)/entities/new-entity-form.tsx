@@ -53,8 +53,8 @@ export default function NewEntityForm() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm my-auto">
         <h2 className="text-lg font-bold text-ink mb-5">Add Business Entity</h2>
 
         <form

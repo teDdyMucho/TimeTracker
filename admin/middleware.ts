@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, status')
+    .select('role, status, portal_admin')
     .eq('id', user.id)
     .single()
 
@@ -68,7 +68,8 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  const role = profile?.role
+  // A flagged dashboard administrator (portal_admin, 0032/portal-admin SQL) acts as an admin whatever their role.
+  const role = profile?.portal_admin ? 'admin' : profile?.role
   if (!profile || (role !== 'admin' && role !== 'supervisor')) {
     // No readable profile, or not a portal role: sign out with a clear message
     return NextResponse.redirect(

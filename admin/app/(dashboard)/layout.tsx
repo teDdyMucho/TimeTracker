@@ -14,11 +14,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, role')
+    .select('name, role, portal_admin')
     .eq('id', user?.id ?? '')
     .maybeSingle()
 
-  const role: 'admin' | 'supervisor' = profile?.role === 'supervisor' ? 'supervisor' : 'admin'
+  const role: 'admin' | 'supervisor' = profile?.role === 'supervisor' && !profile?.portal_admin ? 'supervisor' : 'admin'
 
   return (
     <AppShell

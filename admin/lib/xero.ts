@@ -355,11 +355,15 @@ export interface XeroTimesheetLine { earningsRateId: string; numberOfUnits: numb
 export async function postXeroTimesheet(
   token: string,
   tenantId: string,
-  input: { employeeId: string; startDate: string; endDate: string; lines: XeroTimesheetLine[] },
+  input: { employeeId: string; startDate: string; endDate: string; lines: XeroTimesheetLine[]; timesheetId?: string | null },
 ): Promise<{ ok: boolean; status: number; body: any }> {
   // Xero AU Timesheets expects a JSON ARRAY at the top level, not an object.
   const payload = [
     {
+      // With a TimesheetID Xero UPDATES that timesheet (replacing its lines)
+      // instead of creating a second one — a re-push after a partial failure
+      // used to fail with "This timesheet already exists".
+      ...(input.timesheetId ? { TimesheetID: input.timesheetId } : {}),
       EmployeeID: input.employeeId,
       StartDate: input.startDate,
       EndDate: input.endDate,
@@ -388,6 +392,95 @@ export async function postXeroTimesheet(
   let body: any = text
   try { body = JSON.parse(text) } catch { /* keep text */ }
   return { ok: res.ok, status: res.status, body }
+}
+
+export interface XeroExistingTimesheet {
+  id: string
+  employeeId: string
+  startDate: string
+  endDate: string
+  /** DRAFT | REQUESTED | REJECTED | APPROVED | PROCESSED */
+  status: string
+  hours: number
+}
+
+/**
+ * Timesheets already in Xero for one employee (any period). Used to make the
+ * push idempotent: a re-push updates the existing draft instead of creating a
+ * duplicate, and an already-approved or already-paid timesheet is left alone.
+ */
+export async function fetchXeroTimesheets(token: string, tenantId: string, employeeId: string): Promise<XeroExistingTimesheet[]> {
+  const out: XeroExistingTimesheet[] = []
+  const pageOf = async (page: number, filtered: boolean) => {
+    const where = filtered ? `&where=${encodeURIComponent(`EmployeeID==Guid("${employeeId}")`)}` : ''
+    const body = await xeroApiGet(`https://api.xero.com/payroll.xro/1.0/Timesheets?page=${page}${where}`, token, tenantId)
+    return (body?.Timesheets ?? []) as any[]
+  }
+  // Filter server-side when Xero accepts it; otherwise page through everything
+  // and keep this employee's rows (same result, a few more requests).
+  let filtered = true
+  for (let page = 1; page <= 20; page++) {
+    let rows: any[]
+    try {
+      rows = await pageOf(page, filtered)
+    } catch (e) {
+      if (!filtered || page > 1) throw e
+      filtered = false
+      rows = await pageOf(page, false)
+    }
+    for (const t of rows) {
+      if (t.EmployeeID !== employeeId) continue
+      out.push({
+        id: t.TimesheetID,
+        employeeId: t.EmployeeID,
+        startDate: parseXeroDate(t.StartDate) ?? '',
+        endDate: parseXeroDate(t.EndDate) ?? '',
+        status: String(t.Status ?? '').toUpperCase(),
+        hours: Number(t.Hours ?? 0),
+      })
+    }
+    if (rows.length < 100) break
+  }
+  return out
+}
+
+export type ExistingTimesheetDecision =
+  | { action: 'create' }
+  | { action: 'update'; timesheetId: string }
+  | { action: 'keep'; timesheetId: string; status: string; xeroHours: number; mismatch: boolean }
+
+/**
+ * What to do when Xero may already hold a timesheet for this employee and
+ * period. Drafts (and requested / rejected ones) are updated in place;
+ * approved or processed (paid) ones are never touched — they count as done
+ * when the hours agree, and are reported as a mismatch otherwise.
+ */
+export function decideExistingTimesheet(
+  existing: XeroExistingTimesheet[],
+  period: { startDate: string; endDate: string },
+  ourHours: number,
+): ExistingTimesheetDecision {
+  const hit = existing.find((t) => t.startDate === period.startDate && t.endDate === period.endDate)
+  if (!hit) return { action: 'create' }
+  if (hit.status === 'APPROVED' || hit.status === 'PROCESSED') {
+    return { action: 'keep', timesheetId: hit.id, status: hit.status, xeroHours: hit.hours, mismatch: Math.abs(hit.hours - ourHours) > 0.011 }
+  }
+  return { action: 'update', timesheetId: hit.id }
+}
+
+/**
+ * Leave applications already in Xero for one employee, so a re-push does not
+ * file the same leave twice.
+ */
+export async function fetchXeroLeaveApplications(token: string, tenantId: string, employeeId: string): Promise<{ id: string; leaveTypeId: string; startDate: string; endDate: string }[]> {
+  const url = `https://api.xero.com/payroll.xro/1.0/LeaveApplications?where=${encodeURIComponent(`EmployeeID==Guid("${employeeId}")`)}`
+  const body = await xeroApiGet(url, token, tenantId)
+  return ((body?.LeaveApplications ?? []) as any[]).map((l) => ({
+    id: l.LeaveApplicationID,
+    leaveTypeId: l.LeaveTypeID,
+    startDate: parseXeroDate(l.StartDate) ?? '',
+    endDate: parseXeroDate(l.EndDate) ?? '',
+  }))
 }
 
 /** Get the list of orgs (tenants) this token can access. */

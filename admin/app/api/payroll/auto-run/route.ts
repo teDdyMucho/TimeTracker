@@ -42,10 +42,10 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: me } = await supabase.from('profiles').select('role, status').eq('id', user.id).maybeSingle()
+      const { data: me } = await supabase.from('profiles').select('role, status, portal_admin').eq('id', user.id).maybeSingle()
       const hasFactor = (user.factors ?? []).some((f) => f.status === 'verified')
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      authorised = me?.role === 'admin' && me?.status === 'active' && (!hasFactor || aal?.currentLevel === 'aal2')
+      authorised = (me?.role === 'admin' || me?.portal_admin === true) && me?.status === 'active' && (!hasFactor || aal?.currentLevel === 'aal2')
       manual = authorised
     }
   }

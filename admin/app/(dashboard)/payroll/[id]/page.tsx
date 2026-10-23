@@ -22,7 +22,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const { data: run } = await admin
     .from('payroll_runs')
     .select(
-      'id, period_start, period_end, status, xero_sync_status, business_entity_id, business_entities(name, xero_tenant_id), payroll_entries(profile_id, band_hours, allowances, gross_pay, profiles(name, email))',
+      'id, period_start, period_end, status, xero_sync_status, xero_sync_note, xero_synced_at, business_entity_id, business_entities(name, xero_tenant_id), payroll_entries(profile_id, band_hours, allowances, gross_pay, profiles(name, email))',
     )
     .eq('id', id)
     .maybeSingle()
@@ -63,6 +63,15 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
           <p className="text-sm mt-1" style={{ color: '#8A857C' }}>
             {(run as any).period_start} → {(run as any).period_end} · {entries.length} employee{entries.length !== 1 ? 's' : ''}
           </p>
+          {/* Outcome of the last Xero push (0033): the real reason, not just a status word. */}
+          {(run as any).xero_sync_note && (
+            <p className="text-xs mt-2 max-w-2xl leading-snug" style={{ color: (run as any).xero_sync_status === 'success' ? '#8A857C' : '#B45309' }}>
+              <span className="font-semibold">
+                Xero {(run as any).xero_sync_status === 'success' ? 'synced' : (run as any).xero_sync_status === 'partial' ? 'partly sent' : 'push failed'}
+              </span>
+              {(run as any).xero_synced_at ? ` (${new Date((run as any).xero_synced_at).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })})` : ''}: {(run as any).xero_sync_note}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <RecalculateRunButton

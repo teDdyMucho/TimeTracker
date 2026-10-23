@@ -27,8 +27,8 @@ export default function HolidayForm() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="glass-panel rounded-2xl p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="glass-panel rounded-2xl p-6 w-full max-w-md my-auto">
         <h2 className="text-lg font-bold text-ink mb-1">Add public holiday</h2>
         <p className="text-muted text-sm mb-5">
           Hours worked on this date are paid at the public-holiday rate for every entity.

@@ -57,6 +57,7 @@ export default function PushToXeroButton({ runId }: { runId: string }) {
               This sends each employee&rsquo;s <strong>worked hours</strong> and any approved <strong>leave</strong> to Xero
               for this period. The timesheets arrive as <strong>drafts</strong> — your team reviews and approves them in Xero,
               then runs payroll and the hours &amp; leave appear on the payslips. Nothing is approved or posted automatically.
+              Pushing again is safe: drafts already in Xero are updated, and timesheets you have approved or paid there are left alone.
             </p>
             <div className="flex gap-3">
               <button
@@ -93,8 +94,10 @@ export default function PushToXeroButton({ runId }: { runId: string }) {
             ) : (
               <>
                 <div className="flex items-center gap-2 mb-1">
-                  {(result.pushed > 0 || result.leavePushed > 0) ? <CheckCircle className="text-brand" size={22} /> : <XCircle className="text-amber-500" size={22} />}
-                  <h3 className="text-lg font-bold text-ink">Pushed to Xero</h3>
+                  {(result.total > 0 && result.pushed === result.total) ? <CheckCircle className="text-brand" size={22} /> : <XCircle className="text-amber-500" size={22} />}
+                  <h3 className="text-lg font-bold text-ink">
+                    {result.dryRun ? 'Xero push — dry run' : (result.total > 0 && result.pushed === result.total) ? 'Pushed to Xero' : 'Push incomplete'}
+                  </h3>
                 </div>
                 <p className="text-xs text-muted mb-4">{result.note}</p>
 
@@ -109,8 +112,15 @@ export default function PushToXeroButton({ runId }: { runId: string }) {
                         : <XCircle size={14} className="text-red-400 mt-0.5 shrink-0" />}
                       <div className="min-w-0">
                         <span className="font-medium text-ink">{r.employee}</span>
+                        {r.ok && r.action && (
+                          <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide align-middle ${r.action === 'skipped' ? 'bg-stone text-muted' : 'bg-brand/10 text-brand'}`}>
+                            {r.action}
+                          </span>
+                        )}
                         {!r.ok && <span className="text-muted"> — {r.reason ?? (typeof r.error === 'string' ? r.error : 'error')}</span>}
-                        {r.ok && r.unmapped && <span className="text-amber-600 text-xs"> (skipped: {r.unmapped.join(', ')})</span>}
+                        {r.ok && r.note && <span className="block text-xs text-muted">{r.note}</span>}
+                        {r.ok && r.warning && <span className="block text-xs text-amber-700">{r.warning}</span>}
+                        {r.ok && r.unmapped && <span className="text-amber-600 text-xs"> (no Xero rate for: {r.unmapped.join(', ')})</span>}
                       </div>
                     </div>
                   ))}
@@ -130,7 +140,7 @@ export default function PushToXeroButton({ runId }: { runId: string }) {
                             : <XCircle size={14} className="text-red-400 mt-0.5 shrink-0" />}
                           <div className="min-w-0">
                             <span className="font-medium text-ink">{r.employee}</span>
-                            {r.ok && r.leaveType && <span className="text-muted text-xs"> — {r.leaveType} ({r.dates})</span>}
+                            {r.ok && r.leaveType && <span className="text-muted text-xs"> — {r.leaveType} ({r.dates}){r.action ? `, ${r.action}` : ''}</span>}
                             {!r.ok && <span className="text-muted"> — {r.reason ?? (typeof r.error === 'string' ? r.error : 'error')}</span>}
                           </div>
                         </div>
