@@ -20,6 +20,8 @@ interface Props {
     overtime_approver?: boolean
     xero_payroll?: boolean
     portal_admin?: boolean
+    /** null = standard 3:06 pm rule; a number = closed that many hours after clock-in. */
+    auto_clockout_hours?: number | null
   }
   entities: BusinessEntity[]
   supervisors?: { id: string; name: string }[]
@@ -203,6 +205,26 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
               </span>
             </span>
           </label>
+
+          {/* TV9 exception (Build One, 24 Oct 2026): a personal auto clock-out
+              threshold instead of the 3:06 pm rule, e.g. 14 h for Robbie and Chris. */}
+          <div>
+            <Input
+              label="Auto clock-out after (hours)"
+              name="auto_clockout_hours"
+              type="number"
+              step="0.5"
+              min="1"
+              max="24"
+              inputMode="decimal"
+              placeholder="Standard: 3:06 pm rule"
+              defaultValue={employee.auto_clockout_hours != null ? String(employee.auto_clockout_hours) : ''}
+              disabled={pending}
+            />
+            <p className="text-[11px] text-muted mt-1.5 leading-snug">
+              Leave blank for the standard rule (still clocked in at 3:06 pm with no overtime request = recorded as 7:00 am – 3:06 pm). A number closes this person&rsquo;s day that many hours after their real clock-in instead.
+            </p>
+          </div>
 
           {/* Xero: directors and anyone paid outside Xero must not block the
               payroll push ("Not in Xero payroll" used to fail the whole run). */}
