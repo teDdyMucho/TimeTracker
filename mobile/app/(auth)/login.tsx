@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Image, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, AppModal } from '@/components/ui';
@@ -15,6 +15,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [info, setInfo] = useState<{ title: string; message: string } | null>(null);
+  const pwRef = useRef<TextInput>(null);
 
   // Entrance animation — logo + form rise/fade in as the splash clears.
   const logoIn = useRef(new Animated.Value(0)).current;
@@ -45,7 +46,21 @@ export default function Login() {
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: '#F4F4F5' }}>
-      <View className="flex-1 justify-center px-6">
+      {/* The keyboard used to cover the password field on iPhones and the page
+          could not be scrolled (Build One, 26 Oct 2026). The form now sits in a
+          scroll view that shrinks above the keyboard and scrolls the focused
+          field into view. */}
+      {/* 'padding' on BOTH platforms: SDK 54 apps draw edge-to-edge on Android,
+          where the old "resize the window" mode no longer shrinks the page, so
+          the keyboard inset has to be handled here too. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 24 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        showsVerticalScrollIndicator={false}
+      >
         <Animated.View className="items-center mb-10" style={rise(logoIn)}>
           {/* BuildOne (unchanged) */}
           <Image
@@ -80,6 +95,10 @@ export default function Login() {
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
+              textContentType="username"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => pwRef.current?.focus()}
               placeholder="you@timevera.com"
               placeholderTextColor="#71717A"
               className="bg-white text-ink text-base rounded-2xl px-4 py-4"
@@ -90,9 +109,14 @@ export default function Login() {
             <Text className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#3F3F46' }}>Password</Text>
             <View style={{ position: 'relative' }}>
               <TextInput
+                ref={pwRef}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPw}
+                textContentType="password"
+                autoComplete="current-password"
+                returnKeyType="go"
+                onSubmitEditing={() => { if (email && password && !signingIn) signIn(email, password); }}
                 placeholder="••••••••"
                 placeholderTextColor="#71717A"
                 className="bg-white text-ink text-base rounded-2xl px-4 py-4 pr-12"
@@ -123,7 +147,8 @@ export default function Login() {
             />
           </View>
         </Animated.View>
-      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
 
       <AppModal
         visible={!!info}

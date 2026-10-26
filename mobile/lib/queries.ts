@@ -26,7 +26,7 @@ export interface CachedResult<T> { data: T; fromCache: boolean }
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, email, role, status, business_access, expo_push_token, avatar_url, notifications_enabled, overtime_approver, employer_entity_id')
+    .select('id, name, email, role, status, business_access, expo_push_token, avatar_url, notifications_enabled, overtime_approver, auto_clockout_hours, employer_entity_id')
     .eq('id', userId)
     .single();
   if (error) {

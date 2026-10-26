@@ -162,7 +162,9 @@ export default function ClockInScreen() {
         selfieUrl,
       });
       await cancelTodayClockInReminders();
-      if (profile.notifications_enabled !== false) {
+      // People with a personal auto clock-out threshold (Robbie, Chris: 14 h) are not
+      // subject to the 3:06 pm rule, so the "clock out by 3:06" reminder is not for them.
+      if (profile.notifications_enabled !== false && profile.auto_clockout_hours == null) {
         await scheduleClockOutReminder(new Date().toISOString());
       }
       const projectName = projects.find((p) => p.id === projectId)?.name ?? 'your project';
@@ -234,7 +236,9 @@ export default function ClockInScreen() {
       // Clocked in — today's morning "have you clocked in?" alerts are moot.
       await cancelTodayClockInReminders();
       // Arm the 2:55 pm "clock out by 3:06" reminder (weekdays, unless disabled)
-      if (profile.notifications_enabled !== false) {
+      // People with a personal auto clock-out threshold (Robbie, Chris: 14 h) are not
+      // subject to the 3:06 pm rule, so the "clock out by 3:06" reminder is not for them.
+      if (profile.notifications_enabled !== false && profile.auto_clockout_hours == null) {
         await scheduleClockOutReminder(new Date().toISOString());
       }
       // PRD §7 confirmation — a visible "you're on the clock" acknowledgement.

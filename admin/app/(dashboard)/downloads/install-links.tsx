@@ -10,15 +10,15 @@ import { Apple, Smartphone, Copy, Check, ExternalLink, Download } from 'lucide-r
  *   https://drive.google.com/uc?export=download&id=FILE_ID
  */
 const IOS_APP_URL = 'https://apps.apple.com/ph/app/timevera/id6787161301'
-// v7.7 APK (overtime approvers with Approve/Reject push, 3:06 pm auto clock-out,
-// weekday-only reminders). Built 21 Oct 2026 on EAS.
+// v7.8 APK (login screen scrolls and keeps the password field above the keyboard;
+// 2:55 pm reminder skipped for people with a personal auto clock-out). Built 26 Oct 2026 on EAS.
 // Currently the EAS build artifact (EAS keeps artifacts for a limited time).
 // Durable host: upload the .apk to Google Drive → Share → "Anyone with the
 // link" → put its file id in ANDROID_APK_FILE_ID and set ANDROID_APK_EAS_URL
 // to ''. (`confirm=t` skips Drive's scan page for files >25 MB.)
 // The 82 MB file is too large for Supabase Storage on this project and *.apk
 // is git-ignored, so it cannot be served from /public either.
-const ANDROID_APK_EAS_URL = 'https://expo.dev/artifacts/eas/AOtE8aIcrM3nd1aHLw_bkGN7GqGTVJJv1kXZ0EXugA4.apk'
+const ANDROID_APK_EAS_URL = 'https://expo.dev/artifacts/eas/5RPERQyW0VIBL2EvodH5v59y67ftrRK9PrUpoX-Z7ls.apk'
 const ANDROID_APK_FILE_ID = '15ypODJ1QJXsD35yiqm1BlYjrkyN-lBeN' // Google Drive — still the 7.4 file
 const ANDROID_APK_URL = ANDROID_APK_EAS_URL
   || `https://drive.usercontent.google.com/download?id=${ANDROID_APK_FILE_ID}&export=download&confirm=t`

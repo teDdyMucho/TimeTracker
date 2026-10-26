@@ -20,6 +20,8 @@ export interface Profile {
   notifications_enabled: boolean;
   /** TV3: may approve / reject overtime requests (Robbie, Mitch, Chris, Terry). */
   overtime_approver?: boolean;
+  /** null = standard 3:06 pm auto clock-out; a number = closed that many hours after clock-in (0036). */
+  auto_clockout_hours?: number | null;
   /** TV6: the company whose payroll pays this person. */
   employer_entity_id?: string | null;
 }
