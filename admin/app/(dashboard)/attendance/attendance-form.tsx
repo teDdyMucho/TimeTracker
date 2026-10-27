@@ -155,7 +155,7 @@ export default function AttendanceForm({
 
   // ── Form ───────────────────────────────────────────────────────────────────
   const inputCls =
-    'w-full border border-line rounded-xl px-4 py-2.5 text-ink text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all'
+    'w-full h-11 border border-line rounded-xl px-4 text-ink text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all'
   const labelCls = 'block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5'
 
   return (
@@ -236,7 +236,7 @@ export default function AttendanceForm({
                 <span className={labelCls}>Leave type</span>
                 <Dropdown value={leaveType} onChange={setLeaveType} options={LEAVE_TYPE_OPTIONS} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <label className={labelCls}>From</label>
                   <input
@@ -299,7 +299,7 @@ export default function AttendanceForm({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <label className={labelCls}>Clock in</label>
                   <input
@@ -324,7 +324,7 @@ export default function AttendanceForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <span className={labelCls}>Work type</span>
                   <Dropdown name="work_location" value={workType} onChange={setWorkType} options={TYPE_OPTIONS} />

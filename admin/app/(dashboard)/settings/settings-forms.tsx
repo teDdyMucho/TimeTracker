@@ -48,9 +48,9 @@ export function PayCycleForm({ cycle, currentPeriod }: { cycle: PayCycle; curren
   const saved = useSavedFlash(pending, error)
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="flex flex-col flex-1 gap-4">
       <ErrorBox error={error} />
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4 items-end">
         <div>
           <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Pay frequency</span>
           <Dropdown
@@ -77,7 +77,7 @@ export function PayCycleForm({ cycle, currentPeriod }: { cycle: PayCycle; curren
         Current period: <strong className="text-ink">{currentPeriod.start} → {currentPeriod.end}</strong>.
         &ldquo;New pay run&rdquo; defaults to the last completed period and the dashboard shows when payroll is next due.
       </p>
-      <SaveButton pending={pending} saved={saved} />
+      <div className="mt-auto pt-1"><SaveButton pending={pending} saved={saved} /></div>
     </form>
   )
 }
@@ -88,7 +88,7 @@ export function LabourAlertForm({ enabled, thresholdPct, defaultBudget }: { enab
   const saved = useSavedFlash(pending, error)
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="flex flex-col flex-1 gap-4">
       <ErrorBox error={error} />
       <label className="flex items-start gap-3 cursor-pointer select-none">
         <input
@@ -106,7 +106,7 @@ export function LabourAlertForm({ enabled, thresholdPct, defaultBudget }: { enab
           </span>
         </span>
       </label>
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4 items-end">
         <Input
           label="Alert at % of budget"
           name="threshold_pct"
@@ -118,17 +118,17 @@ export function LabourAlertForm({ enabled, thresholdPct, defaultBudget }: { enab
           disabled={pending}
         />
         <Input
-          label="Default labour budget per project ($, blank = none)"
+          label="Default budget per project ($)"
           name="default_budget"
           type="number"
           min="0"
           step="100"
-          placeholder="e.g. 25000"
+          placeholder="Blank = none"
           defaultValue={defaultBudget != null ? String(defaultBudget) : ''}
           disabled={pending}
         />
       </div>
-      <SaveButton pending={pending} saved={saved} />
+      <div className="mt-auto pt-1"><SaveButton pending={pending} saved={saved} /></div>
     </form>
   )
 }
@@ -157,7 +157,7 @@ export function AutoPayRunForm({ enabled, lastPeriod }: { enabled: boolean; last
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="flex flex-col flex-1 gap-4">
       <ErrorBox error={error} />
       <label className="flex items-start gap-3 cursor-pointer select-none">
         <input
@@ -177,7 +177,7 @@ export function AutoPayRunForm({ enabled, lastPeriod }: { enabled: boolean; last
           </span>
         </span>
       </label>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="mt-auto pt-1 flex flex-wrap-reverse items-center gap-3">
         <SaveButton pending={pending} saved={saved} />
         <button
           type="button"

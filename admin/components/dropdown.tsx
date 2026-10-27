@@ -52,7 +52,7 @@ export default function Dropdown({
 
   const trigger = triggerAsHeader
     ? `inline-flex items-center gap-1 font-medium text-muted hover:text-ink cursor-pointer focus:outline-none transition-colors ${buttonClassName}`
-    : `w-full flex items-center justify-between border border-line rounded-xl px-4 py-2.5 text-ink text-sm bg-white hover:border-[#1C1A16]/40 hover:bg-stone/60 focus:outline-none focus:ring-2 focus:ring-brand/25 transition-all duration-150 active:scale-[0.98] ${buttonClassName}`
+    : `w-full h-11 flex items-center justify-between border border-line rounded-xl px-4 text-ink text-sm bg-white hover:border-[#1C1A16]/40 focus:outline-none focus:ring-2 focus:ring-brand/25 transition-all duration-150 active:scale-[0.98] ${buttonClassName}`
 
   return (
     <div className={`relative ${className}`} ref={ref}>

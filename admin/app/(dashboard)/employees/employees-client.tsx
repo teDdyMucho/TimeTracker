@@ -24,8 +24,10 @@ interface Profile {
   xero_payroll?: boolean
   /** Full dashboard (admin) access while staying an employee / supervisor. */
   portal_admin?: boolean
-  /** null = standard 3:06 pm auto clock-out; a number = closed N hours after clock-in. */
+  /** null = standard 3:06 pm auto clock-out; 0 = never; a number = closed N hours after clock-in. */
   auto_clockout_hours?: number | null
+  /** true = no automatic 30-minute unpaid break. */
+  unpaid_break_exempt?: boolean
 }
 
 interface Props {
@@ -132,8 +134,16 @@ export default function EmployeesClient({ entities, profiles, entityMap, activeC
                   <td className="py-3 pr-4 capitalize text-muted whitespace-nowrap">
                     {p.employment_type?.replace('_', ' ')}
                     {p.auto_clockout_hours != null && (
-                      <span title={`Not subject to the 3:06 pm rule: closed ${p.auto_clockout_hours} h after clocking in`} className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted align-middle normal-case">
-                        Auto-out {p.auto_clockout_hours} h
+                      <span
+                        title={Number(p.auto_clockout_hours) === 0 ? 'Never clocked out automatically' : `Not subject to the 3:06 pm rule: closed ${p.auto_clockout_hours} h after clocking in`}
+                        className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted align-middle normal-case"
+                      >
+                        {Number(p.auto_clockout_hours) === 0 ? 'Auto-out off' : `Auto-out ${p.auto_clockout_hours} h`}
+                      </span>
+                    )}
+                    {p.unpaid_break_exempt && (
+                      <span title="No automatic 30-minute unpaid break for this person" className="ml-2 inline-block rounded-full bg-stone px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted align-middle normal-case">
+                        No break
                       </span>
                     )}
                   </td>

@@ -246,7 +246,7 @@ export function Input(
       )}
       <input
         className={clsx(
-          'w-full border border-line rounded-xl px-4 py-2.5 text-ink text-sm placeholder-faint bg-white',
+          'w-full h-11 border border-line rounded-xl px-4 text-ink text-sm placeholder-faint bg-white',
           'focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all duration-200',
           className,
         )}
@@ -274,7 +274,7 @@ export function Select(
       )}
       <select
         className={clsx(
-          'w-full border border-line rounded-xl px-4 py-2.5 text-ink text-sm bg-white',
+          'w-full h-11 border border-line rounded-xl px-4 text-ink text-sm bg-white',
           'focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all duration-200',
           className,
         )}

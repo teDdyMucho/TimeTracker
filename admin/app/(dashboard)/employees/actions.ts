@@ -146,13 +146,19 @@ export async function updateEmployeeAction(
   const overtime_approver = formData.get('overtime_approver') === 'on'
   // Xero: unticked = not on any Xero payroll (director etc.) → the push skips them.
   const xero_payroll = formData.get('xero_payroll') === 'on'
-  // TV9 exception: blank = standard 3:06 pm rule; a number = closed N hours after clock-in.
-  const autoRaw = ((formData.get('auto_clockout_hours') as string | null) ?? '').trim()
+  // TV9 exception: standard (null) = 3:06 pm rule; 'hours' = closed N hours after
+  // clock-in; 'off' (0) = never clocked out automatically.
+  const autoMode = ((formData.get('auto_clockout_mode') as string | null) ?? 'standard').trim()
   let auto_clockout_hours: number | null = null
-  if (autoRaw) {
+  if (autoMode === 'off') {
+    auto_clockout_hours = 0
+  } else if (autoMode === 'hours') {
+    const autoRaw = ((formData.get('auto_clockout_hours') as string | null) ?? '').trim()
     auto_clockout_hours = Number(autoRaw)
-    if (Number.isNaN(auto_clockout_hours) || auto_clockout_hours < 1 || auto_clockout_hours > 24) return 'Auto clock-out must be between 1 and 24 hours (or blank for the standard rule).'
+    if (!autoRaw || Number.isNaN(auto_clockout_hours) || auto_clockout_hours < 1 || auto_clockout_hours > 24) return 'Enter the number of hours after clock-in (1 to 24).'
   }
+  // TV1 exception: the box is ticked by default; unticked = no automatic break for this person.
+  const unpaid_break_exempt = formData.get('unpaid_break') !== 'on'
 
   const adminClient = createAdminClient()
 
@@ -168,7 +174,7 @@ export async function updateEmployeeAction(
 
   const { error } = await adminClient
     .from('profiles')
-    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id, employer_entity_id, overtime_approver, xero_payroll, auto_clockout_hours })
+    .update({ role, employment_type, business_access: entityIds, flat_rate, supervisor_id, employer_entity_id, overtime_approver, xero_payroll, auto_clockout_hours, unpaid_break_exempt })
     .eq('id', id)
 
   if (error) return error.message

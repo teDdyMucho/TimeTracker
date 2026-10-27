@@ -236,6 +236,8 @@ export interface CostInputs {
   /** Every rate on record per employee; resolved per worked day with rateOn(). */
   rateHistory: RateHistory
   flatRateIds: Set<string>
+  /** People with no automatic unpaid break (profiles.unpaid_break_exempt, 0037). */
+  breakExemptIds?: Set<string>
   employeeNames: Record<string, string>
   projectNames: Record<string, string>
   projectEntity: Record<string, string>
@@ -272,7 +274,7 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
     admin.from('public_holidays').select('date').gte('date', scope.from).lte('date', scope.to),
     admin.from('business_entities').select('id, name, pay_config'),
     admin.from('pay_rates').select('profile_id, hourly_rate, effective_from, created_at'),
-    admin.from('profiles').select('id, name, flat_rate'),
+    admin.from('profiles').select('id, name, flat_rate, unpaid_break_exempt'),
     admin.from('projects').select('id, name, business_entity_id'),
   ])
 
@@ -291,9 +293,11 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
 
   const employeeNames: Record<string, string> = {}
   const flatRateIds = new Set<string>()
+  const breakExemptIds = new Set<string>()
   for (const p of (profRes.data ?? []) as any[]) {
     employeeNames[p.id] = p.name
     if (p.flat_rate) flatRateIds.add(p.id)
+    if (p.unpaid_break_exempt) breakExemptIds.add(p.id)
   }
 
   const projectNames: Record<string, string> = {}
@@ -339,6 +343,7 @@ export async function loadCostInputs(admin: SupabaseClient, scope: CostScope): P
     configs,
     rateHistory,
     flatRateIds,
+    breakExemptIds,
     employeeNames,
     projectNames,
     projectEntity,
@@ -452,7 +457,7 @@ interface DayGroup {
  * per employee-day (to the primary entity). Shared by the cost breakdown and
  * the payroll aggregators so they can never disagree.
  */
-function groupDays(rows: CostRow[], configs: Record<string, PayConfigEx>): Map<string, DayGroup> {
+function groupDays(rows: CostRow[], configs: Record<string, PayConfigEx>, breakExemptIds?: Set<string>): Map<string, DayGroup> {
   const groups = new Map<string, DayGroup>()
   for (const r of rows) {
     if (!r.profile_id || !r.business_entity_id) continue
@@ -480,8 +485,10 @@ function groupDays(rows: CostRow[], configs: Record<string, PayConfigEx>): Map<s
     const dayTotal = round2(list.reduce((s, g) => s + g.total, 0))
     const primaryId = primaryEntityForDay(hoursByEntity)
     const rule = (configs[primaryId ?? ''] ?? normalizePayConfig(null)).unpaidBreak
+    // Per-person exception (0037): no automatic break for this employee.
+    const exempt = breakExemptIds?.has(list[0].profileId) === true
     for (const g of list) {
-      g.breakHours = g.entityId === primaryId ? Math.min(unpaidBreakHours(dayTotal, rule), g.total) : 0
+      g.breakHours = !exempt && g.entityId === primaryId ? Math.min(unpaidBreakHours(dayTotal, rule), g.total) : 0
       g.paid = round2(g.total - g.breakHours)
     }
   }
@@ -495,7 +502,7 @@ export function computeLabourCost(inputs: CostInputs): CostBreakdown {
   // Break and primary entity are decided on the FULL day (every entity and
   // project the employee worked); the scope only selects what is reported, so
   // a filtered report always reconciles with the unfiltered one and payroll.
-  const groups = groupDays(rows, configs)
+  const groups = groupDays(rows, configs, inputs.breakExemptIds)
 
   const byBand = Object.fromEntries(PAY_BANDS.map((b) => [b, { hours: 0, cost: 0 }])) as Record<PayBand, { hours: number; cost: number }>
   const byProject = new Map<string, ProjectBucket>()
@@ -681,7 +688,7 @@ export interface PayrollRow {
   overtime_status?: string | null
   /** The company whose project the hours were worked on. */
   business_entity_id?: string | null
-  profiles?: { name?: string; email?: string; employer_entity_id?: string | null } | null
+  profiles?: { name?: string; email?: string; employer_entity_id?: string | null; unpaid_break_exempt?: boolean | null } | null
 }
 
 export interface EmployeeBandTotals {
@@ -718,6 +725,8 @@ export interface AggregateOptions {
   entityId?: string
   /** profile id → employer company id (profiles.employer_entity_id). */
   employerOf?: Record<string, string | null | undefined>
+  /** People with no automatic unpaid break (0037). Rows whose `profiles.unpaid_break_exempt` is true are added automatically. */
+  breakExemptIds?: Set<string>
 }
 
 function payrollGroups(rows: PayrollRow[], cfg: PayConfigEx, opts: AggregateOptions) {
@@ -751,7 +760,9 @@ function payrollGroups(rows: PayrollRow[], cfg: PayConfigEx, opts: AggregateOpti
   const configs = Object.fromEntries(
     [...new Set(costRows.map((r) => r.business_entity_id))].map((id) => [id, cfg]),
   ) as Record<string, PayConfigEx>
-  const groups = [...groupDays(costRows, configs).values()].filter((g) => g.entityId === entityId)
+  const breakExemptIds = new Set<string>(opts.breakExemptIds ?? [])
+  for (const r of rows) if (r.profile_id && r.profiles?.unpaid_break_exempt) breakExemptIds.add(r.profile_id)
+  const groups = [...groupDays(costRows, configs, breakExemptIds).values()].filter((g) => g.entityId === entityId)
   return { groups, meta }
 }
 

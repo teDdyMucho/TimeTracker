@@ -75,7 +75,7 @@ export default function PaySettingsForm({
 
           <div>
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted mb-3">Overtime rates</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 items-end">
               <Input label="Tier 1 (first 2 h over 7.6) ×" name="t1_multiplier" type="number" step="0.05" min="0.1" required defaultValue={String(entity.pay.t1Multiplier)} disabled={pending} />
               <Input label="Tier 2 (after that) ×" name="t2_multiplier" type="number" step="0.05" min="0.1" required defaultValue={String(entity.pay.t2Multiplier)} disabled={pending} />
             </div>

@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id)')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id, unpaid_break_exempt)')
     .eq('profiles.status', 'active') // deactivated staff are never previewed
     .gte('work_date', periodStart)
     .lte('work_date', periodEnd)

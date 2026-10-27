@@ -20,8 +20,10 @@ interface Props {
     overtime_approver?: boolean
     xero_payroll?: boolean
     portal_admin?: boolean
-    /** null = standard 3:06 pm rule; a number = closed that many hours after clock-in. */
+    /** null = standard 3:06 pm rule; 0 = never; a number = closed that many hours after clock-in. */
     auto_clockout_hours?: number | null
+    /** true = no automatic 30-minute unpaid break for this person. */
+    unpaid_break_exempt?: boolean
   }
   entities: BusinessEntity[]
   supervisors?: { id: string; name: string }[]
@@ -40,6 +42,11 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
   const [employer, setEmployer] = useState(employee.employer_entity_id ?? '')
   const [approver, setApprover] = useState(employee.overtime_approver ?? false)
   const [xeroPayroll, setXeroPayroll] = useState(employee.xero_payroll !== false)
+  // Auto clock-out: 'standard' (3:06 pm rule), 'hours' (N h after clock-in), 'off' (never).
+  const [autoMode, setAutoMode] = useState<'standard' | 'hours' | 'off'>(
+    employee.auto_clockout_hours == null ? 'standard' : Number(employee.auto_clockout_hours) === 0 ? 'off' : 'hours',
+  )
+  const [autoBreak, setAutoBreak] = useState(employee.unpaid_break_exempt !== true)
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<'idle' | 'success'>('idle')
   const prevPendingRef = useRef(false)
@@ -72,13 +79,18 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="glass-panel rounded-2xl p-6 w-full max-w-sm my-auto">
-        <h2 className="text-lg font-bold text-ink mb-1">Edit Employee</h2>
-        <p className="text-muted text-sm mb-5">{employee.name}</p>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      {/* The whole dialog always fits the screen: fixed title and buttons, the
+          fields scroll inside. (It used to run off the bottom on laptops.) */}
+      <div className="glass-panel rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
+        <div className="px-6 pt-6 pb-4 border-b border-line">
+          <h2 className="text-lg font-bold text-ink mb-1">Edit Employee</h2>
+          <p className="text-muted text-sm">{employee.name}</p>
+        </div>
 
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="flex flex-col flex-1 min-h-0">
           <input type="hidden" name="id" value={employee.id} />
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-4">
 
           {serverError && (
             <div className="flex items-start gap-2 bg-[rgba(239,68,68,0.12)] text-[#F87171] rounded-xl px-4 py-3 text-sm">
@@ -162,7 +174,7 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
             </span>
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 items-end">
             <Input
               label="Hourly pay rate ($)"
               name="hourly_rate"
@@ -175,7 +187,7 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
               disabled={pending}
             />
             <Input
-              label="New rate applies from"
+              label="Rate applies from"
               name="rate_effective_from"
               type="date"
               defaultValue={today}
@@ -209,22 +221,59 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
           {/* TV9 exception (Build One, 24 Oct 2026): a personal auto clock-out
               threshold instead of the 3:06 pm rule, e.g. 14 h for Robbie and Chris. */}
           <div>
-            <Input
-              label="Auto clock-out after (hours)"
-              name="auto_clockout_hours"
-              type="number"
-              step="0.5"
-              min="1"
-              max="24"
-              inputMode="decimal"
-              placeholder="Standard: 3:06 pm rule"
-              defaultValue={employee.auto_clockout_hours != null ? String(employee.auto_clockout_hours) : ''}
-              disabled={pending}
+            <span className="block text-xs font-semibold text-muted uppercase tracking-widest mb-1.5">Auto clock-out</span>
+            <Dropdown
+              name="auto_clockout_mode"
+              value={autoMode}
+              onChange={(v) => setAutoMode(v as 'standard' | 'hours' | 'off')}
+              options={[
+                { value: 'standard', label: 'Standard' },
+                { value: 'hours', label: 'After a number of hours' },
+                { value: 'off', label: 'Never (auto clock-out off)' },
+              ]}
             />
+            {autoMode === 'hours' && (
+              <div className="mt-2">
+                <Input
+                  label="Hours after clock-in"
+                  name="auto_clockout_hours"
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  max="24"
+                  inputMode="decimal"
+                  placeholder="e.g. 14"
+                  defaultValue={employee.auto_clockout_hours ? String(employee.auto_clockout_hours) : ''}
+                  disabled={pending}
+                />
+              </div>
+            )}
             <p className="text-[11px] text-muted mt-1.5 leading-snug">
-              Leave blank for the standard rule (still clocked in at 3:06 pm with no overtime request = recorded as 7:00 am – 3:06 pm). A number closes this person&rsquo;s day that many hours after their real clock-in instead.
+              {autoMode === 'standard'
+                ? 'Still clocked in at 3:06 pm with no overtime request = recorded as 7:00 am – 3:06 pm.'
+                : autoMode === 'hours'
+                  ? 'Closed that many hours after the real clock-in instead of at 3:06 pm (marked “auto” on Attendance).'
+                  : 'Never clocked out automatically — not at 3:06 pm, not overnight. A forgotten clock-out stays open until this person or the office closes it.'}
             </p>
           </div>
+
+          {/* Per-person exception to the fixed TV1 rule (30 min on days of 5 h+). */}
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="unpaid_break"
+              checked={autoBreak}
+              onChange={(e) => setAutoBreak(e.target.checked)}
+              disabled={pending}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-line accent-brand cursor-pointer"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">Automatic unpaid break</span>
+              <span className="block text-xs text-muted mt-0.5">
+                30 minutes deducted on any day of 5 hours or more. Untick to deduct nothing for this person (pay runs, reports and the Xero push all follow it).
+              </span>
+            </span>
+          </label>
 
           {/* Xero: directors and anyone paid outside Xero must not block the
               payroll push ("Not in Xero payroll" used to fail the whole run). */}
@@ -258,7 +307,7 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
                 placeholder="Leave blank to keep current password"
                 minLength={6}
                 disabled={pending}
-                className="w-full border border-line rounded-xl pl-4 pr-11 py-2.5 text-ink text-sm placeholder-faint bg-white focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all duration-200"
+                className="w-full h-11 border border-line rounded-xl pl-4 pr-11 text-ink text-sm placeholder-faint bg-white focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 transition-all duration-200"
               />
               <button
                 type="button"
@@ -294,12 +343,13 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
               ))}
             </div>
           </div>
+          </div>
 
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-3 px-6 py-4 border-t border-line bg-white/70">
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 flex items-center justify-center gap-2 bg-brand text-white font-semibold rounded-xl py-2.5 text-sm hover:bg-brand-dark disabled:opacity-50 transition-colors"
+              className="flex-1 h-11 flex items-center justify-center gap-2 bg-brand text-white font-semibold rounded-xl text-sm hover:bg-brand-dark disabled:opacity-50 transition-colors"
             >
               {pending ? (
                 <>
@@ -314,7 +364,7 @@ export default function EditEmployeeForm({ employee, entities, supervisors = [],
               type="button"
               label="Cancel"
               variant="ghost"
-              className="flex-1"
+              className="flex-1 h-11"
               onClick={onClose}
               disabled={pending}
             />

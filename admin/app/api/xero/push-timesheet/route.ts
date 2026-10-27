@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   //    only this entity's rows contribute hours (see aggregateEmployeeBandsByDay).
   const { data: tsRows } = await admin
     .from('timesheets')
-    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id, xero_payroll)')
+    .select('profile_id, work_date, hours, overtime_status, business_entity_id, profiles!inner(name, email, flat_rate, status, employer_entity_id, xero_payroll, unpaid_break_exempt)')
     .eq('profiles.status', 'active') // deactivated staff are never pushed
     .gte('work_date', from).lte('work_date', to)
     .eq('status', 'approved') // only approved attendance is paid

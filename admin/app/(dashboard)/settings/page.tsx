@@ -57,45 +57,45 @@ export default async function SettingsPage({
       <PageHeader title="Settings" subtitle="Pay cycle, automation, alerts, security and where to find the other configuration" />
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="h-full flex flex-col">
           <h2 className="font-bold text-ink mb-1">Pay cycle</h2>
           <p className="text-xs text-muted mb-5">How often payroll runs. Used for the default pay-run period, the automatic run and the &ldquo;payroll due&rdquo; countdown.</p>
           <PayCycleForm cycle={cycle} currentPeriod={currentPeriod} />
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <h2 className="font-bold text-ink mb-1">Automatic pay run</h2>
           <p className="text-xs text-muted mb-5">Draft pay runs are created for you when a period ends. You still review, approve and push to Xero.</p>
           <AutoPayRunForm enabled={autoPayRun} lastPeriod={lastPeriod} />
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <h2 className="font-bold text-ink mb-1">Labour cost alerts</h2>
           <p className="text-xs text-muted mb-5">Notify admins when a project&rsquo;s labour cost passes its budget.</p>
           <LabourAlertForm enabled={alert.enabled} thresholdPct={alert.thresholdPct} defaultBudget={alert.defaultBudget} />
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <h2 className="font-bold text-ink mb-1">Security</h2>
           <p className="text-xs text-muted mb-5">Two-factor authentication for admin sign-in. Pay rates, payroll and labour costs are only ever readable by admins.</p>
           <SecurityCard factors={factors} requireAdmin2fa={requireAdmin2fa} setupRequested={sp.setup2fa === '1'} />
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <h2 className="font-bold text-ink mb-1">Overtime, breaks, weekend and holiday rates</h2>
           <p className="text-xs text-muted mb-4">
             Each entity has its own ladder (ordinary hours, overtime tiers, Saturday / Sunday / public-holiday
             multipliers), its unpaid meal-break rule, and its own &ldquo;overtime must be approved&rdquo; switch.
           </p>
-          <Link href="/entities" className="text-sm font-semibold inline-flex items-center gap-1" style={{ color: '#1C1A16' }}>
+          <Link href="/entities" className="mt-auto self-start text-sm font-semibold inline-flex items-center gap-1" style={{ color: '#1C1A16' }}>
             Edit per entity <ArrowRight size={14} />
           </Link>
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <h2 className="font-bold text-ink mb-1">Public holidays</h2>
           <p className="text-xs text-muted mb-4">Dates paid at the public-holiday rate. Victorian holidays are loaded through 2027; add next year&rsquo;s dates before January.</p>
-          <Link href="/holidays" className="text-sm font-semibold inline-flex items-center gap-1" style={{ color: '#1C1A16' }}>
+          <Link href="/holidays" className="mt-auto self-start text-sm font-semibold inline-flex items-center gap-1" style={{ color: '#1C1A16' }}>
             Manage holidays <ArrowRight size={14} />
           </Link>
         </Card>

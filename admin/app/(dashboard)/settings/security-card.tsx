@@ -41,7 +41,7 @@ export default function SecurityCard({
   const enrolled = factors.length > 0
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col flex-1 gap-5">
       {setupRequested && !enrolled && (
         <div className="rounded-xl px-4 py-3 text-sm" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
           Two-factor authentication is required for admins. Set up your authenticator app below to continue.
@@ -67,7 +67,7 @@ export default function SecurityCard({
               type="button"
               onClick={begin}
               disabled={starting}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
               style={{ background: '#1C1A16' }}
             >
               {starting ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} Set up
@@ -131,7 +131,7 @@ export default function SecurityCard({
                   autoFocus
                   className="w-32 border border-line rounded-xl px-3 py-2 text-lg tracking-[0.3em] text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-brand/25"
                 />
-                <button type="submit" disabled={verifying} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#1C1A16' }}>
+                <button type="submit" disabled={verifying} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#1C1A16' }}>
                   {verifying ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Turn on
                 </button>
                 <button type="button" onClick={() => setEnrol(null)} className="text-sm text-muted hover:text-ink">Cancel</button>
@@ -142,13 +142,14 @@ export default function SecurityCard({
       </div>
 
       {/* ── Admin-wide requirement ─────────────────────────────────── */}
-      <form action={reqAction} className="rounded-xl border border-line p-4 space-y-3">
+      {/* Same shape as the other Settings cards: content, then the Save row at the bottom. */}
+      <form action={reqAction} className="mt-auto flex flex-col gap-4">
         {reqState && (
           <div className="flex items-start gap-2 bg-red-50 text-red-700 rounded-xl px-4 py-2 text-sm">
             <XCircle size={16} className="shrink-0 mt-0.5" /> {reqState}
           </div>
         )}
-        <label className="flex items-start gap-3 cursor-pointer select-none">
+        <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-line p-4">
           <input
             type="checkbox"
             name="require_admin_2fa"
@@ -164,9 +165,11 @@ export default function SecurityCard({
             </span>
           </span>
         </label>
-        <button type="submit" disabled={reqPending} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#1C1A16' }}>
-          {reqPending ? <Loader2 size={14} className="animate-spin" /> : null} Save
-        </button>
+        <div className="pt-1">
+          <button type="submit" disabled={reqPending} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#1C1A16' }}>
+            {reqPending ? <Loader2 size={14} className="animate-spin" /> : null} Save
+          </button>
+        </div>
       </form>
     </div>
   )
